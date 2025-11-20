@@ -1,0 +1,277 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+
+    --primary: 0 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 100% 50%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 95%;
+    --muted-foreground: 0 0% 40%;
+
+    --accent: 0 100% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 120 100% 35%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 0%;
+
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 0 0% 90%;
+    --input: 0 0% 100%;
+    --ring: 0 100% 50%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 100% 50%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 0 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 100% 60%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 100% 50%;
+    --sidebar-ring: 0 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Perbaikan warna dan animasi sidebar */
+
+/* ============================================
+   ENHANCED SIDEBAR COLOR & STYLING
+   ============================================ */
+
+/* Sidebar gradient background */
+.bg-gradient-to-b {
+  background-image: linear-gradient(to bottom, rgb(220, 38, 38), rgb(185, 28, 28));
+}
+
+/* ============================================
+   CUSTOM ANIMATIONS FOR SIDEBAR MENU
+   ============================================ */
+
+/* Animasi menu item saat hover (inactive state) */
+@keyframes menuItemHover {
+  0% {
+    background-color: rgb(220, 38, 38);
+    transform: translateX(0);
+  }
+  50% {
+    background-color: rgb(194, 27, 27);
+    transform: translateX(2px);
+  }
+  100% {
+    background-color: rgb(180, 24, 24);
+    transform: translateX(4px);
+  }
+}
+
+/* Animasi menu item saat active */
+@keyframes menuItemActive {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.15);
+  }
+}
+
+/* Class untuk menu button */
+.sidebar-menu-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-menu-btn:not(.bg-white):hover {
+  animation: menuItemHover 0.3s ease-in-out forwards;
+}
+
+.sidebar-menu-btn.bg-white {
+  animation: menuItemActive 0.4s ease-in-out forwards;
+}
+
+/* Icon animation untuk active state */
+.sidebar-menu-btn.bg-white .lucide {
+  animation: iconBounce 0.4s ease-in-out;
+}
+
+@keyframes iconBounce {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(-5deg);
+  }
+  100% {
+    transform: scale(1.1) rotate(0deg);
+  }
+}
+
+/* Shine effect untuk menu items */
+.sidebar-menu-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.15),
+    transparent
+  );
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+
+.sidebar-menu-btn:not(.bg-white):hover::before {
+  left: 100%;
+}
+
+/* ============================================
+   CUSTOM ANIMATIONS FOR LOGOUT BUTTON
+   ============================================ */
+
+@keyframes logoutGlow {
+  0% {
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.1);
+  }
+  50% {
+    box-shadow: 0 8px 20px rgba(220, 38, 38, 0.25);
+  }
+  100% {
+    box-shadow: 0 8px 20px rgba(220, 38, 38, 0.2);
+  }
+}
+
+@keyframes logoutBounce {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.02);
+  }
+  100% {
+    transform: translateY(-3px) scale(1.02);
+  }
+}
+
+.sidebar-logout-btn {
+  transition: all 0.3s ease-in-out;
+}
+
+.sidebar-logout-btn:hover {
+  animation: 
+    logoutBounce 0.4s ease-in-out forwards,
+    logoutGlow 0.4s ease-in-out forwards;
+}
+
+.sidebar-logout-btn:active {
+  animation: none;
+  transform: translateY(0) scale(0.98);
+}
+
+/* ============================================
+   ACTIVE INDICATOR ANIMATIONS
+   ============================================ */
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ============================================
+   COLOR CONTRAST IMPROVEMENTS
+   ============================================ */
+
+/* Text di menu items yang inactive */
+.sidebar-menu-btn:not(.bg-white) {
+  color: rgb(255, 255, 255);
+}
+
+/* Text di menu items yang active */
+.sidebar-menu-btn.bg-white {
+  color: rgb(220, 38, 38);
+}
+
+/* Icon di menu items yang inactive */
+.sidebar-menu-btn:not(.bg-white) .lucide {
+  color: rgb(255, 255, 255);
+}
+
+/* Icon di menu items yang active */
+.sidebar-menu-btn.bg-white .lucide {
+  color: rgb(220, 38, 38);
+}
+
+/* ============================================
+   RESPONSIVE & ACCESSIBILITY
+   ============================================ */
+
+/* Focus state untuk keyboard navigation */
+.sidebar-menu-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+
+.sidebar-logout-btn:focus-visible {
+  outline: 2px solid rgb(220, 38, 38);
+  outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-menu-btn,
+  .sidebar-logout-btn {
+    animation: none !important;
+    transition: none !important;
+  }
+}

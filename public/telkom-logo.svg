@@ -1,0 +1,22 @@
+<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Telkom Red Circle -->
+  <circle cx="140" cy="80" r="50" fill="#E31C23"/>
+  
+  <!-- Telkom Gray Circle -->
+  <circle cx="180" cy="110" r="55" fill="#808080" opacity="0.6"/>
+  
+  <!-- Telkom Spikes -->
+  <g fill="#E31C23">
+    <polygon points="200,20 220,60 240,50 210,10"/>
+    <polygon points="240,60 260,40 270,65 250,85"/>
+    <polygon points="250,110 280,110 290,140 260,140"/>
+    <polygon points="240,160 270,180 260,210 230,190"/>
+    <polygon points="200,200 220,220 210,250 190,230"/>
+  </g>
+  
+  <!-- Text: Telkom Indonesia -->
+  <text x="50" y="280" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#000000">Telkom Indonesia</text>
+  
+  <!-- Tagline -->
+  <text x="50" y="310" font-family="Arial, sans-serif" font-size="20" font-style="italic" fill="#666666">the world in your hand</text>
+</svg>
