@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import penagihanService from "@/services/penagihanService";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import DurationPicker from "@/components/DurationPicker";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,24 +15,26 @@ export default function AddProject() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    project_name: "",
-    partner_name: "",
+    nama_proyek: "",
+    nama_mitra: "",
     pid: "",
-    po_number: "",
+    nomor_po: "",
     phase: "",
-    status_ct: "Belum CT",
-    status_ut: "Belum UT",
+    status_ct: "BELUM CT",
+    status_ut: "BELUM UT",
     rekon_nilai: "",
-    rekon_material: "Belum Rekon",
-    material_alignment: "Belum Lurus",
-    procurement_status: "Antri Periv",
+    rekon_material: "BELUM REKON",
+    pelurusan_material: "BELUM LURUS",
+    status_procurement: "ANTRI PERIV",
+    estimasi_durasi_hari: "7", // Default 7 hari
+    tanggal_mulai: new Date().toISOString().split("T")[0], // Tanggal hari ini
   });
 
-  const statusCtOptions = ["Sudah CT", "Belum CT"];
-  const statusUtOptions = ["Sudah UT", "Belum UT"];
-  const rekonMaterialOptions = ["Sudah Rekon", "Belum Rekon"];
-  const materialAlignmentOptions = ["Sudah Lurus", "Belum Lurus"];
-  const procurementOptions = ["Antri Periv", "Proses Periv", "Revisi Mitra", "Sekuler TTD", "Scan Dokumen Mitra", "OTW Reg"];
+  const statusCtOptions = ["SUDAH CT", "BELUM CT"];
+  const statusUtOptions = ["SUDAH UT", "BELUM UT"];
+  const rekonMaterialOptions = ["SUDAH REKON", "BELUM REKON"];
+  const materialAlignmentOptions = ["SUDAH LURUS", "BELUM LURUS"];
+  const procurementOptions = ["ANTRI PERIV", "PROSES PERIV", "REVISI MITRA", "SEKULER TTD", "SCAN DOKUMEN MITRA", "OTW REG"];
   const phaseOptions = ["Instalasi", "Konstruksi", "Optimasi", "Perencanaan", "Implementasi", "Aktivasi", "Maintenance", "Penyelesaian"];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,21 +49,36 @@ export default function AddProject() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.project_name || !formData.partner_name || !formData.pid || !formData.po_number || !formData.phase || !formData.rekon_nilai) {
+    if (!formData.nama_proyek || !formData.nama_mitra || !formData.pid || !formData.nomor_po || !formData.phase || !formData.rekon_nilai) {
       toast.error("Semua field yang bertanda * harus diisi");
       return;
     }
 
     setLoading(true);
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) throw new Error("User tidak ditemukan");
-
-      const { error } = await supabase.from("projects").insert([{
-        ...formData,
-        user_id: user.id,
-      }]);
-      if (error) throw error;
+      // Generate nomor invoice unik
+      const timestamp = Date.now();
+      const invoiceNumber = `INV-${formData.pid}-${timestamp}`;
+      
+      const mappedData = {
+        nama_proyek: formData.nama_proyek,
+        nama_mitra: formData.nama_mitra,
+        pid: formData.pid,
+        nomor_po: formData.nomor_po,
+        phase: formData.phase,
+        status_ct: formData.status_ct,
+        status_ut: formData.status_ut,
+        rekon_nilai: parseFloat(formData.rekon_nilai) || 0,
+        rekon_material: formData.rekon_material,
+        pelurusan_material: formData.pelurusan_material,
+        status_procurement: formData.status_procurement,
+        estimasi_durasi_hari: parseInt(formData.estimasi_durasi_hari) || 7,
+        tanggal_mulai: formData.tanggal_mulai,
+        tanggal_invoice: new Date().toISOString().split('T')[0],
+        tanggal_jatuh_tempo: new Date().toISOString().split('T')[0],
+      };
+      
+      await penagihanService.create(mappedData);
       toast.success("Proyek berhasil ditambahkan");
       navigate("/projects");
     } catch (error) {
@@ -72,86 +90,86 @@ export default function AddProject() {
   };
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex min-h-screen w-full bg-background relative">
         <AppSidebar />
-        <main className="flex-1 overflow-hidden">
-          <header className="sticky top-0 z-40 border-b bg-white shadow-sm">
-            <div className="flex h-20 items-center gap-4 px-6 bg-gradient-to-r from-red-50 to-white border-b-2 border-red-200">
-              <SidebarTrigger />
-              <h1 className="text-2xl font-bold text-red-600">Tambah Proyek Baru</h1>
+        <main className="flex-1 overflow-hidden w-full min-w-0">
+          <header className="sticky top-0 z-30 border-b bg-white shadow-sm">
+            <div className="flex h-14 sm:h-16 md:h-20 items-center gap-2 md:gap-4 px-3 md:px-6 bg-gradient-to-r from-red-50 to-white border-b-2 border-red-200">
+              <SidebarTrigger className="flex-shrink-0 h-9 w-9 md:h-10 md:w-10 hover:bg-red-100 active:bg-red-200 border-2 border-transparent hover:border-red-300 rounded-lg transition-colors" />
+              <h1 className="text-sm sm:text-base md:text-xl lg:text-2xl font-bold text-red-600 truncate">Tambah Proyek Baru</h1>
             </div>
           </header>
 
-          <div className="p-8 space-y-8 max-w-4xl">
-            <Button variant="outline" onClick={() => navigate("/projects")} className="mb-4">
+          <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 lg:space-y-8 max-w-4xl mx-auto">
+            <Button variant="outline" onClick={() => navigate("/projects")} className="mb-2 md:mb-4 text-xs md:text-sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Kembali
             </Button>
 
             <Card className="border-2 border-gray-200 shadow-lg">
               <CardHeader className="border-b-2 border-gray-200 bg-gradient-to-r from-red-50 to-white">
-                <CardTitle className="text-xl font-bold text-red-600">Informasi Proyek</CardTitle>
+                <CardTitle className="text-base sm:text-lg md:text-xl font-bold text-red-600">Informasi Proyek</CardTitle>
               </CardHeader>
-              <CardContent className="pt-6">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Row 1: Nama Proyek & Nama Mitra */}
-                  <div className="grid grid-cols-2 gap-6">
+              <CardContent className="pt-4 md:pt-6">
+                <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+                  {/* Row 1: Nama Proyek & Nama Mitra - Responsive Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-900">Nama Proyek <span className="text-red-600">*</span></label>
+                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Nama Proyek <span className="text-red-600">*</span></label>
                       <Input
                         type="text"
-                        name="project_name"
+                        name="nama_proyek"
                         placeholder="Masukkan nama proyek"
-                        value={formData.project_name}
+                        value={formData.nama_proyek}
                         onChange={handleInputChange}
-                        className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white placeholder-gray-500"
+                        className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white placeholder-gray-500"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-900">Nama Mitra <span className="text-red-600">*</span></label>
+                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Nama Mitra <span className="text-red-600">*</span></label>
                       <Input
                         type="text"
-                        name="partner_name"
+                        name="nama_mitra"
                         placeholder="Masukkan nama mitra"
-                        value={formData.partner_name}
+                        value={formData.nama_mitra}
                         onChange={handleInputChange}
-                        className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white placeholder-gray-500"
+                        className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white placeholder-gray-500"
                       />
                     </div>
                   </div>
 
-                  {/* Row 2: PID & Nomor PO */}
-                  <div className="grid grid-cols-2 gap-6">
+                  {/* Row 2: PID & Nomor PO - Responsive Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-900">PID <span className="text-red-600">*</span></label>
+                      <label className="block text-xs sm:text-sm font-bold text-gray-900">PID <span className="text-red-600">*</span></label>
                       <Input
                         type="text"
                         name="pid"
                         placeholder="PID-00123"
                         value={formData.pid}
                         onChange={handleInputChange}
-                        className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white placeholder-gray-500"
+                        className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white placeholder-gray-500"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-900">Nomor PO <span className="text-red-600">*</span></label>
+                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Nomor PO <span className="text-red-600">*</span></label>
                       <Input
                         type="text"
-                        name="po_number"
+                        name="nomor_po"
                         placeholder="PO-2024-001"
-                        value={formData.po_number}
+                        value={formData.nomor_po}
                         onChange={handleInputChange}
-                        className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white placeholder-gray-500"
+                        className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white placeholder-gray-500"
                       />
                     </div>
                   </div>
 
                   {/* Row 3: Phase */}
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-900">Phase <span className="text-red-600">*</span></label>
+                    <label className="block text-xs sm:text-sm font-bold text-gray-900">Phase <span className="text-red-600">*</span></label>
                     <Select value={formData.phase} onValueChange={(value) => handleSelectChange("phase", value)}>
-                      <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white">
+                      <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white">
                         <SelectValue placeholder="Pilih phase" />
                       </SelectTrigger>
                       <SelectContent>
@@ -162,12 +180,12 @@ export default function AddProject() {
                     </Select>
                   </div>
 
-                  {/* Row 4: Status CT, Status UT, Rekon Nilai */}
-                  <div className="grid grid-cols-3 gap-4">
+                  {/* Row 4: Status CT, Status UT, Rekon Nilai - Responsive Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                     <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-900">Status CT <span className="text-red-600">*</span></label>
+                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Status CT <span className="text-red-600">*</span></label>
                       <Select value={formData.status_ct} onValueChange={(value) => handleSelectChange("status_ct", value)}>
-                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white">
+                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -178,9 +196,9 @@ export default function AddProject() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-900">Status UT <span className="text-red-600">*</span></label>
+                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Status UT <span className="text-red-600">*</span></label>
                       <Select value={formData.status_ut} onValueChange={(value) => handleSelectChange("status_ut", value)}>
-                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white">
+                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -191,24 +209,24 @@ export default function AddProject() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-900">Rekon Nilai <span className="text-red-600">*</span></label>
+                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Rekon Nilai <span className="text-red-600">*</span></label>
                       <Input
                         type="text"
                         name="rekon_nilai"
                         placeholder="Rp. 0"
                         value={formData.rekon_nilai}
                         onChange={handleInputChange}
-                        className="border-2 border-blue-400 focus:border-blue-600 rounded-lg h-10 px-3 py-2 text-base bg-blue-50 placeholder-gray-500"
+                        className="border-2 border-blue-400 focus:border-blue-600 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-blue-50 placeholder-gray-500"
                       />
                     </div>
                   </div>
 
-                  {/* Row 5: Rekon Material, Pelurusan Material, Status Procurement */}
-                  <div className="grid grid-cols-3 gap-4">
+                  {/* Row 5: Rekon Material, Pelurusan Material, Status Procurement - Responsive Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                     <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-900">Rekon Material</label>
+                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Rekon Material</label>
                       <Select value={formData.rekon_material} onValueChange={(value) => handleSelectChange("rekon_material", value)}>
-                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white">
+                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -219,9 +237,9 @@ export default function AddProject() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-900">Pelurusan Material</label>
-                      <Select value={formData.material_alignment} onValueChange={(value) => handleSelectChange("material_alignment", value)}>
-                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white">
+                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Pelurusan Material</label>
+                      <Select value={formData.pelurusan_material} onValueChange={(value) => handleSelectChange("pelurusan_material", value)}>
+                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -232,9 +250,9 @@ export default function AddProject() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-900">Status Procurement</label>
-                      <Select value={formData.procurement_status} onValueChange={(value) => handleSelectChange("procurement_status", value)}>
-                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white">
+                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Status Procurement</label>
+                      <Select value={formData.status_procurement} onValueChange={(value) => handleSelectChange("status_procurement", value)}>
+                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -246,12 +264,34 @@ export default function AddProject() {
                     </div>
                   </div>
 
-                  {/* Buttons */}
-                  <div className="flex gap-4 pt-4 border-t-2 border-gray-200">
-                    <Button type="button" variant="outline" onClick={() => navigate("/projects")}>
+                  {/* Row 6: Estimasi Durasi & Tanggal Mulai - Responsive Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div>
+                      <DurationPicker
+                        value={formData.estimasi_durasi_hari}
+                        onChange={(value) => setFormData(prev => ({ ...prev, estimasi_durasi_hari: String(value) }))}
+                        label="Estimasi Durasi (hari)"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Tanggal Mulai</label>
+                      <Input
+                        type="date"
+                        name="tanggal_mulai"
+                        value={formData.tanggal_mulai}
+                        onChange={handleInputChange}
+                        className="border-2 border-green-400 focus:border-green-600 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-green-50 placeholder-gray-500"
+                      />
+                      <p className="text-xs text-gray-600">Tanggal mulai countdown timer</p>
+                    </div>
+                  </div>
+
+                  {/* Buttons - Responsive */}
+                  <div className="flex flex-col sm:flex-row gap-3 md:gap-4 pt-4 border-t-2 border-gray-200">
+                    <Button type="button" variant="outline" onClick={() => navigate("/projects")} className="w-full sm:w-auto text-xs md:text-sm">
                       Batal
                     </Button>
-                    <Button type="submit" disabled={loading} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-6 text-base rounded-lg">
+                    <Button type="submit" disabled={loading} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 md:py-4 lg:py-6 text-sm md:text-base rounded-lg">
                       {loading ? "Menyimpan..." : "Simpan Proyek"}
                     </Button>
                   </div>

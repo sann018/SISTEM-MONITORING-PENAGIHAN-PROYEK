@@ -173,7 +173,7 @@ const Sidebar = React.forwardRef<
   return (
     <div
       ref={ref}
-      className="group peer hidden text-sidebar-foreground md:block"
+      className="group peer text-sidebar-foreground"
       data-state={state}
       data-collapsible={state === "collapsed" ? collapsible : ""}
       data-variant={variant}
@@ -192,7 +192,7 @@ const Sidebar = React.forwardRef<
       />
       <div
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] duration-200 ease-linear md:flex",
+          "fixed inset-y-0 z-40 h-svh w-[--sidebar-width] transition-[left,right,width] duration-200 ease-linear flex",
           side === "left"
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
@@ -226,14 +226,21 @@ const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.C
         data-sidebar="trigger"
         variant="ghost"
         size="icon"
-        className={cn("h-7 w-7", className)}
+        className={cn(
+          "h-9 w-9 md:h-10 md:w-10 flex-shrink-0",
+          "hover:bg-red-100 active:bg-red-200",
+          "transition-all duration-200",
+          "border-2 border-transparent hover:border-red-300",
+          "rounded-lg",
+          className
+        )}
         onClick={(event) => {
           onClick?.(event);
           toggleSidebar();
         }}
         {...props}
       >
-        <PanelLeft />
+        <PanelLeft className="h-5 w-5 md:h-6 md:w-6 text-red-600" />
         <span className="sr-only">Toggle Sidebar</span>
       </Button>
     );

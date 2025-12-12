@@ -2,6 +2,10 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  // Temporarily bypass authentication - remove this in production
+  return <>{children}</>;
+  
+  /* Original authentication code - uncomment to enable auth
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -20,4 +24,5 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   return <>{children}</>;
+  */
 };

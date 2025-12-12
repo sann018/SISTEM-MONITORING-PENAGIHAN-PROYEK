@@ -69,6 +69,22 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        status: {
+          blue: "hsl(var(--status-blue))",
+          "blue-text": "hsl(var(--status-blue-text))",
+          green: "hsl(var(--status-green))",
+          "green-text": "hsl(var(--status-green-text))",
+          yellow: "hsl(var(--status-yellow))",
+          "yellow-text": "hsl(var(--status-yellow-text))",
+          pink: "hsl(var(--status-pink))",
+          "pink-text": "hsl(var(--status-pink-text))",
+        },
+        stat: {
+          blue: "hsl(var(--stat-blue))",
+          green: "hsl(var(--stat-green))",
+          yellow: "hsl(var(--stat-yellow))",
+          red: "hsl(var(--stat-red))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

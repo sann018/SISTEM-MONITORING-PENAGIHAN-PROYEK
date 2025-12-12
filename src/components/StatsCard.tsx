@@ -40,7 +40,7 @@ export const StatsCard = ({
   return (
     <div 
       className={cn(
-        "rounded-xl border-2 p-8 transition-all hover:shadow-xl hover:scale-105",
+        "rounded-xl border-2 p-4 sm:p-6 md:p-8 transition-all hover:shadow-xl hover:scale-105",
         variants[variant],
         onClick && "cursor-pointer active:scale-95"
       )}
@@ -49,12 +49,12 @@ export const StatsCard = ({
       tabIndex={onClick ? 0 : undefined}
     >
       <div className="flex items-center justify-between">
-        <div>
-          <p className={cn("text-sm font-semibold mb-2", textVariants[variant])}>{title}</p>
-          <p className={cn("text-4xl font-bold", textVariants[variant])}>{value}</p>
+        <div className="flex-1 min-w-0">
+          <p className={cn("text-xs sm:text-sm font-semibold mb-1 md:mb-2 truncate", textVariants[variant])}>{title}</p>
+          <p className={cn("text-2xl sm:text-3xl md:text-4xl font-bold", textVariants[variant])}>{value}</p>
         </div>
-        <div className={cn("p-4 rounded-xl", iconVariants[variant])}>
-          <Icon className="h-8 w-8" />
+        <div className={cn("p-2 sm:p-3 md:p-4 rounded-xl ml-2", iconVariants[variant])}>
+          <Icon className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8" />
         </div>
       </div>
     </div>

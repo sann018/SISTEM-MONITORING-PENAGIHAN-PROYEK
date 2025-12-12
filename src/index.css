@@ -60,11 +60,11 @@ All colors MUST be HSL.
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
-
   body {
     @apply bg-background text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   }
 }
 
@@ -86,15 +86,15 @@ All colors MUST be HSL.
 /* Animasi menu item saat hover (inactive state) */
 @keyframes menuItemHover {
   0% {
-    background-color: rgb(220, 38, 38);
+    background-color: rgb(239, 68, 68);
     transform: translateX(0);
   }
   50% {
-    background-color: rgb(194, 27, 27);
+    background-color: rgb(252, 165, 165);
     transform: translateX(2px);
   }
   100% {
-    background-color: rgb(180, 24, 24);
+    background-color: rgb(254, 202, 202);
     transform: translateX(4px);
   }
 }
@@ -121,9 +121,10 @@ All colors MUST be HSL.
   overflow: hidden;
 }
 
-.sidebar-menu-btn:not(.bg-white):hover {
+/* Hapus animasi hover untuk menu inactive */
+/* .sidebar-menu-btn:not(.bg-white):hover {
   animation: menuItemHover 0.3s ease-in-out forwards;
-}
+} */
 
 .sidebar-menu-btn.bg-white {
   animation: menuItemActive 0.4s ease-in-out forwards;
@@ -252,26 +253,130 @@ All colors MUST be HSL.
   color: rgb(220, 38, 38);
 }
 
-/* ============================================
-   RESPONSIVE & ACCESSIBILITY
-   ============================================ */
+/* ===================================== */
+/* RESPONSIVE UTILITIES FOR ALL DEVICES */
+/* ===================================== */
 
-/* Focus state untuk keyboard navigation */
-.sidebar-menu-btn:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.5);
-  outline-offset: 2px;
-}
-
-.sidebar-logout-btn:focus-visible {
-  outline: 2px solid rgb(220, 38, 38);
-  outline-offset: 2px;
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-  .sidebar-menu-btn,
-  .sidebar-logout-btn {
-    animation: none !important;
-    transition: none !important;
+/* Smooth scrolling for mobile */
+@layer utilities {
+  .scroll-smooth-mobile {
+    -webkit-overflow-scrolling: touch;
   }
+}
+
+/* Prevent text overflow on mobile */
+@layer utilities {
+  .text-overflow-safe {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+  }
+}
+
+/* Touch-friendly tap targets */
+@layer utilities {
+  .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Responsive image container */
+@layer utilities {
+  .responsive-img {
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+}
+
+/* Mobile-optimized sidebar */
+@media (max-width: 768px) {
+  .sidebar-mobile-optimized {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 50;
+  }
+}
+
+/* Tablet breakpoint optimizations */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .table-responsive-tablet {
+    font-size: 0.875rem;
+  }
+}
+
+/* Desktop large screen optimizations */
+@media (min-width: 1920px) {
+  .container-xl-safe {
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+}
+
+/* Landscape mobile optimization */
+@media (max-height: 500px) and (orientation: landscape) {
+  .hide-on-landscape-mobile {
+    display: none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-full-width {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ===================================== */
+/* SIDEBAR OVERLAY FIX */
+/* ===================================== */
+
+/* Ensure sidebar doesn't overlap content on small screens */
+@media (max-width: 767px) {
+  /* Mobile: Sidebar uses Sheet (modal overlay) */
+  [data-sidebar="sidebar"] {
+    position: fixed !important;
+  }
+}
+
+/* Desktop: Ensure proper spacing for sidebar */
+@media (min-width: 768px) {
+  /* Main content should respect sidebar width */
+  .peer[data-state="expanded"] ~ main {
+    margin-left: 0;
+  }
+  
+  .peer[data-state="collapsed"] ~ main {
+    margin-left: 0;
+  }
+}
+
+/* Sidebar trigger button enhancement */
+[data-sidebar="trigger"] {
+  position: relative;
+  z-index: 50;
+  background-color: transparent;
+}
+
+[data-sidebar="trigger"]:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+[data-sidebar="trigger"]:active {
+  background-color: rgba(239, 68, 68, 0.2);
+}
+
+/* Ensure header stays above content */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
 }

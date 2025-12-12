@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import penagihanService from "@/services/penagihanService";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { StatsCard } from "@/components/StatsCard";
@@ -12,17 +12,19 @@ import { toast } from "sonner";
 
 interface Project {
   id: string;
-  project_name: string;
-  partner_name: string;
+  nama_proyek: string;
+  nama_mitra: string;
   pid: string;
-  po_number: string;
+  nomor_po: string;
   phase: string;
   status_ct: string;
   status_ut: string;
   rekon_nilai: string;
-  rekon_material?: string;
-  material_alignment?: string;
-  procurement_status?: string;
+  rekon_material: string;
+  pelurusan_material: string;
+  status_procurement: string;
+  estimasi_durasi_hari?: number | string;
+  tanggal_mulai?: string;
 }
 
 export default function Dashboard() {
@@ -38,13 +40,27 @@ export default function Dashboard() {
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setProjects(data || []);
+      const response = await penagihanService.getAll();
+      
+      // Map data dari API ke format yang dibutuhkan
+      const mappedData = response.data.map((item: any) => ({
+        id: item.id.toString(),
+        nama_proyek: item.nama_proyek || '',
+        nama_mitra: item.nama_mitra || '',
+        pid: item.pid || '',
+        nomor_po: item.nomor_po || '',
+        phase: item.phase || '',
+        status_ct: item.status_ct || 'BELUM CT',
+        status_ut: item.status_ut || 'BELUM UT',
+        rekon_nilai: item.rekon_nilai?.toString() || '0',
+        rekon_material: item.rekon_material || 'BELUM REKON',
+        pelurusan_material: item.pelurusan_material || 'BELUM LURUS',
+        status_procurement: item.status_procurement || 'ANTRI PERIV',
+        estimasi_durasi_hari: item.estimasi_durasi_hari || 7,
+        tanggal_mulai: item.tanggal_mulai || new Date().toISOString().split('T')[0],
+      }));
+      
+      setProjects(mappedData);
     } catch (error) {
       toast.error("Gagal memuat data proyek");
       console.error(error);
@@ -61,17 +77,17 @@ export default function Dashboard() {
   const completedProjects = projects.filter((p) => 
     p.status_ct.toLowerCase() === "sudah ct" &&
     p.status_ut.toLowerCase() === "sudah ut" &&
-    (p.rekon_material?.toLowerCase() === "sudah rekon" || false) &&
-    (p.material_alignment?.toLowerCase() === "sudah lurus" || false) &&
-    (p.procurement_status?.toLowerCase() === "otw reg" || false)
+    p.rekon_material.toLowerCase() === "sudah rekon" &&
+    p.pelurusan_material.toLowerCase() === "sudah lurus" &&
+    p.status_procurement.toLowerCase() === "otw reg"
   ).length;
 
   const ongoingProjects = projects.filter((p) => {
     const ct = p.status_ct.toLowerCase();
     const ut = p.status_ut.toLowerCase();
-    const rekon = p.rekon_material?.toLowerCase() || "";
-    const alignment = p.material_alignment?.toLowerCase() || "";
-    const procurement = p.procurement_status?.toLowerCase() || "";
+    const rekon = p.rekon_material.toLowerCase();
+    const alignment = p.pelurusan_material.toLowerCase();
+    const procurement = p.status_procurement.toLowerCase();
     
     return (
       ct === "belum ct" ||
@@ -86,7 +102,10 @@ export default function Dashboard() {
     );
   }).length;
 
-  const delayedProjects = 0; // Bisa disesuaikan dengan logic tertunda
+  const delayedProjects = projects.filter((project) => {
+    const procurement = project.status_procurement?.toLowerCase().trim() || "";
+    return procurement === "revisi mitra";
+  }).length;
 
   // =====================================
   // NAVIGATION HANDLERS
@@ -100,10 +119,10 @@ export default function Dashboard() {
   // =====================================
   const filteredProjects = projects.filter(
     (project) =>
-      project.project_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.partner_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.nama_proyek.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.nama_mitra.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.pid.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.po_number.toLowerCase().includes(searchTerm.toLowerCase())
+      project.nomor_po.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusVariant = (status: string): string => {
@@ -132,10 +151,10 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <SidebarProvider>
-        <div className="flex min-h-screen w-full">
+      <SidebarProvider defaultOpen={true}>
+        <div className="flex min-h-screen w-full relative">
           <AppSidebar />
-          <main className="flex-1 flex items-center justify-center">
+          <main className="flex-1 flex items-center justify-center min-w-0">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
               <p className="text-gray-600">Memuat data...</p>
@@ -147,27 +166,27 @@ export default function Dashboard() {
   }
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-gradient-to-br from-gray-50 to-gray-100">
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex min-h-screen w-full bg-gradient-to-br from-gray-50 to-gray-100 relative">
         <AppSidebar />
-        <main className="flex-1">
-          {/* Header */}
-          <header className="sticky top-0 z-40 border-b-2 border-red-200 bg-white shadow-sm">
-            <div className="flex h-20 items-center gap-4 px-6 bg-gradient-to-r from-red-50 to-white border-b-2 border-red-200">
-              <SidebarTrigger />
-              <h1 className="text-2xl font-bold text-red-600">Dashboard Monitoring Penagihan Proyek</h1>
+        <main className="flex-1 w-full overflow-x-hidden min-w-0">
+          {/* Header - Responsive */}
+          <header className="sticky top-0 z-30 border-b-2 border-red-200 bg-white shadow-sm">
+            <div className="flex h-14 sm:h-16 md:h-20 items-center gap-2 md:gap-4 px-3 md:px-6 bg-gradient-to-r from-red-50 to-white border-b-2 border-red-200">
+              <SidebarTrigger className="flex-shrink-0 h-9 w-9 md:h-10 md:w-10 hover:bg-red-100 active:bg-red-200 border-2 border-transparent hover:border-red-300 rounded-lg transition-colors" />
+              <h1 className="text-sm sm:text-base md:text-xl lg:text-2xl font-bold text-red-600 truncate">Dashboard Monitoring Penagihan Proyek</h1>
             </div>
           </header>
 
-          <div className="p-8 space-y-8">
-            {/* Description */}
+          <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 lg:space-y-8">
+            {/* Description - Responsive */}
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Monitor status penagihan proyek konstruksi.</h2>
-              <p className="text-gray-600">Kelola dan pantau semua proyek konstruksi Telkom Akses</p>
+              <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-1 md:mb-2">Monitor status penagihan proyek konstruksi.</h2>
+              <p className="text-xs sm:text-sm md:text-base text-gray-600">Kelola dan pantau semua proyek konstruksi Telkom Akses</p>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Stats Cards - Responsive Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6">
               <StatsCard
                 title="Total Proyek"
                 value={totalProjects}
@@ -198,52 +217,52 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Search & View All */}
-            <div className="flex items-center justify-between gap-4">
+            {/* Search & View All - Responsive */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 md:gap-4">
               <Input
-                placeholder="Cari proyek, mitra, PID, atau status..."
+                placeholder="Cari proyek, mitra, PID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-sm border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 text-base bg-white"
+                className="w-full sm:max-w-xs md:max-w-sm border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 text-sm md:text-base bg-white"
               />
               <Button 
                 onClick={() => navigate("/projects")} 
-                className="bg-red-600 hover:bg-red-700 text-white font-bold py-6 px-6 rounded-lg text-base transition-all duration-300 hover:shadow-lg hover:scale-105 active:scale-95"
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 md:py-3 lg:py-6 px-4 md:px-6 rounded-lg text-sm md:text-base transition-all duration-300 hover:shadow-lg hover:scale-105 active:scale-95 w-full sm:w-auto"
               >
                 Lihat Semua Proyek
               </Button>
             </div>
 
-            {/* Projects Table Preview */}
+            {/* Projects Table Preview - Responsive */}
             <div className="rounded-xl border-2 border-gray-200 bg-white shadow-lg overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-[800px] md:min-w-full">
                   <thead>
                     <tr className="border-b-2 border-gray-200 bg-gradient-to-r from-red-50 to-white">
-                      <th className="px-4 py-4 text-left text-sm font-bold text-red-700">Nama Proyek</th>
-                      <th className="px-4 py-4 text-left text-sm font-bold text-red-700">Nama Mitra</th>
-                      <th className="px-4 py-4 text-left text-sm font-bold text-red-700">PID</th>
-                      <th className="px-4 py-4 text-left text-sm font-bold text-red-700">Nomor PO</th>
-                      <th className="px-4 py-4 text-left text-sm font-bold text-red-700">Phase</th>
-                      <th className="px-4 py-4 text-left text-sm font-bold text-red-700">Status CT</th>
-                      <th className="px-4 py-4 text-left text-sm font-bold text-red-700">Status UT</th>
-                      <th className="px-4 py-4 text-left text-sm font-bold text-red-700">Rekon Nilai</th>
-                      <th className="px-4 py-4 text-left text-sm font-bold text-red-700">Rekon Material</th>
-                      <th className="px-4 py-4 text-left text-sm font-bold text-red-700">Pelurusan Material</th>
-                      <th className="px-4 py-4 text-left text-sm font-bold text-red-700">Status Procurement</th>
+                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700">Nama Proyek</th>
+                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700">Nama Mitra</th>
+                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700">PID</th>
+                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700">Nomor PO</th>
+                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700">Phase</th>
+                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700">Status CT</th>
+                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700">Status UT</th>
+                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700">Rekon Nilai</th>
+                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700">Rekon Material</th>
+                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700">Pelurusan Material</th>
+                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700">Status Procurement</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredProjects.length === 0 ? (
                       <tr>
-                        <td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">
-                          <p className="text-gray-600 font-medium mb-2">
+                        <td colSpan={11} className="px-2 md:px-4 py-8 md:py-12 text-center text-muted-foreground">
+                          <p className="text-gray-600 font-medium mb-2 text-xs md:text-sm">
                             {searchTerm ? "Tidak ada proyek yang cocok dengan pencarian" : "Tidak ada data proyek"}
                           </p>
                           <Button 
                             variant="link" 
                             onClick={() => navigate("/projects/add")}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-600 hover:text-red-700 text-xs md:text-sm"
                           >
                             Tambah proyek pertama
                           </Button>
@@ -256,39 +275,39 @@ export default function Dashboard() {
                           className="border-b hover:bg-red-50/50 transition-colors cursor-pointer"
                           onClick={() => navigate(`/projects/${project.id}`)}
                         >
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{project.project_name}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{project.partner_name}</td>
-                          <td className="px-4 py-3 text-sm font-mono text-gray-600">{project.pid}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{project.po_number}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{project.phase}</td>
-                          <td className="px-4 py-3 text-sm">
-                            <Badge variant={getStatusVariant(project.status_ct) as any}>
+                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium text-gray-900">{project.nama_proyek}</td>
+                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-700">{project.nama_mitra}</td>
+                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm font-mono text-gray-600">{project.pid}</td>
+                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-700">{project.nomor_po}</td>
+                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-700">{project.phase}</td>
+                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
+                            <Badge variant={getStatusVariant(project.status_ct) as any} className="text-[10px] md:text-xs">
                               {project.status_ct}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-sm">
-                            <Badge variant={getStatusVariant(project.status_ut) as any}>
+                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
+                            <Badge variant={getStatusVariant(project.status_ut) as any} className="text-[10px] md:text-xs">
                               {project.status_ut}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-sm">
-                            <div className="border border-gray-300 rounded px-3 py-1 bg-blue-50 text-blue-900 font-medium inline-block">
+                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
+                            <div className="border border-gray-300 rounded px-2 md:px-3 py-1 bg-blue-50 text-blue-900 font-medium inline-block text-[10px] md:text-xs">
                               {project.rekon_nilai}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-sm">
-                            <Badge variant={getStatusVariant(project.rekon_material || "Belum Rekon") as any}>
-                              {project.rekon_material || "Belum Rekon"}
+                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
+                            <Badge variant={getStatusVariant(project.rekon_material) as any} className="text-[10px] md:text-xs">
+                              {project.rekon_material}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-sm">
-                            <Badge variant={getStatusVariant(project.material_alignment || "Belum Lurus") as any}>
-                              {project.material_alignment || "Belum Lurus"}
+                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
+                            <Badge variant={getStatusVariant(project.pelurusan_material) as any} className="text-[10px] md:text-xs">
+                              {project.pelurusan_material}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-sm">
-                            <Badge variant={getStatusVariant(project.procurement_status || "Antri Periv") as any}>
-                              {project.procurement_status || "Antri Periv"}
+                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
+                            <Badge variant={getStatusVariant(project.status_procurement) as any} className="text-[10px] md:text-xs">
+                              {project.status_procurement}
                             </Badge>
                           </td>
                         </tr>
