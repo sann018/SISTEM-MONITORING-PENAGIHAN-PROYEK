@@ -1,4 +1,4 @@
-import { LogOut, LayoutDashboard, FolderKanban, User } from "lucide-react";
+import { LogOut, LayoutDashboard, FolderKanban, User, Users } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -16,17 +16,30 @@ import { useLocation } from "react-router-dom";
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Projects", url: "/projects", icon: FolderKanban },
-  { title: "Profile", url: "/profile", icon: User },
+  { title: "Data Proyek", url: "/projects", icon: FolderKanban },
+  { title: "Profil", url: "/profile", icon: User },
+];
+
+// Menu untuk Super Admin
+const adminMenuItems = [
+  { title: "Manajemen User", url: "/user-management", icon: Users },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const isCollapsed = state === "collapsed";
   const location = useLocation();
 
   const isActive = (url: string) => location.pathname === url;
+
+  // Check if user is super admin
+  const isSuperAdmin = user?.role === 'super_admin';
+  
+  // Debug log
+  if (user) {
+    console.log('Current user role:', user.role, 'isSuperAdmin:', isSuperAdmin);
+  }
 
   return (
     <Sidebar className={`${isCollapsed ? "w-80 md:w-96" : "w-60 md:w-64"} z-50 bg-gradient-to-b from-red-600 to-red-700`} collapsible="icon">
@@ -105,6 +118,54 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Admin Menu - Only for Super Admin */}
+        {isSuperAdmin && (
+          <SidebarGroup className="pt-2 md:pt-4 px-2 md:px-3">
+            <SidebarGroupLabel className="font-bold text-sm md:text-base lg:text-lg text-red mb-3 md:mb-4 px-0">
+              Admin
+            </SidebarGroupLabel>
+            <SidebarGroupContent className="px-0">
+              <SidebarMenu className="space-y-1.5 md:space-y-2">
+                {adminMenuItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      className={`
+                        ${isActive(item.url) 
+                          ? 'bg-red-600 text-white shadow-lg' 
+                          : 'bg-white text-red-600 hover:bg-red-600 hover:text-white hover:shadow-lg'
+                        }
+                        w-full font-bold py-2.5 md:py-3 px-3 md:px-4
+                        rounded-lg
+                        transition-all duration-300 ease-in-out
+                        hover:-translate-y-1
+                        active:translate-y-0 active:shadow-md active:scale-95
+                        flex items-center justify-start gap-2 md:gap-3
+                        group
+                        text-xs md:text-sm lg:text-base
+                      `}
+                    >
+                      <a href={item.url} className="flex items-center gap-2 md:gap-3 w-full">
+                        <item.icon 
+                          className="h-4 w-4 md:h-5 md:w-5 transition-all duration-300 group-hover:rotate-12 flex-shrink-0" 
+                        />
+                        <span className="group-hover:font-extrabold truncate">
+                          {item.title}
+                        </span>
+                        
+                        {/* Active indicator dot */}
+                        {isActive(item.url) && (
+                          <div className="ml-auto h-2 w-2 rounded-full bg-red-600 animate-pulse flex-shrink-0" />
+                        )}
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Logout Button - Responsive */}
         <div className="mt-auto p-3 md:p-4 border-t-2 border-white border-opacity-30 px-2 md:px-3">

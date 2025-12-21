@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/Badge";
+import Sidebar from "@/components/Sidebar";
+import TopBar from "@/components/TopBar";
 import { EditableStatusCell } from "@/components/EditableStatusCell";
 import { EditableNumberCell } from "@/components/EditableNumberCell";
 import { ProjectTimer } from "@/components/ProjectTimer";
@@ -167,6 +167,40 @@ export default function Projects() {
   // =====================================
   // FUNCTION: handleDurationUpdate
   // =====================================
+  const handleDownloadExcel = async () => {
+    try {
+      toast.info("Mengunduh data Excel...");
+      const response = await penagihanService.exportToExcel();
+      
+      // Create blob from response
+      const blob = new Blob([response], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Set filename with current date
+      const currentDate = new Date().toISOString().split('T')[0];
+      link.download = `Daftar_Proyek_${currentDate}.xlsx`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success("Data Excel berhasil diunduh!");
+    } catch (error) {
+      console.error("Error downloading Excel:", error);
+      toast.error("Gagal mengunduh data Excel");
+    }
+  };
+
   const handleDurationUpdate = async (
     projectId: string,
     durasi: number,
@@ -301,220 +335,178 @@ export default function Projects() {
   // JSX RETURN
   // =====================================
   return (
-    <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full bg-background relative">
-        <AppSidebar />
-        <main className="flex-1 overflow-hidden w-full min-w-0">
-          <header className="sticky top-0 z-30 border-b bg-white shadow-sm">
-            <div className="flex h-14 sm:h-16 md:h-20 items-center gap-2 md:gap-4 px-3 md:px-6 bg-gradient-to-r from-red-50 to-white border-b-2 border-red-200">
-              <SidebarTrigger className="flex-shrink-0 h-9 w-9 md:h-10 md:w-10 hover:bg-red-100 active:bg-red-200 border-2 border-transparent hover:border-red-300 rounded-lg transition-colors" />
-              <h1 className="text-sm sm:text-base md:text-xl lg:text-2xl font-bold text-red-600 truncate">Daftar Proyek</h1>
-            </div>
-          </header>
+    <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '64px' }}>
+      <TopBar />
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden" style={{ marginLeft: '112px' }}>
+        <TopBar />
 
-          <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 lg:space-y-8 overflow-hidden">
-            {/* Filter Status - Responsive */}
-            {filterType !== "all" && (
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-4 bg-blue-50 border-l-4 border-blue-500 p-3 md:p-4 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs md:text-sm font-semibold text-gray-700">Filter Aktif:</span>
-                  <Badge variant="default" className="bg-blue-100 text-blue-800 border-blue-300">
-                    {filterType === "completed"
-                      ? "Selesai Penuh"
-                      : filterType === "ongoing"
-                      ? "Sedang Berjalan"
-                      : "Tertunda"}
-                  </Badge>
-                </div>
-                <Button
-                  onClick={() => setFilterType("all")}
-                  variant="outline"
-                  className="text-xs md:text-sm px-3 py-1 h-auto"
-                >
-                  Tampilkan Semua
-                </Button>
-              </div>
-            )}
+        <div className="flex-1 overflow-auto p-8 space-y-6">
+          {/* Page Title */}
+          <h1 className="text-3xl font-bold text-red-600">Daftar Penagihan Proyek</h1>
 
-            {/* Search & Action Buttons - Responsive */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 md:gap-4">
-              <Input
-                placeholder="Cari proyek, mitra, PID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full sm:max-w-xs md:max-w-sm border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 text-sm md:text-base bg-white"
-              />
-              <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
-                <Button
-                  onClick={() => setIsUploadDialogOpen(true)}
-                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 md:py-4 lg:py-6 px-4 md:px-6 rounded-lg text-sm md:text-base transition-all duration-300 hover:shadow-lg hover:scale-105 active:scale-95 flex items-center justify-center gap-2 w-full sm:w-auto"
-                >
-                  <Upload className="w-4 h-4 md:w-5 md:h-5" />
-                  Import Excel
-                </Button>
-                <Button
-                  onClick={() => navigate("/projects/add")}
-                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 md:py-4 lg:py-6 px-4 md:px-6 rounded-lg text-sm md:text-base transition-all duration-300 hover:shadow-lg hover:scale-105 active:scale-95 flex items-center justify-center gap-2 w-full sm:w-auto"
-                >
-                  <Plus className="w-4 h-4 md:w-5 md:h-5" />
-                  Tambah Proyek
-                </Button>
-              </div>
-            </div>
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-3 mb-4">
+            <Button
+              onClick={() => setIsUploadDialogOpen(true)}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
+            >
+              <Upload className="w-5 h-5" />
+              Import Excel
+            </Button>
+            <Button
+              onClick={() => navigate("/projects/add")}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
+            >
+              <Plus className="w-5 h-5" />
+              Tambah Proyek
+            </Button>
+            <Button
+              onClick={handleDownloadExcel}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
+            >
+              <Upload className="w-5 h-5" />
+              Download Excel
+            </Button>
+          </div>
 
-            {/* Table - Responsive with horizontal scroll */}
-            <div className="rounded-xl border-2 border-gray-200 bg-white shadow-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1400px]">
-                  <thead>
-                    <tr className="border-b-2 border-gray-200 bg-gradient-to-r from-red-50 to-white">
-                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700 min-w-[150px] md:min-w-48">Nama Proyek</th>
-                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700 min-w-[140px] md:min-w-44">Nama Mitra</th>
-                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700 min-w-[100px] md:min-w-32">PID</th>
-                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700 min-w-[120px] md:min-w-40">Nomor PO</th>
-                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700 min-w-[100px] md:min-w-32">Phase</th>
-                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700 min-w-[100px] md:min-w-32">Status CT</th>
-                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700 min-w-[100px] md:min-w-32">Status UT</th>
-                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700 min-w-[100px] md:min-w-32">Rekon Nilai</th>
-                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700 min-w-[130px] md:min-w-40">Rekon Material</th>
-                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700 min-w-[140px] md:min-w-40">Pelurusan Material</th>
-                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700 min-w-[150px] md:min-w-40">Status Procurement</th>
-                      <th className="px-2 md:px-4 py-3 md:py-4 text-left text-xs md:text-sm font-bold text-red-700 min-w-[80px] md:min-w-24">Aksi</th>
+          {/* Search Box with Date */}
+          <div className="flex items-center gap-4">
+            <Input
+              placeholder="Cari proyek..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-10 border border-gray-300 rounded-lg px-4 flex-1 max-w-xs"
+            />
+            <span className="text-sm font-semibold text-gray-600">📅 01-2025</span>
+          </div>
+
+          {/* Projects Table */}
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-red-600 text-white">
+                    <th className="px-4 py-3 text-left font-bold">Nama Proyek</th>
+                    <th className="px-4 py-3 text-left font-bold">Nama Mitra</th>
+                    <th className="px-4 py-3 text-left font-bold">PID</th>
+                    <th className="px-4 py-3 text-left font-bold">Nomor PO</th>
+                    <th className="px-4 py-3 text-left font-bold">Fase</th>
+                    <th className="px-4 py-3 text-left font-bold">Status CT</th>
+                    <th className="px-4 py-3 text-left font-bold">Status UT</th>
+                    <th className="px-4 py-3 text-left font-bold">Rekap BOQ</th>
+                    <th className="px-4 py-3 text-left font-bold">Rekon Nilai</th>
+                    <th className="px-4 py-3 text-left font-bold">Rekon Material</th>
+                    <th className="px-4 py-3 text-left font-bold">Status Procurement</th>
+                    <th className="px-4 py-3 text-center font-bold">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProjects.length === 0 ? (
+                    <tr>
+                      <td colSpan={12} className="px-4 py-8 text-center text-gray-500">
+                        <p className="text-gray-600 font-medium mb-2">Tidak ada data proyek</p>
+                        <Button 
+                          variant="link" 
+                          onClick={() => navigate("/projects/add")}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          Tambah proyek pertama
+                        </Button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {filteredProjects.length === 0 ? (
-                      <tr>
-                        <td colSpan={12} className="px-2 md:px-4 py-8 md:py-12 text-center text-muted-foreground">
-                          <p className="text-gray-600 font-medium mb-2 text-xs md:text-sm">Tidak ada data proyek</p>
-                          <Button 
-                            variant="link" 
-                            onClick={() => navigate("/projects/add")}
-                            className="text-red-600 hover:text-red-700 text-xs md:text-sm"
-                          >
-                            Tambah proyek pertama
-                          </Button>
+                  ) : (
+                    filteredProjects.map((project) => (
+                      <tr key={project.id} className="border-b hover:bg-gray-50">
+                        <td className="px-4 py-3">{project.nama_proyek}</td>
+                        <td className="px-4 py-3">{project.nama_mitra}</td>
+                        <td className="px-4 py-3 font-mono">{project.pid}</td>
+                        <td className="px-4 py-3">{project.nomor_po}</td>
+                        <td className="px-4 py-3">{project.phase}</td>
+                        <td className="px-4 py-3">
+                          <EditableStatusCell
+                            projectId={project.id}
+                            column="status_ct"
+                            value={project.status_ct}
+                            onUpdate={handleStatusUpdate}
+                            variant={getStatusVariant(project.status_ct)}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <EditableStatusCell
+                            projectId={project.id}
+                            column="status_ut"
+                            value={project.status_ut}
+                            onUpdate={handleStatusUpdate}
+                            variant={getStatusVariant(project.status_ut)}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">
+                            BOQ
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">{project.rekon_nilai}</td>
+                        <td className="px-4 py-3">
+                          <EditableStatusCell
+                            projectId={project.id}
+                            column="rekon_material"
+                            value={project.rekon_material}
+                            onUpdate={handleStatusUpdate}
+                            variant={getStatusVariant(project.rekon_material)}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <EditableStatusCell
+                            projectId={project.id}
+                            column="status_procurement"
+                            value={project.status_procurement}
+                            onUpdate={handleStatusUpdate}
+                            variant={getStatusVariant(project.status_procurement)}
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex justify-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => navigate(`/projects/${project.id}`)}
+                              className="hover:bg-blue-100 p-2"
+                              title="Lihat detail"
+                            >
+                              <Eye className="h-4 w-4 text-blue-600" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => navigate(`/projects/edit/${project.id}`)}
+                              className="hover:bg-yellow-100 p-2"
+                              title="Edit proyek"
+                            >
+                              <Pencil className="h-4 w-4 text-yellow-600" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setDeleteId(project.id)}
+                              className="hover:bg-red-100 p-2"
+                              title="Hapus proyek"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
-                    ) : (
-                      filteredProjects.map((project) => (
-                        <tr key={project.id} className="border-b hover:bg-red-50/50 transition-colors text-gray-700 font-medium">
-                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
-                            <div className="space-y-2">
-                              <div className="font-medium text-gray-900">{project.nama_proyek}</div>
-                              <ProjectTimer
-                                projectId={project.id}
-                                projectName={project.nama_proyek}
-                                estimasiDurasi={project.estimasi_durasi_hari}
-                                tanggalMulai={project.tanggal_mulai}
-                                statusProcurement={project.status_procurement}
-                                onUpdateDuration={handleDurationUpdate}
-                              />
-                            </div>
-                          </td>
-                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-700">{project.nama_mitra}</td>
-                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm font-mono text-gray-600">{project.pid}</td>
-                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-700">{project.nomor_po}</td>
-                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm text-gray-700">{project.phase}</td>
-                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
-                            <EditableStatusCell
-                              value={project.status_ct}
-                              columnName="status_ct"
-                              projectId={project.id}
-                              onUpdate={handleStatusUpdate}
-                              options={statusCtOptions}
-                            />
-                          </td>
-                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
-                            <EditableStatusCell
-                              value={project.status_ut}
-                              columnName="status_ut"
-                              projectId={project.id}
-                              onUpdate={handleStatusUpdate}
-                              options={statusUtOptions}
-                            />
-                          </td>
-                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
-                            <EditableNumberCell
-                              value={project.rekon_nilai}
-                              columnName="rekon_nilai"
-                              projectId={project.id}
-                              onUpdate={handleStatusUpdate}
-                            />
-                          </td>
-                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
-                            <EditableStatusCell
-                              value={project.rekon_material}
-                              columnName="rekon_material"
-                              projectId={project.id}
-                              onUpdate={handleStatusUpdate}
-                              options={rekonMaterialOptions}
-                            />
-                          </td>
-                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
-                            <EditableStatusCell
-                              value={project.pelurusan_material}
-                              columnName="pelurusan_material"
-                              projectId={project.id}
-                              onUpdate={handleStatusUpdate}
-                              options={materialAlignmentOptions}
-                            />
-                          </td>
-                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
-                            <EditableStatusCell
-                              value={project.status_procurement}
-                              columnName="status_procurement"
-                              projectId={project.id}
-                              onUpdate={handleStatusUpdate}
-                              options={procurementOptions}
-                            />
-                          </td>
-                          <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm">
-                            <div className="flex items-center gap-1 md:gap-2">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => navigate(`/projects/${project.id}`)}
-                                className="hover:bg-blue-100 transition-all duration-200 hover:scale-110 active:scale-95 p-1 md:p-2"
-                                title="Lihat detail"
-                              >
-                                <Eye className="h-3 w-3 md:h-4 md:w-4 text-blue-600" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => navigate(`/projects/edit/${project.id}`)}
-                                className="hover:bg-yellow-100 transition-all duration-200 hover:scale-110 active:scale-95 p-1 md:p-2"
-                                title="Edit proyek"
-                              >
-                                <Pencil className="h-3 w-3 md:h-4 md:w-4 text-yellow-600" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setDeleteId(project.id)}
-                                className="hover:bg-red-100 transition-all duration-200 hover:scale-110 active:scale-95 p-1 md:p-2"
-                                title="Hapus proyek"
-                              >
-                                <Trash2 className="h-3 w-3 md:h-4 md:w-4 text-red-600" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
-        </main>
+        </div>
       </div>
 
-      {/* =====================================
-          LETAKKAN AlertDialog DI SINI
-          (SETELAH CLOSING TAG main & div)
-          ===================================== */}
+      {/* Alert Dialog untuk Delete */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent className="border-2 border-red-300 shadow-lg">
           <AlertDialogHeader>
@@ -550,6 +542,6 @@ export default function Projects() {
         onOpenChange={setIsUploadDialogOpen}
         onUploadSuccess={fetchProjects}
       />
-    </SidebarProvider>
+    </div>
   );
 }

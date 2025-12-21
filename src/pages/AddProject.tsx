@@ -1,13 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
+import Sidebar from "@/components/Sidebar";
+import TopBar from "@/components/TopBar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import DurationPicker from "@/components/DurationPicker";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,8 +23,8 @@ export default function AddProject() {
     rekon_material: "BELUM REKON",
     pelurusan_material: "BELUM LURUS",
     status_procurement: "ANTRI PERIV",
-    estimasi_durasi_hari: "7", // Default 7 hari
-    tanggal_mulai: new Date().toISOString().split("T")[0], // Tanggal hari ini
+    estimasi_durasi_hari: "7",
+    tanggal_mulai: new Date().toISOString().split("T")[0],
   });
 
   const statusCtOptions = ["SUDAH CT", "BELUM CT"];
@@ -37,12 +34,8 @@ export default function AddProject() {
   const procurementOptions = ["ANTRI PERIV", "PROSES PERIV", "REVISI MITRA", "SEKULER TTD", "SCAN DOKUMEN MITRA", "OTW REG"];
   const phaseOptions = ["Instalasi", "Konstruksi", "Optimasi", "Perencanaan", "Implementasi", "Aktivasi", "Maintenance", "Penyelesaian"];
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -90,217 +83,280 @@ export default function AddProject() {
   };
 
   return (
-    <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full bg-background relative">
-        <AppSidebar />
-        <main className="flex-1 overflow-hidden w-full min-w-0">
-          <header className="sticky top-0 z-30 border-b bg-white shadow-sm">
-            <div className="flex h-14 sm:h-16 md:h-20 items-center gap-2 md:gap-4 px-3 md:px-6 bg-gradient-to-r from-red-50 to-white border-b-2 border-red-200">
-              <SidebarTrigger className="flex-shrink-0 h-9 w-9 md:h-10 md:w-10 hover:bg-red-100 active:bg-red-200 border-2 border-transparent hover:border-red-300 rounded-lg transition-colors" />
-              <h1 className="text-sm sm:text-base md:text-xl lg:text-2xl font-bold text-red-600 truncate">Tambah Proyek Baru</h1>
-            </div>
-          </header>
+    <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '64px' }}>
+      <TopBar />
+      <Sidebar />
 
-          <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 lg:space-y-8 max-w-4xl mx-auto">
-            <Button variant="outline" onClick={() => navigate("/projects")} className="mb-2 md:mb-4 text-xs md:text-sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
+      <div className="flex-1 flex flex-col overflow-hidden" style={{ marginLeft: '112px' }}>
+        <div className="flex-1 overflow-auto p-8">
+          <div className="max-w-5xl mx-auto">
+            {/* Back Button */}
+            <button
+              onClick={() => navigate("/projects")}
+              className="flex items-center gap-2 text-gray-700 hover:text-red-600 mb-6 font-semibold transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
               Kembali
-            </Button>
+            </button>
 
-            <Card className="border-2 border-gray-200 shadow-lg">
-              <CardHeader className="border-b-2 border-gray-200 bg-gradient-to-r from-red-50 to-white">
-                <CardTitle className="text-base sm:text-lg md:text-xl font-bold text-red-600">Informasi Proyek</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 md:pt-6">
-                <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-                  {/* Row 1: Nama Proyek & Nama Mitra - Responsive Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <div className="space-y-2">
-                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Nama Proyek <span className="text-red-600">*</span></label>
+            {/* Page Title */}
+            <h1 className="text-3xl font-bold text-red-600 mb-8">Tambah Proyek Baru</h1>
+
+            {/* Form Card */}
+            <div className="bg-white rounded-xl shadow-xl border-2 border-gray-200">
+              {/* Card Header */}
+              <div className="bg-pink-100 border-b-2 border-pink-200 px-8 py-4 rounded-t-xl">
+                <h2 className="text-xl font-bold text-red-600">Informasi Proyek</h2>
+              </div>
+
+              {/* Card Content */}
+              <div className="p-8">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Row 1: Nama Proyek & Nama Mitra */}
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Nama Proyek <span className="text-red-600">*</span>
+                      </label>
                       <Input
                         type="text"
                         name="nama_proyek"
                         placeholder="Masukkan nama proyek"
                         value={formData.nama_proyek}
                         onChange={handleInputChange}
-                        className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white placeholder-gray-500"
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white"
+                        required
                       />
                     </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Nama Mitra <span className="text-red-600">*</span></label>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Nama Mitra <span className="text-red-600">*</span>
+                      </label>
                       <Input
                         type="text"
                         name="nama_mitra"
                         placeholder="Masukkan nama mitra"
                         value={formData.nama_mitra}
                         onChange={handleInputChange}
-                        className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white placeholder-gray-500"
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white"
+                        required
                       />
                     </div>
                   </div>
 
-                  {/* Row 2: PID & Nomor PO - Responsive Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <div className="space-y-2">
-                      <label className="block text-xs sm:text-sm font-bold text-gray-900">PID <span className="text-red-600">*</span></label>
+                  {/* Row 2: PID & Nomor PO */}
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        PID <span className="text-red-600">*</span>
+                      </label>
                       <Input
                         type="text"
                         name="pid"
                         placeholder="PID-00123"
                         value={formData.pid}
                         onChange={handleInputChange}
-                        className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white placeholder-gray-500"
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white"
+                        required
                       />
                     </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Nomor PO <span className="text-red-600">*</span></label>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Nomor PO <span className="text-red-600">*</span>
+                      </label>
                       <Input
                         type="text"
                         name="nomor_po"
                         placeholder="PO-2024-001"
                         value={formData.nomor_po}
                         onChange={handleInputChange}
-                        className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white placeholder-gray-500"
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white"
+                        required
                       />
                     </div>
                   </div>
 
                   {/* Row 3: Phase */}
-                  <div className="space-y-2">
-                    <label className="block text-xs sm:text-sm font-bold text-gray-900">Phase <span className="text-red-600">*</span></label>
-                    <Select value={formData.phase} onValueChange={(value) => handleSelectChange("phase", value)}>
-                      <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white">
-                        <SelectValue placeholder="Pilih phase" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {phaseOptions.map((option) => (
-                          <SelectItem key={option} value={option}>{option}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                      Phase <span className="text-red-600">*</span>
+                    </label>
+                    <select
+                      name="phase"
+                      value={formData.phase}
+                      onChange={handleInputChange}
+                      className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white text-gray-900"
+                      required
+                    >
+                      <option value="">Pilih phase</option>
+                      {phaseOptions.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
                   </div>
 
-                  {/* Row 4: Status CT, Status UT, Rekon Nilai - Responsive Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                    <div className="space-y-2">
-                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Status CT <span className="text-red-600">*</span></label>
-                      <Select value={formData.status_ct} onValueChange={(value) => handleSelectChange("status_ct", value)}>
-                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusCtOptions.map((option) => (
-                            <SelectItem key={option} value={option}>{option}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  {/* Row 4: Status CT, Status UT, Rekon Nilai */}
+                  <div className="grid grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Status CT <span className="text-red-600">*</span>
+                      </label>
+                      <select
+                        name="status_ct"
+                        value={formData.status_ct}
+                        onChange={handleInputChange}
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white text-gray-900"
+                      >
+                        {statusCtOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
                     </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Status UT <span className="text-red-600">*</span></label>
-                      <Select value={formData.status_ut} onValueChange={(value) => handleSelectChange("status_ut", value)}>
-                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusUtOptions.map((option) => (
-                            <SelectItem key={option} value={option}>{option}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Status UT <span className="text-red-600">*</span>
+                      </label>
+                      <select
+                        name="status_ut"
+                        value={formData.status_ut}
+                        onChange={handleInputChange}
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white text-gray-900"
+                      >
+                        {statusUtOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
                     </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Rekon Nilai <span className="text-red-600">*</span></label>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Rekon Nilai <span className="text-red-600">*</span>
+                      </label>
                       <Input
-                        type="text"
+                        type="number"
                         name="rekon_nilai"
                         placeholder="Rp. 0"
                         value={formData.rekon_nilai}
                         onChange={handleInputChange}
-                        className="border-2 border-blue-400 focus:border-blue-600 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-blue-50 placeholder-gray-500"
+                        className="w-full h-11 px-4 border-2 border-blue-400 rounded-md focus:border-blue-600 bg-blue-50"
+                        required
                       />
                     </div>
                   </div>
 
-                  {/* Row 5: Rekon Material, Pelurusan Material, Status Procurement - Responsive Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                    <div className="space-y-2">
-                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Rekon Material</label>
-                      <Select value={formData.rekon_material} onValueChange={(value) => handleSelectChange("rekon_material", value)}>
-                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {rekonMaterialOptions.map((option) => (
-                            <SelectItem key={option} value={option}>{option}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Pelurusan Material</label>
-                      <Select value={formData.pelurusan_material} onValueChange={(value) => handleSelectChange("pelurusan_material", value)}>
-                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {materialAlignmentOptions.map((option) => (
-                            <SelectItem key={option} value={option}>{option}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Status Procurement</label>
-                      <Select value={formData.status_procurement} onValueChange={(value) => handleSelectChange("status_procurement", value)}>
-                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {procurementOptions.map((option) => (
-                            <SelectItem key={option} value={option}>{option}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Row 6: Estimasi Durasi & Tanggal Mulai - Responsive Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                  {/* Row 5: Rekon Material, Pelurusan Material, Status Procurement */}
+                  <div className="grid grid-cols-3 gap-6">
                     <div>
-                      <DurationPicker
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Rekon Material
+                      </label>
+                      <select
+                        name="rekon_material"
+                        value={formData.rekon_material}
+                        onChange={handleInputChange}
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white text-gray-900"
+                      >
+                        {rekonMaterialOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Pelurusan Material
+                      </label>
+                      <select
+                        name="pelurusan_material"
+                        value={formData.pelurusan_material}
+                        onChange={handleInputChange}
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white text-gray-900"
+                      >
+                        {materialAlignmentOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Status Procurement
+                      </label>
+                      <select
+                        name="status_procurement"
+                        value={formData.status_procurement}
+                        onChange={handleInputChange}
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white text-gray-900"
+                      >
+                        {procurementOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Row 6: Estimasi Durasi & Tanggal Mulai */}
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Estimasi Durasi (hari)
+                      </label>
+                      <Input
+                        type="number"
+                        name="estimasi_durasi_hari"
+                        placeholder="7"
                         value={formData.estimasi_durasi_hari}
-                        onChange={(value) => setFormData(prev => ({ ...prev, estimasi_durasi_hari: String(value) }))}
-                        label="Estimasi Durasi (hari)"
+                        onChange={handleInputChange}
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white"
+                        min="1"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs sm:text-sm font-bold text-gray-900">Tanggal Mulai</label>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Tanggal Mulai
+                      </label>
                       <Input
                         type="date"
                         name="tanggal_mulai"
                         value={formData.tanggal_mulai}
                         onChange={handleInputChange}
-                        className="border-2 border-green-400 focus:border-green-600 rounded-lg h-9 md:h-10 px-3 py-2 text-sm md:text-base bg-green-50 placeholder-gray-500"
+                        className="w-full h-11 px-4 border-2 border-green-400 rounded-md focus:border-green-600 bg-green-50"
                       />
-                      <p className="text-xs text-gray-600">Tanggal mulai countdown timer</p>
                     </div>
                   </div>
 
-                  {/* Buttons - Responsive */}
-                  <div className="flex flex-col sm:flex-row gap-3 md:gap-4 pt-4 border-t-2 border-gray-200">
-                    <Button type="button" variant="outline" onClick={() => navigate("/projects")} className="w-full sm:w-auto text-xs md:text-sm">
+                  {/* Submit Buttons */}
+                  <div className="flex gap-4 pt-6 border-t-2 border-gray-200">
+                    <Button
+                      type="button"
+                      onClick={() => navigate("/projects")}
+                      className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2.5 px-8 rounded-md"
+                    >
                       Batal
                     </Button>
-                    <Button type="submit" disabled={loading} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 md:py-4 lg:py-6 text-sm md:text-base rounded-lg">
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-md"
+                    >
                       {loading ? "Menyimpan..." : "Simpan Proyek"}
                     </Button>
                   </div>
                 </form>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+
+            {/* Info Box */}
+            {Object.values(formData).some(val => val === "") && (
+              <div className="mt-6 bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 flex items-center gap-3">
+                <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center text-white font-bold">
+                  !
+                </div>
+                <p className="text-sm text-gray-700">
+                  <span className="font-bold">Gagal memuat data proyek</span>
+                </p>
+              </div>
+            )}
           </div>
-        </main>
+        </div>
       </div>
-    </SidebarProvider>
+    </div>
   );
 }

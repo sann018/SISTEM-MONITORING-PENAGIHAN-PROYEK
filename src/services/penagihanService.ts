@@ -127,6 +127,17 @@ class PenagihanService {
   }
 
   /**
+   * Export data to Excel (download all projects)
+   */
+  async exportToExcel(): Promise<Blob> {
+    const response = await api.get(`${this.baseUrl}/export`, {
+      responseType: 'blob',
+    });
+
+    return response.data;
+  }
+
+  /**
    * Export invoices to Excel
    */
   async exportExcel(params?: FilterParams): Promise<Blob> {

@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 export default function ResetPassword() {
   const [password, setPassword] = useState("");
@@ -13,19 +14,18 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const token = searchParams.get('token');
+  const email = searchParams.get('email');
 
   useEffect(() => {
-    // Check if user is in recovery mode
-    const checkRecoveryMode = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
-        toast.error("Link reset password tidak valid atau sudah expired");
-        navigate("/auth");
-      }
-    };
-
-    checkRecoveryMode();
-  }, [navigate]);
+    // Check if token and email are present
+    if (!token || !email) {
+      toast.error("Link reset password tidak valid atau sudah expired");
+      navigate("/auth");
+    }
+  }, [navigate, token, email]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,29 +35,40 @@ export default function ResetPassword() {
       return;
     }
 
-    if (password.length < 6) {
-      toast.error("Password minimal 6 karakter");
+    if (password.length < 8) {
+      toast.error("Password minimal 8 karakter");
       return;
     }
 
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password,
+      const response = await fetch(`${API_BASE_URL}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token,
+          email,
+          password,
+          password_confirmation: confirmPassword,
+        }),
       });
 
-      if (error) {
-        toast.error(error.message);
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.message || 'Token tidak valid atau sudah kadaluarsa');
       } else {
         setSuccess(true);
-        toast.success("Password berhasil direset!");
+        toast.success(data.message || "Password berhasil direset!");
         setTimeout(() => {
           navigate("/auth");
         }, 2000);
       }
     } catch (error: any) {
-      toast.error(error.message || "An error occurred");
+      toast.error(error.message || "Terjadi kesalahan");
     } finally {
       setLoading(false);
     }
@@ -114,7 +125,7 @@ export default function ResetPassword() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
-                minLength={6}
+                minLength={8}
                 className="h-12 text-base border-2 border-gray-300 focus:border-red-500 rounded-lg"
               />
             </div>
@@ -128,7 +139,7 @@ export default function ResetPassword() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 placeholder="••••••••"
-                minLength={6}
+                minLength={8}
                 className="h-12 text-base border-2 border-gray-300 focus:border-red-500 rounded-lg"
               />
             </div>

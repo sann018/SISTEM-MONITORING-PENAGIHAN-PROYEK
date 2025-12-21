@@ -1,35 +1,32 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
+import Sidebar from "@/components/Sidebar";
+import TopBar from "@/components/TopBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Mail, User, Lock, Edit2, Save } from "lucide-react";
+import { Camera } from "lucide-react";
 import { toast } from "sonner";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
 interface ProfileData {
-  id: string;
-  full_name: string;
+  id: number;
+  name: string;
   email: string;
-  role_display: string;
-  avatar_url?: string;
+  role: string;
 }
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState<ProfileData>({
-    id: "",
-    full_name: "",
+    id: 0,
+    name: "",
     email: "",
-    role_display: "",
-    avatar_url: "",
+    role: "",
   });
 
   useEffect(() => {
@@ -39,27 +36,30 @@ export default function Profile() {
   }, [user]);
 
   const fetchProfile = async () => {
-    if (!user) return;
+    if (!token) return;
+    
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+      const response = await fetch(`${API_BASE_URL}/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-      if (error) throw error;
+      const data = await response.json();
 
-      if (data) {
-        setProfile({
-          id: data.id,
-          full_name: data.full_name || "",
-          email: user.email || "",
-          role_display: data.role_display || "User",
-          avatar_url: data.avatar_url || "",
-        });
+      if (!response.ok) {
+        throw new Error(data.message || 'Gagal memuat profil');
       }
-    } catch (error) {
-      toast.error("Gagal memuat profil");
+
+      setProfile({
+        id: data.data.id,
+        name: data.data.name || "",
+        email: data.data.email || "",
+        role: data.data.role || "",
+      });
+    } catch (error: any) {
+      toast.error(error.message || "Gagal memuat profil");
       console.error(error);
     }
   };
@@ -74,199 +74,206 @@ export default function Profile() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!token) return;
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: profile.full_name,
-        })
-        .eq("id", user.id);
+      const response = await fetch(`${API_BASE_URL}/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: profile.name,
+        }),
+      });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Gagal memperbarui profil');
+      }
 
       toast.success("Profil berhasil diperbarui!");
       setIsEditing(false);
-    } catch (error) {
-      toast.error("Gagal memperbarui profil");
+      
+      // Update profile data
+      setProfile(prev => ({
+        ...prev,
+        name: data.data.name,
+      }));
+    } catch (error: any) {
+      toast.error(error.message || "Gagal memperbarui profil");
       console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
+  const getRoleDisplay = (role: string) => {
+    switch (role) {
+      case 'super_admin':
+        return 'Super Admin';
+      case 'viewer':
+        return 'Viewer';
+      default:
+        return 'User';
+    }
+  };
+
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-gradient-to-br from-gray-50 to-gray-100">
-        <AppSidebar />
-        <main className="flex-1">
-          {/* Header */}
-          <header className="sticky top-0 z-40 border-b-2 border-red-200 bg-white shadow-sm">
-            <div className="flex h-20 items-center gap-4 px-6 bg-gradient-to-r from-red-50 to-white border-b-2 border-red-200">
-              <SidebarTrigger />
-              <h1 className="text-2xl font-bold text-red-600">Profil Pengguna</h1>
-            </div>
-          </header>
+    <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '64px' }}>
+      <TopBar />
+      <Sidebar />
 
-          {/* Content */}
-          <div className="p-8 space-y-6 max-w-2xl">
-            {/* Back Button */}
-            <Button
-              variant="outline"
-              onClick={() => navigate("/dashboard")}
-              className="border-gray-300 hover:bg-gray-100"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Kembali ke Dashboard
-            </Button>
-
-            {/* Profile Card */}
-            <Card className="border-2 border-gray-200 shadow-lg overflow-hidden">
-              <CardHeader className="border-b-2 border-gray-200 bg-gradient-to-r from-red-50 to-white">
-                <CardTitle className="text-2xl font-bold text-red-600">Informasi Profil</CardTitle>
-              </CardHeader>
-
-              <CardContent className="pt-8 pb-8">
-                {/* Avatar & Basic Info */}
-                <div className="flex items-center gap-6 mb-8 pb-8 border-b-2 border-gray-200">
-                  <Avatar className="h-24 w-24 ring-4 ring-red-200 shadow-lg">
-                    <AvatarImage src={profile.avatar_url} alt={profile.full_name} />
-                    <AvatarFallback className="bg-red-100 text-red-600 text-lg font-bold">
-                      {profile.full_name?.charAt(0).toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-
-                  <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-gray-900">{profile.full_name || "User"}</h2>
-                    <p className="text-gray-600 font-medium">{profile.role_display}</p>
-                    <p className="text-sm text-gray-500">{profile.email}</p>
+      <div className="flex-1 flex flex-col overflow-hidden" style={{ marginLeft: '112px' }}>
+        <div className="flex-1 overflow-auto p-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Left Side - Photo */}
+              <div className="flex flex-col items-center justify-start">
+                <div className="w-full max-w-md bg-red-600 rounded-2xl shadow-xl p-6 border-4 border-red-700">
+                  <h3 className="text-center text-white font-bold text-lg mb-4 bg-red-700 py-2 rounded-lg">
+                    FOTO PROFIL
+                  </h3>
+                  <div className="bg-white rounded-full w-32 h-32 flex items-center justify-center mb-6 mx-auto">
+                    <Camera className="w-16 h-16 text-gray-400" />
                   </div>
-
-                  <Button
-                    onClick={() => setIsEditing(!isEditing)}
-                    className={`transition-all duration-300 ${
-                      isEditing
-                        ? "bg-gray-600 hover:bg-gray-700"
-                        : "bg-red-600 hover:bg-red-700"
-                    }`}
-                  >
-                    {isEditing ? (
-                      <>
-                        <Lock className="h-4 w-4 mr-2" />
-                        Batal Edit
-                      </>
-                    ) : (
-                      <>
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Edit Profil
-                      </>
-                    )}
-                  </Button>
+                  <h3 className="text-center text-white font-bold text-xl mb-2">
+                    {profile.name || "Nomin Lengkap"}
+                  </h3>
+                  <p className="text-center text-white text-sm mb-4">Jabatan</p>
+                  <button className="w-full bg-white text-red-600 font-bold py-2 rounded-lg hover:bg-gray-100 transition">
+                    Admin
+                  </button>
                 </div>
+              </div>
 
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Nama Lengkap */}
-                  <div className="space-y-2">
-                    <label className="flex items-center text-sm font-bold text-gray-900 gap-2">
-                      <User className="h-4 w-4 text-red-600" />
-                      Nama Lengkap
+              {/* Right Side - Form */}
+              <div className="bg-white rounded-2xl shadow-xl p-8 border-2 border-gray-200">
+                <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">
+                  Profile Information
+                </h2>
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  {/* Username */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Username
                     </label>
                     <Input
                       type="text"
-                      name="full_name"
-                      value={profile.full_name}
+                      name="name"
+                      value={profile.name}
                       onChange={handleInputChange}
                       disabled={!isEditing}
-                      className={`
-                        border-2 rounded-lg h-11 px-4 py-2 text-base transition-all duration-300
-                        ${isEditing
-                          ? "border-red-400 focus:border-red-600 bg-white"
-                          : "border-gray-300 bg-gray-50 cursor-not-allowed"
-                        }
-                      `}
-                      placeholder="Masukkan nama lengkap"
+                      placeholder="Username"
+                      className="w-full h-11 px-4 border-2 border-gray-300 rounded-md disabled:bg-gray-50 focus:border-red-500"
                     />
                   </div>
 
                   {/* Email */}
-                  <div className="space-y-2">
-                    <label className="flex items-center text-sm font-bold text-gray-900 gap-2">
-                      <Mail className="h-4 w-4 text-red-600" />
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
                       Email
                     </label>
                     <Input
                       type="email"
                       value={profile.email}
                       disabled
-                      className="border-2 border-gray-300 rounded-lg h-11 px-4 py-2 text-base bg-gray-100 cursor-not-allowed text-gray-600"
+                      placeholder="Email"
+                      className="w-full h-11 px-4 border-2 border-gray-300 rounded-md disabled:bg-gray-50"
                     />
-                    <p className="text-xs text-blue-600 mt-1">Email tidak dapat diubah</p>
                   </div>
 
-                  {/* Role */}
-                  <div className="space-y-2">
-                    <label className="flex items-center text-sm font-bold text-gray-900 gap-2">
-                      <Lock className="h-4 w-4 text-red-600" />
-                      Role
+                  {/* Nama Lengkap */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Nama Lengkap
                     </label>
                     <Input
                       type="text"
-                      value={profile.role_display}
-                      disabled
-                      className="border-2 border-gray-300 rounded-lg h-11 px-4 py-2 text-base bg-gray-100 cursor-not-allowed text-gray-600"
+                      name="name"
+                      value={profile.name}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      placeholder="Nama lengkap"
+                      className="w-full h-11 px-4 border-2 border-gray-300 rounded-md disabled:bg-gray-50 focus:border-red-500"
                     />
-                    <p className="text-xs text-blue-600 mt-1">Role ditentukan oleh administrator</p>
                   </div>
 
-                  {/* Save Button */}
-                  {isEditing && (
-                    <div className="flex gap-4 pt-6 border-t-2 border-gray-200">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setIsEditing(false)}
-                        className="flex-1 border-gray-300 hover:bg-gray-100"
-                      >
-                        Batal
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={loading}
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition-all duration-300"
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        {loading ? "Menyimpan..." : "Simpan Perubahan"}
-                      </Button>
+                  {/* NIK and Role - Two columns */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        NIK
+                      </label>
+                      <Input
+                        type="text"
+                        value={profile.id.toString()}
+                        disabled
+                        placeholder="NIK"
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md disabled:bg-gray-50"
+                      />
                     </div>
-                  )}
-                </form>
-              </CardContent>
-            </Card>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        Role
+                      </label>
+                      <select
+                        value={getRoleDisplay(profile.role)}
+                        disabled
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md disabled:bg-gray-50 bg-white"
+                      >
+                        <option>{getRoleDisplay(profile.role)}</option>
+                      </select>
+                    </div>
+                  </div>
 
-            {/* Additional Info Card */}
-            <Card className="border-2 border-gray-200 shadow-lg bg-blue-50">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  <div className="text-blue-600 mt-1">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zm-11-1a1 1 0 11-2 0 1 1 0 012 0z" clipRule="evenodd" />
-                    </svg>
+                  {/* Buttons */}
+                  <div className="flex gap-4 pt-6">
+                    {!isEditing ? (
+                      <>
+                        <Button
+                          type="button"
+                          onClick={() => setIsEditing(true)}
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-md text-sm"
+                        >
+                          EDIT
+                        </Button>
+                        <Button
+                          disabled
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-md text-sm opacity-50 cursor-not-allowed"
+                        >
+                          SIMPAN
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          type="button"
+                          onClick={() => setIsEditing(false)}
+                          className="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2.5 rounded-md text-sm"
+                        >
+                          BATAL
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={loading}
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-md text-sm"
+                        >
+                          {loading ? "Menyimpan..." : "SIMPAN"}
+                        </Button>
+                      </>
+                    )}
                   </div>
-                  <div>
-                    <p className="font-semibold text-blue-900">Informasi Penting</p>
-                    <p className="text-sm text-blue-700 mt-1">
-                      Untuk mengubah email atau role, silakan hubungi administrator sistem.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </form>
+              </div>
+            </div>
           </div>
-        </main>
+        </div>
       </div>
-    </SidebarProvider>
+    </div>
   );
 }
