@@ -13,10 +13,12 @@ interface Project {
   nama_proyek: string;
   nama_mitra: string;
   pid: string;
+  jenis_po: string;
   nomor_po: string;
   phase: string;
   status_ct: string;
   status_ut: string;
+  rekap_boq: string;
   rekon_nilai: string;
   rekon_material: string;
   pelurusan_material: string;
@@ -44,16 +46,16 @@ export default function Dashboard() {
         nama_proyek: item.nama_proyek || '',
         nama_mitra: item.nama_mitra || '',
         pid: item.pid || '',
+        jenis_po: item.jenis_po || '',
         nomor_po: item.nomor_po || '',
         phase: item.phase || '',
         status_ct: item.status_ct || 'BELUM CT',
         status_ut: item.status_ut || 'BELUM UT',
+        rekap_boq: item.rekap_boq || '',
         rekon_nilai: item.rekon_nilai?.toString() || '0',
         rekon_material: item.rekon_material || 'BELUM REKON',
         pelurusan_material: item.pelurusan_material || 'BELUM LURUS',
         status_procurement: item.status_procurement || 'ANTRI PERIV',
-        estimasi_durasi_hari: item.estimasi_durasi_hari || 7,
-        tanggal_mulai: item.tanggal_mulai || new Date().toISOString().split('T')[0],
       }));
       
       setProjects(mappedData);
@@ -162,10 +164,10 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '64px' }}>
+      <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '80px' }}>
         <TopBar />
         <Sidebar />
-        <div className="flex items-center justify-center" style={{ marginLeft: '112px', height: 'calc(100vh - 64px)' }}>
+        <div className="flex items-center justify-center" style={{ marginLeft: '144px', height: 'calc(100vh - 80px)' }}>
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Memuat data...</p>
@@ -176,10 +178,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '64px' }}>
+    <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '80px' }}>
       <TopBar title="Dashboard" />
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden" style={{ marginLeft: '112px' }}>
+      <div className="flex-1 flex flex-col overflow-hidden" style={{ marginLeft: '144px' }}>
 
         <div className="flex-1 overflow-auto p-8">
           {/* Stats Cards */}
@@ -278,42 +280,78 @@ export default function Dashboard() {
 
           {/* Table */}
           <div className="bg-white rounded-lg shadow overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
+            <table className="w-full text-sm" style={{ minWidth: '1800px' }}>
+              <thead className="sticky top-0 z-10">
                 <tr className="bg-gray-200 border-b-2 border-red-600">
-                  <th className="px-4 py-3 text-left font-bold text-gray-700">Nama Proyek</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700">Nama Mitra</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700">PID</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700">Nomor PO</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700">Fase</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700">Status UT</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700">Rekap BOQ</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700">Rekon Nilai</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700">Status Procurement</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '180px' }}>Nama Proyek</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '150px' }}>Nama Mitra</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '100px' }}>PID</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '120px' }}>Jenis PO</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '120px' }}>Nomor PO</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '100px' }}>Phase</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '120px' }}>Status CT</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '120px' }}>Status UT</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '130px' }}>Rekap BOQ</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '150px' }}>Rekon Nilai</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '140px' }}>Rekon Material</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '160px' }}>Pelurusan Material</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '180px' }}>Status Procurement</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredProjects.length > 0 ? (
                   filteredProjects.slice(0, 5).map((project) => (
                     <tr key={project.id} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-3">{project.nama_proyek}</td>
-                      <td className="px-4 py-3">{project.nama_mitra}</td>
-                      <td className="px-4 py-3">{project.pid}</td>
-                      <td className="px-4 py-3">{project.nomor_po}</td>
-                      <td className="px-4 py-3">{project.phase}</td>
-                      <td className="px-4 py-3">
-                        <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-semibold">
+                      <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '180px' }}>{project.nama_proyek}</td>
+                      <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '150px' }}>{project.nama_mitra}</td>
+                      <td className="px-4 py-3 font-mono whitespace-nowrap" style={{ minWidth: '100px' }}>{project.pid}</td>
+                      <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '120px' }}>{project.jenis_po}</td>
+                      <td className="px-4 py-3 whitespace-nowrap" style={{ minWidth: '120px' }}>{project.nomor_po}</td>
+                      <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '100px' }}>{project.phase}</td>
+                      <td className="px-4 py-3" style={{ minWidth: '120px' }}>
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          project.status_ct === 'Sudah CT' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {project.status_ct}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3" style={{ minWidth: '120px' }}>
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          project.status_ut === 'Sudah UT' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
                           {project.status_ut}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-semibold">
-                          BOQ
+                      <td className="px-4 py-3" style={{ minWidth: '130px' }}>
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          project.rekap_boq === 'Sudah Rekap' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {project.rekap_boq}
                         </span>
                       </td>
-                      <td className="px-4 py-3">{project.rekon_nilai}</td>
-                      <td className="px-4 py-3">
-                        <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-semibold">
+                      <td className="px-4 py-3 whitespace-nowrap" style={{ minWidth: '150px' }}>
+                        {project.rekon_nilai ? `Rp ${Number(project.rekon_nilai).toLocaleString('id-ID')}` : '-'}
+                      </td>
+                      <td className="px-4 py-3" style={{ minWidth: '140px' }}>
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          project.rekon_material === 'Sudah Rekap' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {project.rekon_material}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3" style={{ minWidth: '160px' }}>
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          project.pelurusan_material === 'Sudah Diluruskan' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {project.pelurusan_material}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3" style={{ minWidth: '180px' }}>
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          project.status_procurement?.includes('OTW') || project.status_procurement?.includes('Sekuler') 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
                           {project.status_procurement}
                         </span>
                       </td>
@@ -321,7 +359,7 @@ export default function Dashboard() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={9} className="px-4 py-3 text-center text-gray-500">
+                    <td colSpan={13} className="px-4 py-3 text-center text-gray-500">
                       Tidak ada data proyek
                     </td>
                   </tr>

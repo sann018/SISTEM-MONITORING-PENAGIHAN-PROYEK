@@ -415,10 +415,10 @@ export default function Projects() {
   // JSX RETURN
   // =====================================
   return (
-    <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '64px' }}>
+    <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '80px' }}>
       <TopBar title="Project" />
       <Sidebar />
-      <div className="flex-1 flex flex-col" style={{ marginLeft: '112px', height: 'calc(100vh - 64px)' }}>
+      <div className="flex-1 flex flex-col" style={{ marginLeft: '144px', height: 'calc(100vh - 80px)' }}>
         <TopBar />
 
         <div className="flex-1 flex flex-col overflow-hidden p-8">
@@ -496,23 +496,23 @@ export default function Projects() {
           <div className="flex-1 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col min-h-0">
             <div className="flex-1 overflow-y-auto overflow-x-auto">
               <table className="w-full text-sm" style={{ minWidth: '2000px' }}>
-                <thead>
+                <thead className="sticky top-0 z-10">
                   <tr className="bg-red-600 text-white">
-                    <th className="px-4 py-3 text-center font-bold" style={{ minWidth: '150px' }}>Timer</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '180px' }}>Nama Proyek</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '150px' }}>Nama Mitra</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>PID</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '120px' }}>Jenis PO</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '120px' }}>Nomor PO</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>Phase</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '120px' }}>Status CT</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '120px' }}>Status UT</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '130px' }}>Rekap BOQ</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '150px' }}>Rekon Nilai</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '140px' }}>Rekon Material</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '160px' }}>Pelurusan Material</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '180px' }}>Status Procurement</th>
-                    <th className="px-4 py-3 text-center font-bold" style={{ minWidth: '120px' }}>Aksi</th>
+                    <th className="px-4 py-3 text-center font-bold bg-red-600" style={{ minWidth: '150px' }}>Timer</th>
+                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '180px' }}>Nama Proyek</th>
+                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '150px' }}>Nama Mitra</th>
+                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '100px' }}>PID</th>
+                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '120px' }}>Jenis PO</th>
+                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '120px' }}>Nomor PO</th>
+                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '100px' }}>Phase</th>
+                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '120px' }}>Status CT</th>
+                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '120px' }}>Status UT</th>
+                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '130px' }}>Rekap BOQ</th>
+                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '150px' }}>Rekon Nilai</th>
+                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '140px' }}>Rekon Material</th>
+                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '160px' }}>Pelurusan Material</th>
+                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '180px' }}>Status Procurement</th>
+                    <th className="px-4 py-3 text-center font-bold bg-red-600" style={{ minWidth: '120px' }}>Aksi</th>
                   </tr>
                 </thead>
                 <tbody>

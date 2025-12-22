@@ -393,9 +393,9 @@ export default function UserManagement() {
             {/* Header */}
             <div className="mb-6">
               <h1 className="text-3xl font-bold text-red-600 mb-1">
-                Manajemen user
+                Manajemen User
               </h1>
-              <p className="text-lg font-semibold text-red-600">User dan Admin</p>
+              <p className="text-lg font-semibold text-red-600">Admin dan User</p>
             </div>
 
             {/* Search, Filter, and Action Buttons */}

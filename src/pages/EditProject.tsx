@@ -16,10 +16,12 @@ interface Project {
   nama_proyek: string;
   nama_mitra: string;
   pid: string;
+  jenis_po: string;
   nomor_po: string;
   phase: string;
   status_ct: string;
   status_ut: string;
+  rekap_boq: string;
   rekon_nilai: string;
   rekon_material: string;
   pelurusan_material: string;
@@ -37,10 +39,12 @@ export default function EditProject() {
 
   const statusCtOptions = ["SUDAH CT", "BELUM CT"];
   const statusUtOptions = ["SUDAH UT", "BELUM UT"];
+  const rekapBoqOptions = ["Sudah Rekap", "Belum Rekap"];
   const rekonMaterialOptions = ["SUDAH REKON", "BELUM REKON"];
   const materialAlignmentOptions = ["SUDAH LURUS", "BELUM LURUS"];
   const procurementOptions = ["ANTRI PERIV", "PROSES PERIV", "REVISI MITRA", "SEKULER TTD", "SCAN DOKUMEN MITRA", "OTW REG"];
   const phaseOptions = ["Instalasi", "Konstruksi", "Optimasi", "Perencanaan", "Implementasi", "Aktivasi", "Maintenance", "Penyelesaian"];
+  const jenisPoOptions = ["Baru", "Perpanjangan", "Perubahan", "Addendum"];
 
   useEffect(() => {
     fetchProject();
@@ -56,14 +60,16 @@ export default function EditProject() {
         nama_proyek: data.nama_proyek || '',
         nama_mitra: data.nama_mitra || '',
         pid: data.pid || '',
+        jenis_po: data.jenis_po || '',
         nomor_po: data.nomor_po || '',
         phase: data.phase || '',
-        status_ct: data.status_ct || 'BELUM CT',
-        status_ut: data.status_ut || 'BELUM UT',
+        status_ct: data.status_ct || 'Belum CT',
+        status_ut: data.status_ut || 'Belum UT',
+        rekap_boq: data.rekap_boq || 'Belum Rekap',
         rekon_nilai: data.rekon_nilai?.toString() || '0',
-        rekon_material: data.rekon_material || 'BELUM REKON',
-        pelurusan_material: data.pelurusan_material || 'BELUM LURUS',
-        status_procurement: data.status_procurement || 'ANTRI PERIV',
+        rekon_material: data.rekon_material || 'Belum Rekon',
+        pelurusan_material: data.pelurusan_material || 'Belum Lurus',
+        status_procurement: data.status_procurement || 'Antri Periv',
         estimasi_durasi_hari: data.estimasi_durasi_hari || '7',
         tanggal_mulai: data.tanggal_mulai || new Date().toISOString().split('T')[0],
       };
@@ -104,10 +110,12 @@ export default function EditProject() {
         nama_proyek: formData.nama_proyek,
         nama_mitra: formData.nama_mitra,
         pid: formData.pid,
+        jenis_po: formData.jenis_po,
         nomor_po: formData.nomor_po,
         phase: formData.phase,
         status_ct: formData.status_ct,
         status_ut: formData.status_ut,
+        rekap_boq: formData.rekap_boq,
         rekon_nilai: parseFloat(formData.rekon_nilai) || 0,
         rekon_material: formData.rekon_material,
         pelurusan_material: formData.pelurusan_material,
@@ -185,8 +193,8 @@ export default function EditProject() {
                     </div>
                   </div>
 
-                  {/* Row 2: PID & Nomor PO */}
-                  <div className="grid grid-cols-2 gap-6">
+                  {/* Row 2: PID, Jenis PO & Nomor PO */}
+                  <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-900">PID <span className="text-red-600">*</span></label>
                       <Input
@@ -197,6 +205,19 @@ export default function EditProject() {
                         onChange={handleInputChange}
                         className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white placeholder-gray-500"
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-900">Jenis PO</label>
+                      <Select value={formData.jenis_po} onValueChange={(value) => handleSelectChange("jenis_po", value)}>
+                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white">
+                          <SelectValue placeholder="Pilih Jenis PO" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {jenisPoOptions.map((option) => (
+                            <SelectItem key={option} value={option}>{option}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-900">Nomor PO <span className="text-red-600">*</span></label>
@@ -226,8 +247,8 @@ export default function EditProject() {
                     </Select>
                   </div>
 
-                  {/* Row 4: Status CT, Status UT, Rekon Nilai */}
-                  <div className="grid grid-cols-3 gap-4">
+                  {/* Row 4: Status CT, Status UT, Rekap BOQ, Rekon Nilai */}
+                  <div className="grid grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-900">Status CT <span className="text-red-600">*</span></label>
                       <Select value={formData.status_ct} onValueChange={(value) => handleSelectChange("status_ct", value)}>
@@ -249,6 +270,19 @@ export default function EditProject() {
                         </SelectTrigger>
                         <SelectContent>
                           {statusUtOptions.map((option) => (
+                            <SelectItem key={option} value={option}>{option}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-900">Rekap BOQ</label>
+                      <Select value={formData.rekap_boq} onValueChange={(value) => handleSelectChange("rekap_boq", value)}>
+                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {rekapBoqOptions.map((option) => (
                             <SelectItem key={option} value={option}>{option}</SelectItem>
                           ))}
                         </SelectContent>

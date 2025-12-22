@@ -84,10 +84,12 @@ export interface Penagihan {
   nama_proyek: string;
   nama_mitra: string;
   pid: string;
+  jenis_po?: string;
   nomor_po: string;
   phase: string;
   status_ct: string;
   status_ut: string;
+  rekap_boq?: string;
   rekon_nilai: number;
   rekon_material: string;
   pelurusan_material: string;
@@ -106,10 +108,12 @@ export interface PenagihanFormData {
   nama_proyek: string;
   nama_mitra: string;
   pid: string;
+  jenis_po?: string;
   nomor_po: string;
   phase: string;
   status_ct?: string;
   status_ut?: string;
+  rekap_boq?: string;
   rekon_nilai: number;
   rekon_material?: string;
   pelurusan_material?: string;

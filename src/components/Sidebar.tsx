@@ -36,38 +36,38 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="w-28 bg-red-600 text-white flex flex-col fixed left-0 shadow-xl" style={{ top: '64px', height: 'calc(100vh - 64px)' }}>
+    <div className="w-28 bg-red-600 text-white flex flex-col fixed left-0 shadow-xl" style={{ top: '80px', height: 'calc(100vh - 80px)' }}>
       {/* MENU Header */}
-      <div className="p-3 bg-red-600">
-        <h3 className="font-bold text-sm text-center tracking-wider">MENU</h3>
+      <div className="px-3 py-4 bg-red-700">
+        <h3 className="font-bold text-base text-center tracking-wider">MENU</h3>
       </div>
 
       {/* Menu Items */}
-      <nav className="flex-1 space-y-1 p-2 pt-4">
+      <nav className="flex-1 space-y-2 px-3 py-4">
         {visibleMenuItems.map((item) => (
           <button
             key={item.path}
             onClick={() => navigate(item.path)}
-            className={`w-full flex flex-col items-center justify-center py-3 rounded-md transition-all text-xs font-bold ${
+            className={`w-full flex flex-col items-center justify-center py-4 rounded-lg transition-all duration-300 ease-in-out text-xs font-bold transform ${
               isActive(item.path)
-                ? "bg-white text-red-600 shadow-md"
-                : "text-white hover:bg-red-700 hover:shadow"
+                ? "bg-white text-red-600 shadow-lg scale-105"
+                : "text-white hover:bg-red-700 hover:shadow-md hover:scale-102"
             }`}
           >
-            <item.icon className="w-6 h-6 mb-1" strokeWidth={2.5} />
-            <span className="text-[10px]">{item.label}</span>
+            <item.icon className="w-7 h-7 mb-1.5 transition-transform duration-300" strokeWidth={2.5} />
+            <span className="text-xs font-semibold transition-all duration-300">{item.label}</span>
           </button>
         ))}
       </nav>
 
       {/* Logout Button */}
-      <div className="p-2 border-t-2 border-red-700 bg-red-700">
+      <div className="px-3 py-3 border-t-2 border-red-700 bg-red-700">
         <button
           onClick={handleLogout}
-          className="w-full bg-white text-red-600 font-bold py-2 px-2 rounded-md hover:bg-gray-100 transition flex flex-col items-center justify-center gap-1 text-xs shadow-md"
+          className="w-full bg-white text-red-600 font-bold py-3 px-2 rounded-lg hover:bg-gray-100 transition-all duration-300 hover:shadow-lg flex flex-col items-center justify-center gap-1 text-xs shadow-md"
         >
-          <LogOut className="w-4 h-4" strokeWidth={2.5} />
-          <span className="text-[9px] font-extrabold">LOG OUT</span>
+          <LogOut className="w-5 h-5" strokeWidth={2.5} />
+          <span className="text-xs font-bold">Keluar</span>
         </button>
       </div>
     </div>

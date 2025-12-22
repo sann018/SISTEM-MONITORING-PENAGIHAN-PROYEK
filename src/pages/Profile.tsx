@@ -23,6 +23,7 @@ export default function Profile() {
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState<string>("");
+  const [previewPhoto, setPreviewPhoto] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Password change states
@@ -69,13 +70,15 @@ export default function Profile() {
         name: data.data.name || "",
         email: data.data.email || "",
         role: data.data.role || "",
-        nik: data.data.id?.toString() || "",
+        nik: data.data.nik || "",
         photo: data.data.photo || "",
       });
       
-      if (data.data.photo) {
-        setProfilePhoto(data.data.photo);
-      }
+      // Set foto dari server
+      const photoUrl = data.data.photo || "";
+      console.log('Photo URL from server:', photoUrl);
+      setProfilePhoto(photoUrl);
+      setPreviewPhoto(""); // Clear preview
     } catch (error: any) {
       toast.error(error.message || "Gagal memuat profil");
       console.error(error);
@@ -97,10 +100,10 @@ export default function Profile() {
         return;
       }
 
-      // Preview foto
+      // Preview foto (base64 untuk preview saja)
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfilePhoto(reader.result as string);
+        setPreviewPhoto(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -126,6 +129,32 @@ export default function Profile() {
 
     setLoading(true);
     try {
+      // Jika ada foto yang diupload, upload dulu fotonya
+      if (fileInputRef.current?.files?.[0]) {
+        const formData = new FormData();
+        formData.append('photo', fileInputRef.current.files[0]);
+
+        const photoResponse = await fetch(`${API_BASE_URL}/profile/photo`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formData,
+        });
+
+        const photoData = await photoResponse.json();
+
+        if (!photoResponse.ok) {
+          throw new Error(photoData.message || 'Gagal mengupload foto');
+        }
+        
+        // Update profile photo state
+        if (photoData.data?.photo) {
+          setProfilePhoto(photoData.data.photo);
+        }
+      }
+
+      // Update profile data (name, nik)
       const response = await fetch(`${API_BASE_URL}/profile`, {
         method: 'PUT',
         headers: {
@@ -147,12 +176,9 @@ export default function Profile() {
       toast.success("Profil berhasil diperbarui!");
       setIsEditing(false);
       
-      // Update profile data
-      setProfile(prev => ({
-        ...prev,
-        name: data.data.name,
-        nik: data.data.nik,
-      }));
+      // Clear preview and fetch profile again
+      setPreviewPhoto("");
+      await fetchProfile();
     } catch (error: any) {
       toast.error(error.message || "Gagal memperbarui profil");
       console.error(error);
@@ -227,7 +253,10 @@ export default function Profile() {
       <Sidebar />
 
       {/* Main Content */}
-      <div className="ml-0 lg:ml-28 pt-20 px-4 sm:px-6 lg:px-8 pb-8">
+      <div className="ml-0 lg:ml-28 pt-28 px-4 sm:px-6 lg:px-8 pb-8">
+        {/* Page Title */}
+        <h1 className="text-3xl font-bold text-red-600 mb-6">Profil Pengguna</h1>
+        
         {/* Outer Merah Border Container */}
         <div className="max-w-7xl mx-auto">
           <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 lg:p-6">
@@ -244,23 +273,37 @@ export default function Profile() {
                     <h3 className="text-white font-bold text-2xl tracking-wide mb-2">
                       Foto Profil
                     </h3>
-                    <div className="w-16 h-0.5 bg-white/30 mx-auto rounded-full"></div>
                   </div>
                   
                   {/* Profile Photo with Upload - Optimized Size */}
                   <div className="relative mb-6 mx-auto w-48 h-48">
                     <div 
-                      className={`bg-white rounded-full w-full h-full flex items-center justify-center shadow-2xl border-[6px] border-white overflow-hidden ring-4 ring-red-400/50 ${isEditing ? 'cursor-pointer hover:opacity-90 hover:scale-105 transition-all duration-300' : ''}`}
+                      className={`bg-white rounded-full w-full h-full shadow-2xl border-[6px] border-white ring-4 ring-red-400/50 overflow-hidden ${isEditing ? 'cursor-pointer hover:opacity-90 hover:scale-105 transition-all duration-300' : ''}`}
                       onClick={handlePhotoClick}
                     >
-                      {profilePhoto ? (
-                        <img 
-                          src={profilePhoto} 
-                          alt="Profile" 
-                          className="w-full h-full object-cover"
-                        />
+                      {(previewPhoto || profilePhoto) ? (
+                        <div className="w-full h-full relative bg-gray-100">
+                          <img 
+                            src={previewPhoto || profilePhoto} 
+                            alt="Profile" 
+                            className="absolute inset-0 w-full h-full"
+                            style={{ 
+                              objectPosition: 'center',
+                              objectFit: 'cover'
+                            }}
+                            onError={(e) => {
+                              console.error('Error loading image:', previewPhoto || profilePhoto);
+                              e.currentTarget.style.display = 'none';
+                            }}
+                            onLoad={() => {
+                              console.log('Image loaded successfully:', previewPhoto || profilePhoto);
+                            }}
+                          />
+                        </div>
                       ) : (
-                        <Camera className="w-24 h-24 text-gray-300" />
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Camera className="w-24 h-24 text-gray-300" />
+                        </div>
                       )}
                     </div>
                     
@@ -344,7 +387,7 @@ export default function Profile() {
                   {/* Form Header */}
                   <div className="bg-gray-50 border-b-2 border-gray-200 px-6 py-4">
                     <h2 className="text-2xl font-bold text-gray-900">
-                      Profile Information
+                      Informasi Profil
                     </h2>
                   </div>
 
