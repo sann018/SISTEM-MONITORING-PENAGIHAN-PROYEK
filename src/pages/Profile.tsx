@@ -254,23 +254,22 @@ export default function Profile() {
 
       {/* Main Content */}
       <div className="ml-0 lg:ml-28 pt-28 px-4 sm:px-6 lg:px-8 pb-8">
-        {/* Page Title */}
-        <h1 className="text-3xl font-bold text-red-600 mb-6">Profil Pengguna</h1>
-        
         {/* Outer Merah Border Container */}
         <div className="max-w-7xl mx-auto">
           <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 lg:p-6">
+            {/* Page Title */}
+            <h1 className="text-3xl font-bold text-red-600 mb-6">Profil Pengguna</h1>
             {/* Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
               {/* Left Side - Photo Profile Card */}
               <div className="lg:col-span-2 w-full">
-                <div className="bg-gradient-to-br from-red-600 via-red-700 to-red-800 rounded-3xl shadow-2xl p-6 border-4 border-red-900 h-full flex flex-col justify-center">
+                <div className="bg-white rounded-3xl shadow-2xl p-6 border-4 border-red-600 h-full flex flex-col justify-center">
                   {/* Header with Icon */}
                   <div className="text-center mb-6">
-                    <div className="inline-block bg-white/10 rounded-full p-2 mb-2">
-                      <User className="w-6 h-6 text-white" />
+                    <div className="inline-block bg-red-100 rounded-full p-2 mb-2">
+                      <User className="w-6 h-6 text-red-600" />
                     </div>
-                    <h3 className="text-white font-bold text-2xl tracking-wide mb-2">
+                    <h3 className="text-gray-900 font-bold text-2xl tracking-wide mb-2">
                       Foto Profil
                     </h3>
                   </div>
@@ -330,49 +329,49 @@ export default function Profile() {
                   {/* Info Cards without White Box - Single Line Layout */}
                   <div className="space-y-3">
                     {/* Nama Lengkap Section */}
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border-2 border-white/20 hover:bg-white/15 transition-all duration-300">
+                    <div className="bg-red-50 backdrop-blur-sm rounded-xl p-3 border-2 border-red-200 hover:bg-red-100 transition-all duration-300">
                       <div className="flex items-center gap-2">
-                        <div className="bg-white/20 rounded-lg p-1.5 flex-shrink-0">
-                          <User className="w-4 h-4 text-white" />
+                        <div className="bg-red-100 rounded-lg p-1.5 flex-shrink-0">
+                          <User className="w-4 h-4 text-red-600" />
                         </div>
-                        <p className="text-white/80 text-xs font-bold uppercase tracking-wider flex-shrink-0">
+                        <p className="text-gray-700 text-xs font-bold uppercase tracking-wider flex-shrink-0">
                           Nama:
                         </p>
-                        <p className="text-white font-bold text-base flex-1 truncate">
+                        <p className="text-gray-900 font-bold text-base flex-1 truncate">
                           {profile.name || "Super Admin"}
                         </p>
                       </div>
                     </div>
                     
                     {/* NIK Section */}
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border-2 border-white/20 hover:bg-white/15 transition-all duration-300">
+                    <div className="bg-red-50 backdrop-blur-sm rounded-xl p-3 border-2 border-red-200 hover:bg-red-100 transition-all duration-300">
                       <div className="flex items-center gap-2">
-                        <div className="bg-white/20 rounded-lg p-1.5 flex-shrink-0">
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="bg-red-100 rounded-lg p-1.5 flex-shrink-0">
+                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
                           </svg>
                         </div>
-                        <p className="text-white/80 text-xs font-bold uppercase tracking-wider flex-shrink-0">
+                        <p className="text-gray-700 text-xs font-bold uppercase tracking-wider flex-shrink-0">
                           NIK:
                         </p>
-                        <p className="text-white font-bold text-base flex-1">
+                        <p className="text-gray-900 font-bold text-base flex-1">
                           {profile.nik || profile.id || "9856789"}
                         </p>
                       </div>
                     </div>
                     
                     {/* Role Section */}
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border-2 border-white/20 hover:bg-white/15 transition-all duration-300">
+                    <div className="bg-red-50 backdrop-blur-sm rounded-xl p-3 border-2 border-red-200 hover:bg-red-100 transition-all duration-300">
                       <div className="flex items-center gap-2">
-                        <div className="bg-white/20 rounded-lg p-1.5 flex-shrink-0">
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="bg-red-100 rounded-lg p-1.5 flex-shrink-0">
+                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                           </svg>
                         </div>
-                        <p className="text-white/80 text-xs font-bold uppercase tracking-wider flex-shrink-0">
+                        <p className="text-gray-700 text-xs font-bold uppercase tracking-wider flex-shrink-0">
                           Role:
                         </p>
-                        <p className="text-red-200 font-bold text-base flex-1">
+                        <p className="text-red-600 font-bold text-base flex-1">
                           {getRoleDisplay(profile.role)}
                         </p>
                       </div>

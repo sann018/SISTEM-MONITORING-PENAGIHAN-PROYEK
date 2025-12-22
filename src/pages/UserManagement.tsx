@@ -387,9 +387,9 @@ export default function UserManagement() {
       <TopBar title="Man User" />
       <Sidebar />
 
-      <div className="ml-0 lg:ml-28 pt-20 px-4 sm:px-6 lg:px-8 pb-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white rounded-xl shadow-xl p-8">
+      <div className="ml-0 lg:ml-28 pt-28 px-4 sm:px-6 lg:px-8 pb-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 sm:p-6 lg:p-8">
             {/* Header */}
             <div className="mb-6">
               <h1 className="text-3xl font-bold text-red-600 mb-1">
