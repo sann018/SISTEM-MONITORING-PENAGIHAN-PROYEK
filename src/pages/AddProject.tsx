@@ -15,24 +15,28 @@ export default function AddProject() {
     nama_proyek: "",
     nama_mitra: "",
     pid: "",
+    jenis_po: "",
     nomor_po: "",
     phase: "",
-    status_ct: "BELUM CT",
-    status_ut: "BELUM UT",
+    status_ct: "Belum CT",
+    status_ut: "Belum UT",
+    rekap_boq: "Belum Rekap",
     rekon_nilai: "",
-    rekon_material: "BELUM REKON",
-    pelurusan_material: "BELUM LURUS",
-    status_procurement: "ANTRI PERIV",
+    rekon_material: "Belum Rekon",
+    pelurusan_material: "Belum Lurus",
+    status_procurement: "Antri Periv",
     estimasi_durasi_hari: "7",
     tanggal_mulai: new Date().toISOString().split("T")[0],
   });
 
-  const statusCtOptions = ["SUDAH CT", "BELUM CT"];
-  const statusUtOptions = ["SUDAH UT", "BELUM UT"];
-  const rekonMaterialOptions = ["SUDAH REKON", "BELUM REKON"];
-  const materialAlignmentOptions = ["SUDAH LURUS", "BELUM LURUS"];
-  const procurementOptions = ["ANTRI PERIV", "PROSES PERIV", "REVISI MITRA", "SEKULER TTD", "SCAN DOKUMEN MITRA", "OTW REG"];
+  const statusCtOptions = ["Sudah CT", "Belum CT"];
+  const statusUtOptions = ["Sudah UT", "Belum UT"];
+  const rekapBoqOptions = ["Sudah Rekap", "Belum Rekap"];
+  const rekonMaterialOptions = ["Sudah Rekon", "Belum Rekon"];
+  const materialAlignmentOptions = ["Sudah Lurus", "Belum Lurus"];
+  const procurementOptions = ["Antri Periv", "Proses Periv", "Revisi Mitra", "Sekuler TTD", "Scan Dokumen Mitra", "OTW Reg"];
   const phaseOptions = ["Instalasi", "Konstruksi", "Optimasi", "Perencanaan", "Implementasi", "Aktivasi", "Maintenance", "Penyelesaian"];
+  const jenisPoOptions = ["Baru", "Perpanjangan", "Perubahan", "Addendum"];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -57,10 +61,12 @@ export default function AddProject() {
         nama_proyek: formData.nama_proyek,
         nama_mitra: formData.nama_mitra,
         pid: formData.pid,
+        jenis_po: formData.jenis_po,
         nomor_po: formData.nomor_po,
         phase: formData.phase,
         status_ct: formData.status_ct,
         status_ut: formData.status_ut,
+        rekap_boq: formData.rekap_boq,
         rekon_nilai: parseFloat(formData.rekon_nilai) || 0,
         rekon_material: formData.rekon_material,
         pelurusan_material: formData.pelurusan_material,
@@ -71,20 +77,33 @@ export default function AddProject() {
         tanggal_jatuh_tempo: new Date().toISOString().split('T')[0],
       };
       
+      console.log("📤 Data yang dikirim ke API:", mappedData);
+      
       await penagihanService.create(mappedData);
       toast.success("Proyek berhasil ditambahkan");
       navigate("/projects");
-    } catch (error) {
-      toast.error("Gagal menambahkan proyek");
-      console.error(error);
+    } catch (error: any) {
+      console.error("❌ Error detail:", error);
+      console.error("❌ Error response:", error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || "Gagal menambahkan proyek";
+      const errorDetails = error.response?.data?.errors;
+      
+      if (errorDetails) {
+        console.error("❌ Validation errors:", errorDetails);
+        const firstError = Object.values(errorDetails)[0];
+        toast.error(Array.isArray(firstError) ? firstError[0] : errorMessage);
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '64px' }}>
-      <TopBar />
+    <div className="bg-white" style={{ minHeight: '100vh', paddingTop: '64px' }}>
+      <TopBar title="Tambah Proyek Baru" />
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden" style={{ marginLeft: '112px' }}>
@@ -144,8 +163,8 @@ export default function AddProject() {
                     </div>
                   </div>
 
-                  {/* Row 2: PID & Nomor PO */}
-                  <div className="grid grid-cols-2 gap-6">
+                  {/* Row 2: PID, Jenis PO, Nomor PO */}
+                  <div className="grid grid-cols-3 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
                         PID <span className="text-red-600">*</span>
@@ -153,7 +172,7 @@ export default function AddProject() {
                       <Input
                         type="text"
                         name="pid"
-                        placeholder="PID-00123"
+                        placeholder="PID-003"
                         value={formData.pid}
                         onChange={handleInputChange}
                         className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white"
@@ -162,12 +181,28 @@ export default function AddProject() {
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Jenis PO
+                      </label>
+                      <select
+                        name="jenis_po"
+                        value={formData.jenis_po}
+                        onChange={handleInputChange}
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white text-gray-900"
+                      >
+                        <option value="">Pilih Jenis PO</option>
+                        {jenisPoOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
                         Nomor PO <span className="text-red-600">*</span>
                       </label>
                       <Input
                         type="text"
                         name="nomor_po"
-                        placeholder="PO-2024-001"
+                        placeholder="PO-2025-01"
                         value={formData.nomor_po}
                         onChange={handleInputChange}
                         className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white"
@@ -195,8 +230,8 @@ export default function AddProject() {
                     </select>
                   </div>
 
-                  {/* Row 4: Status CT, Status UT, Rekon Nilai */}
-                  <div className="grid grid-cols-3 gap-6">
+                  {/* Row 4: Status CT, Status UT, Rekap BOQ, Rekon Nilai */}
+                  <div className="grid grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
                         Status CT <span className="text-red-600">*</span>
@@ -227,6 +262,25 @@ export default function AddProject() {
                         ))}
                       </select>
                     </div>
+                  </div>
+
+                  {/* Row 5: Rekap BOQ & Rekon Nilai */}
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Rekap BOQ
+                      </label>
+                      <select
+                        name="rekap_boq"
+                        value={formData.rekap_boq}
+                        onChange={handleInputChange}
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white text-gray-900"
+                      >
+                        {rekapBoqOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
                         Rekon Nilai <span className="text-red-600">*</span>
@@ -234,7 +288,7 @@ export default function AddProject() {
                       <Input
                         type="number"
                         name="rekon_nilai"
-                        placeholder="Rp. 0"
+                        placeholder="2700000"
                         value={formData.rekon_nilai}
                         onChange={handleInputChange}
                         className="w-full h-11 px-4 border-2 border-blue-400 rounded-md focus:border-blue-600 bg-blue-50"
@@ -243,7 +297,7 @@ export default function AddProject() {
                     </div>
                   </div>
 
-                  {/* Row 5: Rekon Material, Pelurusan Material, Status Procurement */}
+                  {/* Row 6: Rekon Material, Pelurusan Material, Status Procurement */}
                   <div className="grid grid-cols-3 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
@@ -292,7 +346,7 @@ export default function AddProject() {
                     </div>
                   </div>
 
-                  {/* Row 6: Estimasi Durasi & Tanggal Mulai */}
+                  {/* Row 7: Estimasi Durasi & Tanggal Mulai */}
                   <div className="grid grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">

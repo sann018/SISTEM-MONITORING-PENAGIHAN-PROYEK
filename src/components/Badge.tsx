@@ -15,6 +15,7 @@ const badgeVariants = cva(
         "sudah-lurus": "bg-green-100 text-green-800 border border-green-300 shadow-sm hover:bg-green-200",
         "otw-reg": "bg-green-100 text-green-800 border border-green-300 shadow-sm hover:bg-green-200",
         "sudah-rekon": "bg-green-100 text-green-800 border border-green-300 shadow-sm hover:bg-green-200",
+        "sudah-rekap": "bg-green-100 text-green-800 border border-green-300 shadow-sm hover:bg-green-200",
 
         // Status Proses - KUNING/ORANGE
         "in-progress": "bg-amber-100 text-amber-800 border border-amber-300 shadow-sm hover:bg-amber-200",
@@ -31,6 +32,7 @@ const badgeVariants = cva(
         "belum-ut": "bg-red-100 text-red-800 border border-red-300 shadow-sm hover:bg-red-200",
         "belum-lurus": "bg-red-100 text-red-800 border border-red-300 shadow-sm hover:bg-red-200",
         "belum-rekon": "bg-red-100 text-red-800 border border-red-300 shadow-sm hover:bg-red-200",
+        "belum-rekap": "bg-red-100 text-red-800 border border-red-300 shadow-sm hover:bg-red-200",
         "antri-periv": "bg-red-100 text-red-800 border border-red-300 shadow-sm hover:bg-red-200",
         "revisi-mitra": "bg-red-100 text-red-800 border border-red-300 shadow-sm hover:bg-red-200",
 
@@ -72,6 +74,7 @@ const getStatusVariant = (status: string): string => {
   if (statusLower === "sudah ut") return "sudah-ut";
   if (statusLower === "sudah lurus") return "sudah-lurus";
   if (statusLower === "sudah rekon") return "sudah-rekon";
+  if (statusLower === "sudah rekap") return "sudah-rekap";
   if (statusLower === "otw reg") return "otw-reg";
 
   // =====================================
@@ -88,6 +91,7 @@ const getStatusVariant = (status: string): string => {
   if (statusLower === "belum ut") return "belum-ut";
   if (statusLower === "belum lurus") return "belum-lurus";
   if (statusLower === "belum rekon") return "belum-rekon";
+  if (statusLower === "belum rekap") return "belum-rekap";
   if (statusLower === "antri periv") return "antri-periv";
   if (statusLower === "revisi mitra") return "revisi-mitra";
 

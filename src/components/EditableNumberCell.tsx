@@ -3,28 +3,28 @@ import { Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface EditableNumberCellProps {
-  value: string | number;
-  columnName: string;
   projectId: string;
+  column: string;
+  value: string | number;
   onUpdate: (projectId: string, column: string, newValue: string) => Promise<void>;
 }
 
 export function EditableNumberCell({
-  value,
-  columnName,
   projectId,
+  column,
+  value,
   onUpdate,
 }: EditableNumberCellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [newValue, setNewValue] = useState(String(value || ""));
   const [isLoading, setIsLoading] = useState(false);
 
-  // Format angka dengan pemisah ribuan (Indonesia: 1.000.000,00)
-  const formatNumber = (num: string | number): string => {
-    if (!num) return "0";
+  // Format angka dengan pemisah ribuan tanpa desimal (Rp 1.000.000)
+  const formatCurrency = (num: string | number): string => {
+    if (!num) return "Rp 0";
     const numStr = String(num).replace(/\D/g, ""); // Hapus karakter non-digit
-    // Format: 1.000.000 (tanpa desimal untuk sekarang)
-    return numStr.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    const formatted = numStr.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return `Rp ${formatted}`;
   };
 
   const handleSave = async () => {
@@ -33,10 +33,10 @@ export function EditableNumberCell({
       return;
     }
 
-    // Validasi: hanya angka dan koma (untuk desimal)
-    const cleanValue = newValue.replace(/\./g, "").replace(/,/g, "");
+    // Validasi: hanya angka
+    const cleanValue = newValue.replace(/\./g, "");
     if (!/^\d+$/.test(cleanValue)) {
-      toast.error("Hanya masukkan angka. Gunakan koma (,) untuk desimal");
+      toast.error("Hanya masukkan angka");
       setNewValue(String(value || ""));
       return;
     }
@@ -44,12 +44,11 @@ export function EditableNumberCell({
     setIsLoading(true);
     try {
       // Simpan hanya angka (hapus semua pemisah)
-      const numericValue = cleanValue;
-      await onUpdate(projectId, columnName, numericValue);
-      toast.success(`${columnName} berhasil diperbarui`);
+      await onUpdate(projectId, column, cleanValue);
+      toast.success("Nilai berhasil diperbarui");
       setIsEditing(false);
     } catch (error) {
-      toast.error(`Gagal memperbarui ${columnName}`);
+      toast.error("Gagal memperbarui nilai");
       setNewValue(String(value || ""));
       console.error(error);
     } finally {
@@ -70,28 +69,19 @@ export function EditableNumberCell({
     }
   };
 
-  // Format input untuk menampilkan dengan pemisah ribuan saat mengetik (Indonesia format)
+  // Format input untuk menampilkan dengan pemisah ribuan saat mengetik
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value;
     
-    // Pisahkan input menjadi integer dan desimal (jika ada)
-    const parts = val.split(",");
-    let integerPart = parts[0].replace(/\D/g, ""); // Hanya digit untuk bagian integer
-    let decimalPart = parts[1] ? parts[1].replace(/\D/g, "").substring(0, 2) : ""; // Max 2 digit desimal
+    // Hanya ambil digit
+    let numericValue = val.replace(/\D/g, "");
     
-    // Format integer part dengan pemisah ribuan
-    if (integerPart) {
-      integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    // Format dengan pemisah ribuan
+    if (numericValue) {
+      numericValue = numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     }
     
-    // Gabungkan kembali
-    if (decimalPart) {
-      val = `${integerPart},${decimalPart}`;
-    } else {
-      val = integerPart;
-    }
-    
-    setNewValue(val);
+    setNewValue(numericValue);
   };
 
   if (isEditing) {
@@ -123,7 +113,7 @@ export function EditableNumberCell({
             <X size={16} />
           </button>
         </div>
-        <p className="text-[9px] text-gray-500">Format: 1.000.000 atau 1.000.000,50</p>
+        <p className="text-[9px] text-gray-500">Format: 1.000.000</p>
       </div>
     );
   }
@@ -131,10 +121,10 @@ export function EditableNumberCell({
   return (
     <div
       onClick={() => setIsEditing(true)}
-      className="border border-gray-300 rounded px-2 md:px-3 py-1 bg-blue-50 text-blue-900 font-medium inline-block text-[10px] md:text-xs cursor-pointer hover:bg-blue-100 transition-colors font-mono"
-      title="Klik untuk mengedit - Format: 1.000.000 atau 1.000.000,50"
+      className="border border-gray-300 rounded px-2 md:px-3 py-1 bg-blue-50 text-blue-900 font-medium inline-block text-[10px] md:text-xs cursor-pointer hover:bg-blue-100 transition-colors font-mono whitespace-nowrap"
+      title="Klik untuk mengedit"
     >
-      Rp {formatNumber(value)}
+      {formatCurrency(value)}
     </div>
   );
 }

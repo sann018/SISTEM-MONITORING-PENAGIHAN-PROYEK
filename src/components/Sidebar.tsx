@@ -12,15 +12,21 @@ import {
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
 
+  // Menu items dengan role-based visibility
   const menuItems = [
-    { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-    { label: "Project", icon: Folder, path: "/projects" },
-    { label: "Profile", icon: User, path: "/profile" },
-    { label: "Man User", icon: Users, path: "/user-management" },
-    { label: "Activity", icon: Activity, path: "/activity" },
+    { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard", roles: ["super_admin", "admin", "viewer"] },
+    { label: "Project", icon: Folder, path: "/projects", roles: ["super_admin", "admin", "viewer"] },
+    { label: "Profile", icon: User, path: "/profile", roles: ["super_admin", "admin", "viewer"] },
+    { label: "Man User", icon: Users, path: "/user-management", roles: ["super_admin"] }, // Hanya super_admin
+    { label: "Activity", icon: Activity, path: "/activity", roles: ["super_admin", "admin"] }, // Super Admin dan Admin
   ];
+
+  // Filter menu berdasarkan role user
+  const visibleMenuItems = menuItems.filter(item => 
+    !item.roles || item.roles.includes(user?.role || "")
+  );
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -38,7 +44,7 @@ export default function Sidebar() {
 
       {/* Menu Items */}
       <nav className="flex-1 space-y-1 p-2 pt-4">
-        {menuItems.map((item) => (
+        {visibleMenuItems.map((item) => (
           <button
             key={item.path}
             onClick={() => navigate(item.path)}

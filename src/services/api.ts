@@ -14,7 +14,7 @@ const api = axios.create({
 // Request interceptor untuk menambahkan token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('token'); // Fixed: gunakan 'token' bukan 'auth_token'
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -29,15 +29,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Temporarily disable auto-redirect on 401
     console.error('API Error:', error);
     
-    /* Original auth redirect - uncomment to enable
+    // Handle unauthorized - redirect to login
     if (error.response?.status === 401) {
-      localStorage.removeItem('auth_token');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       window.location.href = '/login';
     }
-    */
     
     return Promise.reject(error);
   }

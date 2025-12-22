@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FolderKanban, CheckCircle2, Clock, AlertTriangle, SlidersHorizontal } from "lucide-react";
+import { FolderKanban, CheckCircle2, Clock, AlertTriangle, SlidersHorizontal, Search } from "lucide-react";
 import { toast } from "sonner";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
@@ -103,6 +103,10 @@ export default function Dashboard() {
     return procurement === "revisi mitra";
   }).length;
 
+  const notReconProjects = projects.filter((p) => 
+    p.rekon_material.toLowerCase() !== "sudah rekon"
+  ).length;
+
   // =====================================
   // NAVIGATION HANDLERS
   // =====================================
@@ -111,15 +115,26 @@ export default function Dashboard() {
   };
 
   // =====================================
-  // SEARCH FILTER
+  // SEARCH FILTER (Support Multiple Keywords)
   // =====================================
-  const filteredProjects = projects.filter(
-    (project) =>
-      project.nama_proyek.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.nama_mitra.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.pid.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.nomor_po.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProjects = projects.filter((project) => {
+    if (!searchTerm.trim()) return true;
+    
+    // Split by comma, trim whitespace
+    const searchTerms = searchTerm
+      .split(/,/) // Split by comma
+      .map(term => term.trim().toLowerCase())
+      .filter(term => term.length > 0);
+    
+    // Check if any search term matches any field
+    return searchTerms.some(term =>
+      project.nama_proyek.toLowerCase().includes(term) ||
+      project.nama_mitra.toLowerCase().includes(term) ||
+      project.pid.toLowerCase().includes(term) ||
+      project.nomor_po.toLowerCase().includes(term) ||
+      project.phase.toLowerCase().includes(term)
+    );
+  });
 
   const getStatusVariant = (status: string): string => {
     if (!status) return "default";
@@ -162,7 +177,7 @@ export default function Dashboard() {
 
   return (
     <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '64px' }}>
-      <TopBar />
+      <TopBar title="Dashboard" />
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden" style={{ marginLeft: '112px' }}>
 
@@ -170,8 +185,9 @@ export default function Dashboard() {
           {/* Stats Cards */}
           <div className="grid grid-cols-5 gap-4 mb-8">
             <div
-              className="bg-blue-100 border-2 border-blue-300 rounded-xl p-4 shadow cursor-pointer hover:shadow-lg transition-all"
-              onClick={() => navigate("/projects")}
+              className="bg-blue-100 border-2 border-blue-300 rounded-xl p-4 shadow cursor-pointer hover:shadow-lg transition-all hover:scale-105 duration-200"
+              onClick={() => navigate("/projects", { state: { filter: "all" } })}
+              title="Klik untuk melihat semua proyek"
             >
               <p className="text-gray-700 text-sm font-semibold mb-2">Total Proyek</p>
               <div className="flex items-center justify-between">
@@ -183,8 +199,9 @@ export default function Dashboard() {
             </div>
 
             <div
-              className="bg-green-100 border-2 border-green-300 rounded-xl p-4 shadow cursor-pointer hover:shadow-lg transition-all"
-              onClick={() => navigate("/projects")}
+              className="bg-green-100 border-2 border-green-300 rounded-xl p-4 shadow cursor-pointer hover:shadow-lg transition-all hover:scale-105 duration-200"
+              onClick={() => navigate("/projects", { state: { filter: "completed" } })}
+              title="Klik untuk melihat proyek yang sudah selesai penuh"
             >
               <p className="text-gray-700 text-sm font-semibold mb-2">Selesai Penuh</p>
               <div className="flex items-center justify-between">
@@ -196,8 +213,9 @@ export default function Dashboard() {
             </div>
 
             <div
-              className="bg-yellow-100 border-2 border-yellow-300 rounded-xl p-4 shadow cursor-pointer hover:shadow-lg transition-all"
-              onClick={() => navigate("/projects")}
+              className="bg-yellow-100 border-2 border-yellow-300 rounded-xl p-4 shadow cursor-pointer hover:shadow-lg transition-all hover:scale-105 duration-200"
+              onClick={() => navigate("/projects", { state: { filter: "ongoing" } })}
+              title="Klik untuk melihat proyek yang sedang berjalan"
             >
               <p className="text-gray-700 text-sm font-semibold mb-2">Sedang Berjalan</p>
               <div className="flex items-center justify-between">
@@ -209,8 +227,9 @@ export default function Dashboard() {
             </div>
 
             <div
-              className="bg-red-100 border-2 border-red-300 rounded-xl p-4 shadow cursor-pointer hover:shadow-lg transition-all"
-              onClick={() => navigate("/projects")}
+              className="bg-red-100 border-2 border-red-300 rounded-xl p-4 shadow cursor-pointer hover:shadow-lg transition-all hover:scale-105 duration-200"
+              onClick={() => navigate("/projects", { state: { filter: "delayed" } })}
+              title="Klik untuk melihat proyek yang tertunda (revisi mitra)"
             >
               <p className="text-gray-700 text-sm font-semibold mb-2">Terfunda</p>
               <div className="flex items-center justify-between">
@@ -222,12 +241,13 @@ export default function Dashboard() {
             </div>
 
             <div
-              className="bg-orange-100 border-2 border-orange-300 rounded-xl p-4 shadow cursor-pointer hover:shadow-lg transition-all"
-              onClick={() => navigate("/projects")}
+              className="bg-orange-100 border-2 border-orange-300 rounded-xl p-4 shadow cursor-pointer hover:shadow-lg transition-all hover:scale-105 duration-200"
+              onClick={() => navigate("/projects", { state: { filter: "not-recon" } })}
+              title="Klik untuk melihat proyek yang belum rekon"
             >
               <p className="text-gray-700 text-sm font-semibold mb-2">Belum Rekon</p>
               <div className="flex items-center justify-between">
-                <p className="text-3xl font-bold text-orange-600">1</p>
+                <p className="text-3xl font-bold text-orange-600">{notReconProjects}</p>
                 <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
                   <SlidersHorizontal className="w-6 h-6 text-orange-600" />
                 </div>
@@ -237,16 +257,20 @@ export default function Dashboard() {
 
           {/* Search and Buttons */}
           <div className="flex items-center justify-between mb-6 gap-4">
-            <Input
-              type="text"
-              placeholder="Cari proyek..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 h-10 border border-gray-300 rounded-lg"
-            />
+            {/* Search Input with Icon */}
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-red-500" />
+              <Input
+                type="text"
+                placeholder="Cari proyek... (pisahkan dengan koma untuk multiple pencarian)"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-12 border-2 border-red-500 rounded-xl pl-12 pr-4 text-base font-medium placeholder:text-gray-400 focus:border-red-600 focus:ring-2 focus:ring-red-200 transition-all"
+              />
+            </div>
             <Button
               onClick={() => navigate("/projects")}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-2 rounded-lg"
+              className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl h-12 text-base"
             >
               Lihat Semua Proyek
             </Button>

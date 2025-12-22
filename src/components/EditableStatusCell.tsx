@@ -11,19 +11,21 @@ import {
 import { toast } from "sonner";
 
 interface EditableStatusCellProps {
-  value: string;
-  columnName: string;
   projectId: string;
+  column: string;
+  value: string;
   onUpdate: (projectId: string, column: string, newValue: string) => Promise<void>;
-  options: string[];
+  variant: string;
+  options?: string[];
 }
 
 export function EditableStatusCell({
-  value,
-  columnName,
   projectId,
+  column,
+  value,
   onUpdate,
-  options,
+  variant,
+  options = [],
 }: EditableStatusCellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [newValue, setNewValue] = useState(value);
@@ -42,6 +44,7 @@ export function EditableStatusCell({
     if (statusLower === "sudah ut") return "sudah-ut";
     if (statusLower === "sudah lurus") return "sudah-lurus";
     if (statusLower === "sudah rekon") return "sudah-rekon";
+    if (statusLower === "sudah rekap") return "sudah-rekap";
     if (statusLower === "otw reg") return "otw-reg";
 
     // STATUS PROSES - KUNING/ORANGE ⏳
@@ -54,6 +57,7 @@ export function EditableStatusCell({
     if (statusLower === "belum ut") return "belum-ut";
     if (statusLower === "belum lurus") return "belum-lurus";
     if (statusLower === "belum rekon") return "belum-rekon";
+    if (statusLower === "belum rekap") return "belum-rekap";
     if (statusLower === "antri periv") return "antri-periv";
     if (statusLower === "revisi mitra") return "revisi-mitra";
 
@@ -68,11 +72,11 @@ export function EditableStatusCell({
 
     setIsLoading(true);
     try {
-      await onUpdate(projectId, columnName, newValue);
-      toast.success(`${columnName} berhasil diperbarui`);
+      await onUpdate(projectId, column, newValue);
+      toast.success(`Status berhasil diperbarui`);
       setIsEditing(false);
     } catch (error) {
-      toast.error(`Gagal memperbarui ${columnName}`);
+      toast.error(`Gagal memperbarui status`);
       setNewValue(value);
       console.error(error);
     } finally {
