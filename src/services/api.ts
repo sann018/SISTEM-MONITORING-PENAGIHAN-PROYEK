@@ -11,7 +11,7 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// Request interceptor untuk menambahkan token
+// [🔐 AUTH_SYSTEM] Interceptor untuk menambahkan Bearer token ke setiap request
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token'); // Fixed: gunakan 'token' bukan 'auth_token'
@@ -25,13 +25,13 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor untuk handle errors
+// [🔐 AUTH_SYSTEM] Interceptor untuk handle error responses (401, 403, dll)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('API Error:', error);
+    console.error('[🔐 AUTH_SYSTEM] API Error:', error);
     
-    // Handle unauthorized - redirect to login
+    // [🔐 AUTH_SYSTEM] Handle unauthorized - redirect ke login
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');

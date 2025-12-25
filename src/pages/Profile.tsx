@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import Sidebar from "@/components/Sidebar";
-import TopBar from "@/components/TopBar";
+import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, User, Upload, Lock } from "lucide-react";
+import { Camera, User, Upload, Lock, Menu } from "lucide-react";
 import { toast } from "sonner";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
@@ -18,8 +18,9 @@ interface ProfileData {
   photo?: string;
 }
 
-export default function Profile() {
+function ProfileContent() {
   const { user, token } = useAuth();
+  const { toggleSidebar } = useSidebar();
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState<string>("");
@@ -248,17 +249,34 @@ export default function Profile() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <TopBar title="Profil" />
-      <Sidebar />
-
-      {/* Main Content */}
-      <div className="ml-0 lg:ml-28 pt-28 px-4 sm:px-6 lg:px-8 pb-8">
-        {/* Outer Merah Border Container */}
-        <div className="max-w-7xl mx-auto">
+    <div className="flex min-h-screen w-full bg-gray-100">
+      <AppSidebar />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <header className="bg-red-600 text-white px-4 py-3 shadow-lg flex items-center justify-between w-full overflow-hidden flex-shrink-0 z-50 rounded-bl-lg rounded-tl-lg">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => toggleSidebar()}
+              className="text-white hover:bg-red-700 h-9 w-9 flex-shrink-0"
+              title="Toggle Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            <h1 className="text-xl font-bold truncate">Profil Pengguna</h1>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center">
+              <span className="text-red-600 font-bold text-sm">👤</span>
+            </div>
+            <span className="text-white font-semibold whitespace-nowrap text-sm">{user?.name || 'USER'}</span>
+          </div>
+        </header>
+        <div className="flex-1 p-6 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {/* Main Content */}
+            <div className="max-w-7xl mx-auto">
           <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 lg:p-6">
-            {/* Page Title */}
-            <h1 className="text-3xl font-bold text-red-600 mb-6">Profil Pengguna</h1>
             {/* Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
               {/* Left Side - Photo Profile Card */}
@@ -590,7 +608,17 @@ export default function Profile() {
             </div>
           </div>
         </div>
+          </div>
+        </div>
       </div>
     </div>
+  );
+}
+
+export default function Profile() {
+  return (
+    <SidebarProvider defaultOpen={true}>
+      <ProfileContent />
+    </SidebarProvider>
   );
 }

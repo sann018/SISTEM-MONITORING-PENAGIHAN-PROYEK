@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FolderKanban, CheckCircle2, Clock, AlertTriangle, SlidersHorizontal, Search } from "lucide-react";
+import { FolderKanban, CheckCircle2, Clock, AlertTriangle, SlidersHorizontal, Search, Menu } from "lucide-react";
 import { toast } from "sonner";
-import Sidebar from "@/components/Sidebar";
-import TopBar from "@/components/TopBar";
+import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/AppSidebar";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Project {
   id: string;
@@ -25,8 +26,10 @@ interface Project {
   status_procurement: string;
 }
 
-export default function Dashboard() {
+function DashboardContent() {
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const { toggleSidebar, state } = useSidebar();
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -164,13 +167,27 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '80px' }}>
-        <TopBar />
-        <Sidebar />
-        <div className="flex items-center justify-center" style={{ marginLeft: '144px', height: 'calc(100vh - 80px)' }}>
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Memuat data...</p>
+      <div className="flex min-h-screen w-full bg-gray-100">
+        <AppSidebar />
+        <div className="flex flex-col flex-1">
+          <header className="bg-red-600 text-white px-6 py-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => toggleSidebar()}
+                className="text-white hover:bg-red-700 h-10 w-15"
+              >
+                <Menu className="w-6 h-6" />
+              </Button>
+              <h1 className="text-2xl font-bold">Dashboard Monitoring Penagihan Proyek</h1>
+            </div>
+          </header>
+          <div className="flex items-center justify-center flex-1">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Memuat data...</p>
+            </div>
           </div>
         </div>
       </div>
@@ -178,12 +195,30 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '80px' }}>
-      <TopBar title="Dashboard" />
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden" style={{ marginLeft: '144px' }}>
-
-        <div className="flex-1 overflow-auto p-8">
+    <div className="flex min-h-screen w-full bg-gray-100">
+      <AppSidebar />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <header className="bg-red-600 text-white px-5 py-3 shadow-lg flex items-center justify-between w-full overflow-hidden flex-shrink-0 z-50 rounded-bl-lg rounded-tl-lg">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => toggleSidebar()}
+              className="text-white hover:bg-red-700 h-9 w-9 flex-shrink-0"
+              title="Toggle Menu"
+            >
+              <Menu className="w-3 h-3" />
+            </Button>
+            <h1 className="text-xl font-bold truncate">Dashboard Monitoring Penagihan Proyek</h1>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center">
+              <span className="text-red-600 font-bold text-sm">👤</span>
+            </div>
+            <span className="text-white font-semibold whitespace-nowrap text-sm">{user?.name || 'USER'}</span>
+          </div>
+        </header>
+        <div className="flex-1 p-6 flex flex-col min-h-0">
           {/* Stats Cards */}
           <div className="grid grid-cols-5 gap-4 mb-8">
             <div
@@ -233,7 +268,7 @@ export default function Dashboard() {
               onClick={() => navigate("/projects", { state: { filter: "delayed" } })}
               title="Klik untuk melihat proyek yang tertunda (revisi mitra)"
             >
-              <p className="text-gray-700 text-sm font-semibold mb-2">Terfunda</p>
+              <p className="text-gray-700 text-sm font-semibold mb-2">Tertunda</p>
               <div className="flex items-center justify-between">
                 <p className="text-3xl font-bold text-red-600">{delayedProjects}</p>
                 <div className="w-12 h-12 bg-red-200 rounded-full flex items-center justify-center">
@@ -279,10 +314,11 @@ export default function Dashboard() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-lg shadow overflow-x-auto">
-            <table className="w-full text-sm" style={{ minWidth: '1800px' }}>
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-gray-200 border-b-2 border-red-600">
+          <div className="flex-1 overflow-y-auto min-h-0 rounded-lg shadow bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" style={{ minWidth: '1800px' }}>
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-gray-200 border-b-2 border-red-600">
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '180px' }}>Nama Proyek</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '150px' }}>Nama Mitra</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '100px' }}>PID</th>
@@ -366,10 +402,18 @@ export default function Dashboard() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
-
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <SidebarProvider defaultOpen={true}>
+      <DashboardContent />
+    </SidebarProvider>
   );
 }

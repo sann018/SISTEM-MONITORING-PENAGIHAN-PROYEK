@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import Sidebar from "@/components/Sidebar";
-import TopBar from "@/components/TopBar";
+import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Users, 
-  Plus, 
+import {
+  Users,
+  Plus,
   Edit, 
   Trash2,
   Camera,
-  Key
+  Key,
+  Menu
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -35,9 +36,10 @@ interface User {
   created_at: string;
 }
 
-export default function UserManagement() {
+function UserManagementContent() {
   const { token, user: currentUser } = useAuth();
   const navigate = useNavigate();
+  const { toggleSidebar } = useSidebar();
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -192,7 +194,9 @@ export default function UserManagement() {
       toast.success("User berhasil diupdate");
       setEditUserDialog(false);
       setSelectedUser(null);
-      fetchUsers();
+      
+      // Refresh tabel untuk menampilkan perubahan
+      await fetchUsers();
     } catch (error: any) {
       toast.error(error.message || "Gagal update user");
     } finally {
@@ -383,14 +387,34 @@ export default function UserManagement() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <TopBar title="Man User" />
-      <Sidebar />
-
-      <div className="ml-0 lg:ml-28 pt-28 px-4 sm:px-6 lg:px-8 pb-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 sm:p-6 lg:p-8">
-            {/* Header */}
+    <div className="flex min-h-screen w-full bg-gray-100">
+      <AppSidebar />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <header className="bg-red-600 text-white px-4 py-3 shadow-lg flex items-center justify-between w-full overflow-hidden flex-shrink-0 z-50 rounded-bl-lg rounded-tl-lg">
+          <div className="flex items-center gap-4 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => toggleSidebar()}
+              className="text-white hover:bg-red-700 h-10 w-10 flex-shrink-0"
+              title="Toggle Menu"
+            >
+              <Menu className="w-6 h-6" />
+            </Button>
+            <h1 className="text-2xl font-bold truncate">Manajemen Pengguna</h1>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
+              <span className="text-red-600 font-bold">👤</span>
+            </div>
+            <span className="text-white font-semibold whitespace-nowrap">{currentUser?.name || 'USER'}</span>
+          </div>
+        </header>
+        <div className="flex-1 p-6 flex flex-col min-h-0">
+            <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="max-w-6xl mx-auto">
+              <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 sm:p-6 lg:p-8">
+                {/* Header */}
             <div className="mb-6">
               <h1 className="text-3xl font-bold text-red-600 mb-1">
                 Manajemen User
@@ -583,235 +607,245 @@ export default function UserManagement() {
                 </tbody>
               </table>
             </div>
+
+        {/* Add User Dialog */}
+        <Dialog open={addUserDialog} onOpenChange={setAddUserDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Tambah User Baru</DialogTitle>
+              <DialogDescription>
+                Masukkan informasi user yang akan ditambahkan
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Nama Lengkap</label>
+                <Input
+                  value={newUserData.name}
+                  onChange={(e) => setNewUserData({...newUserData, name: e.target.value})}
+                  placeholder="John Doe"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Email</label>
+                <Input
+                  type="email"
+                  value={newUserData.email}
+                  onChange={(e) => setNewUserData({...newUserData, email: e.target.value})}
+                  placeholder="john@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">NIK (Opsional)</label>
+                <Input
+                  value={newUserData.nik}
+                  onChange={(e) => setNewUserData({...newUserData, nik: e.target.value})}
+                  placeholder="1234567890"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Role</label>
+                <select
+                  value={newUserData.role}
+                  onChange={(e) => setNewUserData({...newUserData, role: e.target.value})}
+                  className="w-full h-10 px-3 border-2 border-gray-300 rounded-md focus:border-red-500"
+                >
+                  <option value="viewer">Viewer</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Password</label>
+                <Input
+                  type="password"
+                  value={newUserData.password}
+                  onChange={(e) => setNewUserData({...newUserData, password: e.target.value})}
+                  placeholder="Minimal 8 karakter"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Konfirmasi Password</label>
+                <Input
+                  type="password"
+                  value={newUserData.password_confirmation}
+                  onChange={(e) => setNewUserData({...newUserData, password_confirmation: e.target.value})}
+                  placeholder="Ulangi password"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAddUserDialog(false)}>
+                Batal
+              </Button>
+              <Button onClick={handleAddUser} disabled={loading} className="bg-red-600 hover:bg-red-700">
+                {loading ? "Menyimpan..." : "Tambah User"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit User Dialog */}
+        <Dialog open={editUserDialog} onOpenChange={setEditUserDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-red-600">Edit User</DialogTitle>
+              <DialogDescription className="text-gray-600">
+                Ubah informasi user
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-5 py-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Nama Lengkap</label>
+                <Input
+                  value={editUserData.name}
+                  onChange={(e) => setEditUserData({...editUserData, name: e.target.value})}
+                  className="h-12 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:ring-red-500"
+                  placeholder="Masukkan nama lengkap"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                <Input
+                  type="email"
+                  value={editUserData.email}
+                  onChange={(e) => setEditUserData({...editUserData, email: e.target.value})}
+                  className="h-12 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:ring-red-500"
+                  placeholder="user@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">NIK</label>
+                <Input
+                  value={editUserData.nik}
+                  onChange={(e) => setEditUserData({...editUserData, nik: e.target.value})}
+                  className="h-12 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:ring-red-500"
+                  placeholder="Nomor Induk Karyawan (opsional)"
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setEditUserDialog(false)}
+                className="h-11 px-6 border-2 border-gray-300 hover:bg-gray-100 font-semibold"
+              >
+                Batal
+              </Button>
+              <Button 
+                onClick={handleEditUser} 
+                disabled={loading} 
+                className="h-11 px-6 bg-red-600 hover:bg-red-700 text-white font-semibold"
+              >
+                {loading ? "Menyimpan..." : "Simpan Perubahan"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reset Password Dialog */}
+        <Dialog open={resetPasswordDialog} onOpenChange={setResetPasswordDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-blue-600 flex items-center gap-2">
+                <Key className="w-6 h-6" />
+                Reset Password
+              </DialogTitle>
+              <DialogDescription className="text-gray-600">
+                Reset password untuk user <span className="font-semibold text-gray-900">{selectedUser?.name}</span>
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-5 py-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Password Baru</label>
+                <Input
+                  type="password"
+                  value={resetPasswordData.password}
+                  onChange={(e) => setResetPasswordData({...resetPasswordData, password: e.target.value})}
+                  className="h-12 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="Minimal 8 karakter"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Konfirmasi Password Baru</label>
+                <Input
+                  type="password"
+                  value={resetPasswordData.password_confirmation}
+                  onChange={(e) => setResetPasswordData({...resetPasswordData, password_confirmation: e.target.value})}
+                  className="h-12 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="Ulangi password baru"
+                />
+              </div>
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                <p className="text-sm text-blue-800">
+                  <strong>Catatan:</strong> Password baru akan langsung berlaku dan user harus menggunakan password ini untuk login.
+                </p>
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setResetPasswordDialog(false);
+                  setResetPasswordData({ password: "", password_confirmation: "" });
+                }}
+                className="h-11 px-6 border-2 border-gray-300 hover:bg-gray-100 font-semibold"
+              >
+                Batal
+              </Button>
+              <Button 
+                onClick={handleResetPassword} 
+                disabled={loading} 
+                className="h-11 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+              >
+                {loading ? "Mereset..." : "Reset Password"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Konfirmasi Hapus</DialogTitle>
+              <DialogDescription>
+                {selectedUsers.length > 0 
+                  ? `Apakah Anda yakin ingin menghapus ${selectedUsers.length} user?` 
+                  : `Apakah Anda yakin ingin menghapus user "${selectedUser?.name}"?`}
+                <br />
+                <span className="text-red-600 font-semibold">Tindakan ini tidak dapat dibatalkan!</span>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setDeleteDialog(false);
+                setSelectedUser(null);
+              }}>
+                Batal
+              </Button>
+              <Button 
+                onClick={selectedUsers.length > 0 ? handleDeleteMultiple : handleDeleteUser} 
+                disabled={loading} 
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {loading ? "Menghapus..." : "Ya, Hapus"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+            </div>
           </div>
+            </div>
         </div>
       </div>
-
-      {/* Add User Dialog */}
-      <Dialog open={addUserDialog} onOpenChange={setAddUserDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Tambah User Baru</DialogTitle>
-            <DialogDescription>
-              Masukkan informasi user yang akan ditambahkan
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Nama Lengkap</label>
-              <Input
-                value={newUserData.name}
-                onChange={(e) => setNewUserData({...newUserData, name: e.target.value})}
-                placeholder="John Doe"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Email</label>
-              <Input
-                type="email"
-                value={newUserData.email}
-                onChange={(e) => setNewUserData({...newUserData, email: e.target.value})}
-                placeholder="john@example.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">NIK (Opsional)</label>
-              <Input
-                value={newUserData.nik}
-                onChange={(e) => setNewUserData({...newUserData, nik: e.target.value})}
-                placeholder="1234567890"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Role</label>
-              <select
-                value={newUserData.role}
-                onChange={(e) => setNewUserData({...newUserData, role: e.target.value})}
-                className="w-full h-10 px-3 border-2 border-gray-300 rounded-md focus:border-red-500"
-              >
-                <option value="viewer">Viewer</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Password</label>
-              <Input
-                type="password"
-                value={newUserData.password}
-                onChange={(e) => setNewUserData({...newUserData, password: e.target.value})}
-                placeholder="Minimal 8 karakter"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Konfirmasi Password</label>
-              <Input
-                type="password"
-                value={newUserData.password_confirmation}
-                onChange={(e) => setNewUserData({...newUserData, password_confirmation: e.target.value})}
-                placeholder="Ulangi password"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddUserDialog(false)}>
-              Batal
-            </Button>
-            <Button onClick={handleAddUser} disabled={loading} className="bg-red-600 hover:bg-red-700">
-              {loading ? "Menyimpan..." : "Tambah User"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit User Dialog */}
-      <Dialog open={editUserDialog} onOpenChange={setEditUserDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-red-600">Edit User</DialogTitle>
-            <DialogDescription className="text-gray-600">
-              Ubah informasi user
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-5 py-6">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Nama Lengkap</label>
-              <Input
-                value={editUserData.name}
-                onChange={(e) => setEditUserData({...editUserData, name: e.target.value})}
-                className="h-12 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:ring-red-500"
-                placeholder="Masukkan nama lengkap"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
-              <Input
-                type="email"
-                value={editUserData.email}
-                onChange={(e) => setEditUserData({...editUserData, email: e.target.value})}
-                className="h-12 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:ring-red-500"
-                placeholder="user@example.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">NIK</label>
-              <Input
-                value={editUserData.nik}
-                onChange={(e) => setEditUserData({...editUserData, nik: e.target.value})}
-                className="h-12 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:ring-red-500"
-                placeholder="Nomor Induk Karyawan (opsional)"
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setEditUserDialog(false)}
-              className="h-11 px-6 border-2 border-gray-300 hover:bg-gray-100 font-semibold"
-            >
-              Batal
-            </Button>
-            <Button 
-              onClick={handleEditUser} 
-              disabled={loading} 
-              className="h-11 px-6 bg-red-600 hover:bg-red-700 text-white font-semibold"
-            >
-              {loading ? "Menyimpan..." : "Simpan Perubahan"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reset Password Dialog */}
-      <Dialog open={resetPasswordDialog} onOpenChange={setResetPasswordDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-blue-600 flex items-center gap-2">
-              <Key className="w-6 h-6" />
-              Reset Password
-            </DialogTitle>
-            <DialogDescription className="text-gray-600">
-              Reset password untuk user <span className="font-semibold text-gray-900">{selectedUser?.name}</span>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-5 py-6">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Password Baru</label>
-              <Input
-                type="password"
-                value={resetPasswordData.password}
-                onChange={(e) => setResetPasswordData({...resetPasswordData, password: e.target.value})}
-                className="h-12 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500"
-                placeholder="Minimal 8 karakter"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Konfirmasi Password Baru</label>
-              <Input
-                type="password"
-                value={resetPasswordData.password_confirmation}
-                onChange={(e) => setResetPasswordData({...resetPasswordData, password_confirmation: e.target.value})}
-                className="h-12 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500"
-                placeholder="Ulangi password baru"
-              />
-            </div>
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-              <p className="text-sm text-blue-800">
-                <strong>Catatan:</strong> Password baru akan langsung berlaku dan user harus menggunakan password ini untuk login.
-              </p>
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setResetPasswordDialog(false);
-                setResetPasswordData({ password: "", password_confirmation: "" });
-              }}
-              className="h-11 px-6 border-2 border-gray-300 hover:bg-gray-100 font-semibold"
-            >
-              Batal
-            </Button>
-            <Button 
-              onClick={handleResetPassword} 
-              disabled={loading} 
-              className="h-11 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold"
-            >
-              {loading ? "Mereset..." : "Reset Password"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Konfirmasi Hapus</DialogTitle>
-            <DialogDescription>
-              {selectedUsers.length > 0 
-                ? `Apakah Anda yakin ingin menghapus ${selectedUsers.length} user?` 
-                : `Apakah Anda yakin ingin menghapus user "${selectedUser?.name}"?`}
-              <br />
-              <span className="text-red-600 font-semibold">Tindakan ini tidak dapat dibatalkan!</span>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setDeleteDialog(false);
-              setSelectedUser(null);
-            }}>
-              Batal
-            </Button>
-            <Button 
-              onClick={selectedUsers.length > 0 ? handleDeleteMultiple : handleDeleteUser} 
-              disabled={loading} 
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {loading ? "Menghapus..." : "Ya, Hapus"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
+  );
+}
+
+export default function UserManagement() {
+  return (
+    <SidebarProvider defaultOpen={true}>
+      <UserManagementContent />
+    </SidebarProvider>
   );
 }

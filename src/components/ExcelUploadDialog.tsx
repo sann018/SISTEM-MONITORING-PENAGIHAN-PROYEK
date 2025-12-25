@@ -47,8 +47,27 @@ export default function ExcelUploadDialog({
       await penagihanService.downloadTemplate();
       toast.success("Template berhasil diunduh");
     } catch (error: any) {
-      console.error('Download template error:', error);
-      toast.error(error.response?.data?.message || "Gagal mengunduh template");
+      console.error('Download template error:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.message,
+        data: error.response?.data
+      });
+      
+      // Try to extract meaningful error message
+      let errorMessage = "Gagal mengunduh template";
+      
+      if (error.message && error.message !== 'Network Error') {
+        errorMessage = error.message;
+      } else if (error.response?.status === 403) {
+        errorMessage = "Akses ditolak. Anda tidak memiliki permission untuk download template.";
+      } else if (error.response?.status === 401) {
+        errorMessage = "Sesi Anda telah berakhir. Silakan login kembali.";
+      } else if (error.response?.status === 500) {
+        errorMessage = "Terjadi kesalahan di server. Silakan hubungi administrator.";
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setDownloadingTemplate(false);
     }

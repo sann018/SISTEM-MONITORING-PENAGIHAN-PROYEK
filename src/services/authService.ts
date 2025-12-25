@@ -9,7 +9,7 @@ import type {
 
 class AuthService {
   /**
-   * Login user
+   * [🔐 AUTH_SYSTEM] User login dan simpan token ke localStorage
    */
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     const response = await api.post<ApiResponse<AuthResponse>>('/login', credentials);
@@ -25,7 +25,7 @@ class AuthService {
   }
 
   /**
-   * Register new user
+   * [🔐 AUTH_SYSTEM] Daftar user baru dan simpan token ke localStorage
    */
   async register(data: RegisterData): Promise<AuthResponse> {
     const response = await api.post<ApiResponse<AuthResponse>>('/register', data);
@@ -41,7 +41,7 @@ class AuthService {
   }
 
   /**
-   * Logout user
+   * [🔐 AUTH_SYSTEM] User logout dan hapus token dari localStorage
    */
   async logout(): Promise<void> {
     try {
@@ -53,7 +53,7 @@ class AuthService {
   }
 
   /**
-   * Get current user
+   * [🔐 AUTH_SYSTEM] Dapatkan data user yang sedang login dari server
    */
   async getCurrentUser(): Promise<User> {
     const response = await api.get<ApiResponse<User>>('/user');
@@ -67,14 +67,14 @@ class AuthService {
   }
 
   /**
-   * Check if user is authenticated
+   * [🔐 AUTH_SYSTEM] Cek apakah user sudah ter-autentikasi
    */
   isAuthenticated(): boolean {
     return !!localStorage.getItem('auth_token');
   }
 
   /**
-   * Get stored user data
+   * [🔐 AUTH_SYSTEM] Ambil data user dari localStorage
    */
   getStoredUser(): User | null {
     const userStr = localStorage.getItem('user');

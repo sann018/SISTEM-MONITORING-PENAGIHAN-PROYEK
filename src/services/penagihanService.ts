@@ -13,7 +13,7 @@ class PenagihanService {
   private baseUrl = '/penagihan';
 
   /**
-   * Get all penagihan with filters and pagination
+   * [💡 API_SERVICE] Dapatkan list semua penagihan dengan filter dan paginasi
    */
   async getAll(params?: FilterParams): Promise<PaginatedResponse<Penagihan>> {
     const response = await api.get<ApiResponse<PaginatedResponse<Penagihan>>>(
@@ -29,7 +29,7 @@ class PenagihanService {
   }
 
   /**
-   * Get penagihan by ID
+   * [💡 API_SERVICE] Dapatkan detail penagihan berdasarkan ID
    */
   async getById(id: number): Promise<Penagihan> {
     const response = await api.get<ApiResponse<Penagihan>>(
@@ -44,7 +44,7 @@ class PenagihanService {
   }
 
   /**
-   * Create new penagihan
+   * [💡 API_SERVICE] Buat penagihan baru
    */
   async create(data: PenagihanFormData): Promise<Penagihan> {
     const response = await api.post<ApiResponse<Penagihan>>(
@@ -60,7 +60,7 @@ class PenagihanService {
   }
 
   /**
-   * Update penagihan
+   * [💡 API_SERVICE] Update data penagihan
    */
   async update(id: number, data: Partial<PenagihanFormData>): Promise<Penagihan> {
     const response = await api.put<ApiResponse<Penagihan>>(
@@ -76,7 +76,7 @@ class PenagihanService {
   }
 
   /**
-   * Delete penagihan
+   * [💡 API_SERVICE] Hapus penagihan berdasarkan ID
    */
   async delete(id: number): Promise<void> {
     const response = await api.delete<ApiResponse>(
@@ -89,7 +89,7 @@ class PenagihanService {
   }
 
   /**
-   * Get statistics
+   * [💡 API_SERVICE] [📄 PROJECT_MANAGEMENT] Hitung statistik dashboard penagihan
    */
   async getStatistics(): Promise<PenagihanStatistics> {
     const response = await api.get<ApiResponse<PenagihanStatistics>>(
@@ -104,11 +104,9 @@ class PenagihanService {
   }
 
   /**
-   * Import data from Excel
+   * [💡 API_SERVICE] [📑 EXCEL_OPERATIONS] Import data penagihan dari file Excel
+   * Upload file ke server dan kembalikan hasil import (success/failed count)
    */
-  /**
- * Import data from Excel
- */
   async importExcel(file: File): Promise<{ success_count: number; failed_count: number; errors: any }> {
     const formData = new FormData();
     formData.append('file', file);
@@ -127,7 +125,8 @@ class PenagihanService {
   }
 
   /**
-   * Export data to Excel (download all projects)
+   * [📡 API_SERVICE] [📤 EXCEL_OPERATIONS] Export data penagihan ke file Excel
+   * Download sebagai blob dengan format spreadsheet
    */
   async exportToExcel(): Promise<Blob> {
     const response = await api.get(`${this.baseUrl}/export`, {
@@ -149,22 +148,48 @@ class PenagihanService {
     return response.data;
   }
 
-    /**
-   * Download Excel template
+  /**
+   * [📡 API_SERVICE] [📤 EXCEL_OPERATIONS] Download template Excel untuk import
+   * Template kosong dengan header siap diisi oleh user
    */
   async downloadTemplate(): Promise<void> {
-    const response = await api.get('/penagihan/template', {
-      responseType: 'blob',
-    });
+    try {
+      const response = await api.get('/penagihan/template', {
+        responseType: 'blob',
+      });
 
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'template_invoice.xlsx');
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'template_invoice.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      // [📤 EXCEL_OPERATIONS] Parse blob error response untuk error handling
+      if (error.response?.data instanceof Blob) {
+        const text = await error.response.data.text();
+        try {
+          const errorData = JSON.parse(text);
+          console.error('[📤 EXCEL_OPERATIONS] Download template error (parsed):', errorData);
+          throw new Error(errorData.message || 'Download template failed');
+        } catch (parseError) {
+          console.error('[📤 EXCEL_OPERATIONS] Download template error (raw):', text);
+          throw new Error('Download template failed: ' + text);
+        }
+      }
+      
+      // [📤 EXCEL_OPERATIONS] Log error detail untuk troubleshooting
+      console.error('[📤 EXCEL_OPERATIONS] Download template error:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.message,
+        data: error.response?.data
+      });
+      
+      throw error;
+    }
   }
 }
 

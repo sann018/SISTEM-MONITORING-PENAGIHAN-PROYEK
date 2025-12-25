@@ -4,12 +4,13 @@ import penagihanService from "@/services/penagihanService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/Badge";
-import Sidebar from "@/components/Sidebar";
-import TopBar from "@/components/TopBar";
+import { AppSidebar } from "@/components/AppSidebar";
+import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { EditableStatusCell } from "@/components/EditableStatusCell";
 import { EditableNumberCell } from "@/components/EditableNumberCell";
 import { ProjectTimer } from "@/components/ProjectTimer";
 import ExcelUploadDialog from "@/components/ExcelUploadDialog";
+import { Menu } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,8 +45,9 @@ interface Project {
   dibuat_pada?: string;
 }
 
-export default function Projects() {
+function ProjectsContent() {
   const { user } = useAuth();
+  const { toggleSidebar, state } = useSidebar();
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -150,18 +152,23 @@ export default function Projects() {
       case "ongoing":
         // Sedang berjalan: Bukan selesai penuh dan bukan tertunda
         return projectsToFilter.filter((project) => {
-          const statusCt = project.status_ct?.toLowerCase().trim() || "";
-          const statusUt = project.status_ut?.toLowerCase().trim() || "";
+          const ct = project.status_ct?.toLowerCase().trim() || "";
+          const ut = project.status_ut?.toLowerCase().trim() || "";
+          const rekon = project.rekon_material?.toLowerCase().trim() || "";
+          const alignment = project.pelurusan_material?.toLowerCase().trim() || "";
           const procurement = project.status_procurement?.toLowerCase().trim() || "";
           
-          const isCompleted =
-            statusCt === "sudah ct" &&
-            statusUt === "sudah ut" &&
-            (procurement === "otw reg" || procurement === "sekuler ttd");
-          
-          const isDelayed = procurement === "revisi mitra";
-          
-          return !isCompleted && !isDelayed;
+          return (
+            ct === "belum ct" ||
+            ut === "belum ut" ||
+            rekon === "belum rekon" ||
+            alignment === "belum lurus" ||
+            procurement === "antri periv" ||
+            procurement === "proses periv" ||
+            procurement === "sekuler ttd" ||
+            procurement === "scan dokumen mitra" ||
+            procurement === "revisi mitra"
+          );
         });
 
       case "delayed":
@@ -245,9 +252,31 @@ export default function Projects() {
       window.URL.revokeObjectURL(url);
       
       toast.success("Data Excel berhasil diunduh!");
-    } catch (error) {
-      console.error("Error downloading Excel:", error);
-      toast.error("Gagal mengunduh data Excel");
+    } catch (error: any) {
+      // Detailed error logging
+      console.error("Error downloading Excel:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.message,
+        data: error.response?.data,
+        headers: error.response?.headers
+      });
+      
+      // Try to parse blob error
+      if (error.response?.data instanceof Blob) {
+        try {
+          const text = await error.response.data.text();
+          console.error("Blob error content:", text);
+          const errorData = JSON.parse(text);
+          toast.error(errorData.message || "Gagal mengunduh data Excel");
+          return;
+        } catch {
+          // If parsing fails, use default message
+        }
+      }
+      
+      const errorMessage = error.response?.data?.message || error.message || "Gagal mengunduh data Excel";
+      toast.error(errorMessage);
     }
   };
 
@@ -415,20 +444,37 @@ export default function Projects() {
   // JSX RETURN
   // =====================================
   return (
-    <div className="bg-gray-100" style={{ minHeight: '100vh', paddingTop: '80px' }}>
-      <TopBar title="Project" />
-      <Sidebar />
-      <div className="flex-1 flex flex-col" style={{ marginLeft: '144px', height: 'calc(100vh - 80px)' }}>
-        <TopBar />
+    <div className="flex min-h-screen w-full bg-gray-100">
+      {/* Sidebar */}
+      <AppSidebar />
 
-        <div className="flex-1 flex flex-col overflow-hidden p-8">
-          {/* Header Section with fixed height */}
-          <div className="flex-shrink-0 space-y-6 mb-6">
-          {/* Page Title */}
-          <h1 className="text-3xl font-bold text-red-600">Daftar Penagihan Proyek</h1>
-
+      {/* Main Content */}
+      <div className="flex flex-col flex-1 overflow-hidden">
+        {/* Top Header with Toggle Button */}
+        <header className="bg-red-600 text-white px-4 py-3 shadow-lg flex items-center justify-between w-full overflow-hidden flex-shrink-0 z-50 rounded-bl-lg rounded-tl-lg">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => toggleSidebar()}
+              className="text-white hover:bg-red-700 h-9 w-9 flex-shrink-0"
+              title={state === 'expanded' ? 'Tutup Menu' : 'Buka Menu'}
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            <h1 className="text-xl font-bold truncate">Daftar Penagihan Proyek</h1>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center">
+              <span className="text-red-600 font-bold text-sm">👤</span>
+            </div>
+            <span className="text-white font-semibold whitespace-nowrap text-sm">{user?.name || 'USER'}</span>
+          </div>
+        </header>
+        {/* Main Content Area */}
+        <div className="flex-1 p-6 flex flex-col min-h-0">
           {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex gap-3 mb-6">
             {!isReadOnly && (
               <>
                 <Button
@@ -436,7 +482,7 @@ export default function Projects() {
                   className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
                 >
                   <Upload className="w-5 h-5" />
-                  Import Excel
+                  Tambah Excel
                 </Button>
                 <Button
                   onClick={() => navigate("/projects/add")}
@@ -445,74 +491,64 @@ export default function Projects() {
                   <Plus className="w-5 h-5" />
                   Tambah Proyek
                 </Button>
+                <Button
+                  onClick={handleDownloadExcel}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
+                >
+                  <Upload className="w-5 h-5" />
+                  Unduh Excel
+                </Button>
               </>
             )}
-            <Button
-              onClick={handleDownloadExcel}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
-            >
-              <Upload className="w-5 h-5" />
-              Download Excel
-            </Button>
           </div>
 
-          {/* Search Box with Year Filter */}
-          <div className="flex items-center justify-between gap-4">
-            {/* Search Input with Icon */}
+          {/* Search and Filter Row */}
+          <div className="flex gap-4 mb-6">
+            {/* Search Input */}
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-red-500" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <Input
-                placeholder="Cari proyek... (pisahkan dengan koma untuk multiple pencarian)"
+                placeholder="Cari proyek..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-12 border-2 border-red-500 rounded-xl pl-12 pr-4 text-base font-medium placeholder:text-gray-400 focus:border-red-600 focus:ring-2 focus:ring-red-200 transition-all"
+                className="h-12 border-2 border-gray-300 rounded-lg pl-12 pr-4 text-base"
               />
             </div>
-            
-            {/* Year Filter with Icon and Red Style */}
-            <div className="relative ml-auto">
-              <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white pointer-events-none z-10" />
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className="h-12 pl-12 pr-8 border-2 border-red-500 bg-red-500 text-white rounded-xl text-base font-bold cursor-pointer hover:bg-red-600 transition-all appearance-none"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 0.5rem center',
-                  backgroundSize: '1.5em 1.5em'
-                }}
-              >
-                <option value="all">Semua Tahun</option>
-                {availableYears.map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+
+            {/* Year Filter */}
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="h-12 px-4 border-2 border-gray-300 rounded-lg bg-red-600 text-white font-bold cursor-pointer hover:bg-red-700 transition-all"
+            >
+              <option value="all">Semua Tahun</option>
+              {availableYears.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
           </div>
 
           {/* Projects Table */}
-          <div className="flex-1 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col min-h-0">
-            <div className="flex-1 overflow-y-auto overflow-x-auto">
-              <table className="w-full text-sm" style={{ minWidth: '2000px' }}>
+          <div className="flex-1 min-h-0 rounded-lg shadow-lg bg-white overflow-hidden">
+            <div className="h-full overflow-auto">
+              <table className="w-full text-sm" style={{ minWidth: '1800px' }}>
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-red-600 text-white">
-                    <th className="px-4 py-3 text-center font-bold bg-red-600" style={{ minWidth: '150px' }}>Timer</th>
-                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '180px' }}>Nama Proyek</th>
-                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '150px' }}>Nama Mitra</th>
-                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '100px' }}>PID</th>
-                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '120px' }}>Jenis PO</th>
-                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '120px' }}>Nomor PO</th>
-                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '100px' }}>Phase</th>
-                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '120px' }}>Status CT</th>
-                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '120px' }}>Status UT</th>
-                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '130px' }}>Rekap BOQ</th>
-                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '150px' }}>Rekon Nilai</th>
-                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '140px' }}>Rekon Material</th>
-                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '160px' }}>Pelurusan Material</th>
-                    <th className="px-4 py-3 text-left font-bold bg-red-600" style={{ minWidth: '180px' }}>Status Procurement</th>
-                    <th className="px-4 py-3 text-center font-bold bg-red-600" style={{ minWidth: '120px' }}>Aksi</th>
+                    <th className="px-4 py-3 text-center font-bold" style={{ minWidth: '150px' }}>Timer</th>
+                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '150px' }}>Nama Proyek</th>
+                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '150px' }}>Nama Mitra</th>
+                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>PID</th>
+                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>Jenis PO</th>
+                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '120px' }}>Nomor PO</th>
+                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>Phase</th>
+                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>Status CT</th>
+                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>Status UT</th>
+                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '120px' }}>Rekap BOQ</th>
+                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '130px' }}>Rekon Nilai</th>
+                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '140px' }}>Rekon Material</th>
+                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '160px' }}>Pelurusan Material</th>
+                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '180px' }}>Status Procurement</th>
+                    <th className="px-4 py-3 text-center font-bold" style={{ minWidth: '120px' }}>Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -534,10 +570,13 @@ export default function Projects() {
                       <tr key={project.id} className="border-b hover:bg-gray-50">
                         <td className="px-4 py-3 text-center" style={{ minWidth: '150px' }}>
                           <ProjectTimer
+                            key={`timer-${project.id}-${project.estimasi_durasi_hari}-${project.tanggal_mulai}`}
                             projectId={project.id}
                             projectName={project.nama_proyek}
                             estimasiDurasi={Number(project.estimasi_durasi_hari) || 7}
                             tanggalMulai={project.tanggal_mulai || new Date().toISOString().split('T')[0]}
+                            statusProcurement={project.status_procurement}
+                            onUpdateDuration={handleDurationUpdate}
                           />
                         </td>
                         <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '180px' }}>
@@ -659,44 +698,52 @@ export default function Projects() {
             </div>
           </div>
         </div>
+
+        {/* Alert Dialog untuk Delete */}
+        <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+          <AlertDialogContent className="border-2 border-red-300 shadow-lg">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-red-600 text-xl">
+                Konfirmasi Hapus Proyek
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-gray-700">
+                Apakah Anda yakin ingin menghapus proyek ini? Tindakan ini tidak dapat 
+                dibatalkan dan semua data yang terkait akan dihapus permanen.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel 
+                disabled={isDeleting}
+                className="border-gray-300 hover:bg-gray-100"
+              >
+                Batal
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold"
+              >
+                {isDeleting ? "Menghapus..." : "Hapus Proyek"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Excel Upload Dialog */}
+        <ExcelUploadDialog
+          open={isUploadDialogOpen}
+          onOpenChange={setIsUploadDialogOpen}
+          onUploadSuccess={fetchProjects}
+        />
       </div>
-
-      {/* Alert Dialog untuk Delete */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent className="border-2 border-red-300 shadow-lg">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-600 text-xl">
-              Konfirmasi Hapus Proyek
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-700">
-              Apakah Anda yakin ingin menghapus proyek ini? Tindakan ini tidak dapat 
-              dibatalkan dan semua data yang terkait akan dihapus permanen.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel 
-              disabled={isDeleting}
-              className="border-gray-300 hover:bg-gray-100"
-            >
-              Batal
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold"
-            >
-              {isDeleting ? "Menghapus..." : "Hapus Proyek"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Excel Upload Dialog */}
-      <ExcelUploadDialog
-        open={isUploadDialogOpen}
-        onOpenChange={setIsUploadDialogOpen}
-        onUploadSuccess={fetchProjects}
-      />
     </div>
+  );
+}
+
+export default function Projects() {
+  return (
+    <SidebarProvider defaultOpen={true}>
+      <ProjectsContent />
+    </SidebarProvider>
   );
 }

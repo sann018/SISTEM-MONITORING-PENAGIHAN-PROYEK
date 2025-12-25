@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "@/components/Sidebar";
-import TopBar from "@/components/TopBar";
-import { Activity as ActivityIcon, Clock, User, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/AppSidebar";
+import { Activity as ActivityIcon, Clock, User, FileText, ChevronLeft, ChevronRight, Menu, ChevronDown, ChevronUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
@@ -17,6 +18,15 @@ interface ActivityLog {
   tipe: 'login' | 'edit' | 'create' | 'delete';
   tabel_yang_diubah?: string;
   ip_address?: string;
+  user_id?: number;
+  foto_profile?: string;
+  perubahan_detail?: {
+    [key: string]: {
+      nilai_lama: string | number | null;
+      nilai_baru: string | number | null;
+      nama_field: string;
+    }
+  };
 }
 
 interface PaginationInfo {
@@ -28,15 +38,17 @@ interface PaginationInfo {
   to: number;
 }
 
-export default function Activity() {
+function ActivityContent() {
   const { user, token } = useAuth();
   const navigate = useNavigate();
+  const { toggleSidebar } = useSidebar();
   const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [filterType, setFilterType] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const getActivityColor = (type: string) => {
     switch (type) {
@@ -79,9 +91,9 @@ export default function Activity() {
   const fetchActivities = async (page: number = 1) => {
     if (!token) return;
 
-    // Check if user is super admin
-    if (user?.role !== 'super_admin') {
-      toast.error("Akses ditolak. Hanya Super Admin yang dapat melihat aktivitas sistem.");
+    // Check if user is super admin or admin
+    if (user?.role !== 'super_admin' && user?.role !== 'admin') {
+      toast.error("Akses ditolak. Hanya Super Admin dan Admin yang dapat melihat aktivitas sistem.");
       navigate("/dashboard");
       return;
     }
@@ -122,8 +134,8 @@ export default function Activity() {
   };
 
   useEffect(() => {
-    // Check permission first
-    if (user?.role !== 'super_admin') {
+    // Check permission first - allow super_admin and admin
+    if (user?.role !== 'super_admin' && user?.role !== 'admin') {
       navigate("/dashboard");
       return;
     }
@@ -158,13 +170,33 @@ export default function Activity() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <TopBar title="Aktivitas" />
-      <Sidebar />
-
-      <div className="ml-0 lg:ml-28 pt-28 px-4 sm:px-6 lg:px-8 pb-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 sm:p-6 lg:p-8">
+    <div className="flex min-h-screen w-full bg-gray-100">
+      <AppSidebar />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <header className="bg-red-600 text-white px-4 py-3 shadow-lg flex items-center justify-between w-full overflow-hidden flex-shrink-0 z-50 rounded-bl-lg rounded-tl-lg">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => toggleSidebar()}
+              className="text-white hover:bg-red-700 h-9 w-9 flex-shrink-0"
+              title="Toggle Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            <h1 className="text-xl font-bold truncate">Aktivitas Sistem</h1>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center">
+              <span className="text-red-600 font-bold text-sm">👤</span>
+            </div>
+            <span className="text-white font-semibold whitespace-nowrap text-sm">{user?.name || 'USER'}</span>
+          </div>
+        </header>
+        <div className="flex-1 p-6 flex flex-col min-h-0">
+            <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="max-w-6xl mx-auto">
+              <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 sm:p-6 lg:p-8">
             {/* Header */}
             <div className="mb-6 flex items-center gap-3">
               <ActivityIcon className="w-8 h-8 text-red-600" />
@@ -231,41 +263,111 @@ export default function Activity() {
               <div className="space-y-4 mt-8">
                 {activities.map((activity) => {
                   const { date, time } = formatDateTime(activity.waktu_aksi);
+                  const isExpanded = expandedId === activity.id;
+                  const hasChanges = activity.perubahan_detail && Object.keys(activity.perubahan_detail).length > 0;
+                  
                   return (
                     <div
                       key={activity.id}
-                      className={`flex gap-4 p-4 rounded-lg border-2 hover:shadow-md transition-all ${getActivityColor(activity.tipe)}`}
+                      className={`rounded-lg border-2 overflow-hidden transition-all ${getActivityColor(activity.tipe)}`}
                     >
-                      {/* Icon */}
-                      <div className="flex-shrink-0">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${getActivityColor(activity.tipe)} border-2`}>
-                          {getActivityIcon(activity.tipe)}
+                      {/* Main Activity Card */}
+                      <div className="p-4 hover:shadow-md transition-all">
+                        <div className="flex gap-4">
+                          {/* Profile Photo */}
+                          <div className="flex-shrink-0">
+                            {activity.foto_profile ? (
+                              <img 
+                                src={activity.foto_profile} 
+                                alt={activity.nama_pengguna}
+                                className="w-12 h-12 rounded-full object-cover border-2 border-current"
+                              />
+                            ) : (
+                              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${getActivityColor(activity.tipe)} border-2`}>
+                                {getActivityIcon(activity.tipe)}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-start sm:justify-between gap-2 sm:gap-0 mb-2">
+                              <div className="min-w-0">
+                                <h3 className="font-bold text-lg">{activity.aksi}</h3>
+                                <p className="text-sm font-semibold opacity-80">oleh {activity.nama_pengguna}</p>
+                                {activity.tabel_yang_diubah && (
+                                  <p className="text-xs opacity-60 mt-1">Tabel: {activity.tabel_yang_diubah}</p>
+                                )}
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <div className="flex items-center gap-1 text-sm font-semibold whitespace-nowrap">
+                                  <Clock className="w-4 h-4" />
+                                  {time}
+                                </div>
+                                <p className="text-xs opacity-70 mt-1 whitespace-nowrap">{date}</p>
+                                {activity.ip_address && (
+                                  <p className="text-xs opacity-60 mt-1">IP: {activity.ip_address}</p>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-sm opacity-90 mb-2">{activity.deskripsi}</p>
+
+                            {/* Expand Button for Details */}
+                            {hasChanges && (
+                              <button
+                                onClick={() => setExpandedId(isExpanded ? null : activity.id)}
+                                className="flex items-center gap-2 text-xs font-semibold opacity-70 hover:opacity-100 transition-all"
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <ChevronUp className="w-4 h-4" />
+                                    Sembunyikan Detail Perubahan
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown className="w-4 h-4" />
+                                    Lihat Detail Perubahan ({Object.keys(activity.perubahan_detail || {}).length})
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Content */}
-                      <div className="flex-1">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-start sm:justify-between gap-2 sm:gap-0 mb-2">
-                          <div>
-                            <h3 className="font-bold text-lg">{activity.aksi}</h3>
-                            <p className="text-sm font-semibold opacity-80">oleh {activity.nama_pengguna}</p>
-                            {activity.tabel_yang_diubah && (
-                              <p className="text-xs opacity-60 mt-1">Tabel: {activity.tabel_yang_diubah}</p>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className="flex items-center gap-1 text-sm font-semibold whitespace-nowrap">
-                              <Clock className="w-4 h-4" />
-                              {time}
+                      {/* Expanded Details Section */}
+                      {isExpanded && hasChanges && (
+                        <div className="border-t-2 bg-black bg-opacity-5 p-4 space-y-3">
+                          <h4 className="font-bold text-sm mb-3 opacity-80">Detail Perubahan:</h4>
+                          {Object.entries(activity.perubahan_detail || {}).map(([key, change]) => (
+                            <div key={key} className="bg-white bg-opacity-40 rounded-lg p-3 space-y-2">
+                              <p className="font-semibold text-sm">{change.nama_field}</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                  <p className="text-xs opacity-70 font-semibold">Nilai Lama:</p>
+                                  <div className="bg-red-100 bg-opacity-50 p-2 rounded text-sm break-words">
+                                    {change.nilai_lama ? (
+                                      <span className="font-mono">{String(change.nilai_lama)}</span>
+                                    ) : (
+                                      <span className="italic opacity-60">-</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-xs opacity-70 font-semibold">Nilai Baru:</p>
+                                  <div className="bg-green-100 bg-opacity-50 p-2 rounded text-sm break-words">
+                                    {change.nilai_baru ? (
+                                      <span className="font-mono font-bold">{String(change.nilai_baru)}</span>
+                                    ) : (
+                                      <span className="italic opacity-60">-</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <p className="text-xs opacity-70 mt-1 whitespace-nowrap">{date}</p>
-                            {activity.ip_address && (
-                              <p className="text-xs opacity-60 mt-1">IP: {activity.ip_address}</p>
-                            )}
-                          </div>
+                          ))}
                         </div>
-                        <p className="text-sm opacity-90">{activity.deskripsi}</p>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
@@ -328,9 +430,19 @@ export default function Activity() {
                 </div>
               </div>
             )}
-          </div>
+            </div>
+            </div>
+            </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Activity() {
+  return (
+    <SidebarProvider defaultOpen={true}>
+      <ActivityContent />
+    </SidebarProvider>
   );
 }

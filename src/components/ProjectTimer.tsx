@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Clock, Edit2, Check, X } from "lucide-react";
 import DurationPicker from "@/components/DurationPicker";
 import { toast } from "sonner";
+import "./ProjectTimer.css";
 
 interface ProjectTimerProps {
   projectId: string;
@@ -65,11 +66,18 @@ export function ProjectTimer({
     const diff = endDate.getTime() - now.getTime();
 
     if (diff <= 0) {
+      // Hitung waktu yang sudah terlewat
+      const overdueDiff = Math.abs(diff);
+      const hari = Math.floor(overdueDiff / (1000 * 60 * 60 * 24));
+      const jam = Math.floor((overdueDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const menit = Math.floor((overdueDiff % (1000 * 60 * 60)) / (1000 * 60));
+      const detik = Math.floor((overdueDiff % (1000 * 60)) / 1000);
+
       setTimeRemaining({
-        hari: 0,
-        jam: 0,
-        menit: 0,
-        detik: 0,
+        hari,
+        jam,
+        menit,
+        detik,
         isExpired: true,
       });
     } else {
@@ -95,11 +103,6 @@ export function ProjectTimer({
     return () => clearInterval(interval);
   }, [estimasiDurasi, tanggalMulai]);
 
-  // Cek apakah proyek sudah selesai
-  const isCompleted =
-    statusProcurement?.toLowerCase().trim() === "otw reg" ||
-    statusProcurement?.toLowerCase().trim() === "sekuler ttd";
-
   const handleSave = async () => {
     if (!editDurasi || isNaN(parseInt(editDurasi))) {
       toast.error("Durasi harus berupa angka");
@@ -124,15 +127,6 @@ export function ProjectTimer({
     setEditTanggalMulai(tanggalMulai);
     setIsEditing(false);
   };
-
-  if (isCompleted) {
-    return (
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-100 border border-green-300">
-        <Clock className="h-4 w-4 text-green-600" />
-        <span className="text-xs md:text-sm font-medium text-green-800">Selesai</span>
-      </div>
-    );
-  }
 
   if (isEditing) {
     return (
@@ -180,16 +174,17 @@ export function ProjectTimer({
 
   const isWarning = timeRemaining.hari <= 2 && !timeRemaining.isExpired;
   const isDanger = timeRemaining.hari === 0 && !timeRemaining.isExpired;
+  const isOverdue = timeRemaining.isExpired;
 
   return (
     <div
       className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border transition-all cursor-pointer group ${
-        isDanger
+        isOverdue
+          ? "bg-red-100 border-red-300 hover:bg-red-200"
+          : isDanger
           ? "bg-red-100 border-red-300 hover:bg-red-200"
           : isWarning
           ? "bg-yellow-100 border-yellow-300 hover:bg-yellow-200"
-          : timeRemaining.isExpired
-          ? "bg-gray-100 border-gray-300"
           : "bg-blue-100 border-blue-300 hover:bg-blue-200"
       }`}
       onClick={() => setIsEditing(true)}
@@ -198,18 +193,23 @@ export function ProjectTimer({
       <div className="flex items-center gap-2 flex-1">
         <Clock
           className={`h-4 w-4 flex-shrink-0 ${
-            isDanger
+            isOverdue
+              ? "text-red-600 animate-pulse"
+              : isDanger
               ? "text-red-600"
               : isWarning
               ? "text-yellow-600"
-              : timeRemaining.isExpired
-              ? "text-gray-600"
               : "text-blue-600"
           }`}
         />
         <div className="text-xs md:text-sm font-bold">
-          {timeRemaining.isExpired ? (
-            <span className="text-gray-700">Waktu Habis</span>
+          {isOverdue ? (
+            <div className="flex flex-col animate-blink">
+              <span className="text-red-700 font-extrabold">⏱️ Melewati Batas</span>
+              <span className="text-red-600 text-xs font-semibold">
+                -{timeRemaining.hari}h -{timeRemaining.jam}j -{timeRemaining.menit}m -{timeRemaining.detik}d
+              </span>
+            </div>
           ) : (
             <span
               className={
