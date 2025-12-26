@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { PageHeader } from "@/components/PageHeader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -145,17 +146,12 @@ export default function EditProject() {
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full bg-background relative">
-        <AppSidebar />
-        <main className="flex-1 overflow-hidden w-full min-w-0">
-          <header className="sticky top-0 z-30 border-b bg-white shadow-sm">
-            <div className="flex h-14 sm:h-16 md:h-20 items-center gap-2 md:gap-4 px-3 md:px-6 bg-gradient-to-r from-red-50 to-white border-b-2 border-red-200">
-              <SidebarTrigger className="flex-shrink-0 h-9 w-9 md:h-10 md:w-10 hover:bg-red-100 active:bg-red-200 border-2 border-transparent hover:border-red-300 rounded-lg transition-colors" />
-              <h1 className="text-sm sm:text-base md:text-xl lg:text-2xl font-bold text-red-600 truncate">Edit Proyek</h1>
-            </div>
-          </header>
-
-          <div className="p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 lg:space-y-8 max-w-4xl mx-auto">
+      <div className="flex flex-col h-svh w-full bg-gray-50 overflow-hidden">
+        <PageHeader title="Edit Proyek" />
+        <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
+          <AppSidebar />
+          <main className="flex-1 overflow-y-auto w-full min-w-0">
+            <div className="space-y-4 md:space-y-6 lg:space-y-8 max-w-4xl mx-auto">
             <Button variant="outline" onClick={() => navigate("/projects")} className="mb-2 md:mb-4 text-xs md:text-sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Kembali
@@ -378,8 +374,9 @@ export default function EditProject() {
                 </form>
               </CardContent>
             </Card>
-          </div>
-        </main>
+            </div>
+          </main>
+        </div>
       </div>
     </SidebarProvider>
   );

@@ -119,6 +119,8 @@ All colors MUST be HSL.
 .sidebar-menu-btn {
   position: relative;
   overflow: hidden;
+  border: none;
+  background-clip: initial;
 }
 
 /* Hapus animasi hover untuk menu inactive */
@@ -149,24 +151,7 @@ All colors MUST be HSL.
 
 /* Shine effect untuk menu items */
 .sidebar-menu-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.15),
-    transparent
-  );
-  transition: left 0.5s ease;
-  pointer-events: none;
-}
-
-.sidebar-menu-btn:not(.bg-white):hover::before {
-  left: 100%;
+  content: none;
 }
 
 /* ============================================
@@ -256,6 +241,25 @@ All colors MUST be HSL.
 /* ===================================== */
 /* RESPONSIVE UTILITIES FOR ALL DEVICES */
 /* ===================================== */
+
+/* ===================================== */
+/* ROUTE TRANSITION (SMOOTH NAVIGATION) */
+/* ===================================== */
+
+@keyframes routeFadeSlide {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.route-transition {
+  animation: routeFadeSlide 180ms ease-out both;
+}
 
 /* Smooth scrolling for mobile */
 @layer utilities {

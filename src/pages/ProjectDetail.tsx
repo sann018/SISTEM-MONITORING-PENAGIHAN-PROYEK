@@ -141,9 +141,9 @@ export default function ProjectDetail() {
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full bg-background relative">
+      <div className="flex h-svh w-full bg-background relative overflow-hidden">
         <AppSidebar />
-        <main className="flex-1 w-full overflow-hidden min-w-0">
+        <main className="flex-1 w-full min-w-0 overflow-y-auto">
           <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="flex h-14 sm:h-16 items-center gap-2 md:gap-4 px-3 md:px-6 bg-gradient-to-r from-red-50 to-white border-b border-red-200">
               <SidebarTrigger className="flex-shrink-0 h-9 w-9 md:h-10 md:w-10 hover:bg-red-100 active:bg-red-200 border-2 border-transparent hover:border-red-300 rounded-lg transition-colors" />

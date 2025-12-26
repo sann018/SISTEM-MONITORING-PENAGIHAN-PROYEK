@@ -191,6 +191,56 @@ class PenagihanService {
       throw error;
     }
   }
+
+  /**
+   * [🎯 PRIORITY_SYSTEM] Set/unset prioritas manual untuk proyek
+   * @param id - ID proyek
+   * @param prioritas - 1 untuk set priority, null untuk remove priority
+   */
+  async setPrioritize(id: number, prioritas: number | null): Promise<Penagihan> {
+    const response = await api.put<ApiResponse<Penagihan>>(
+      `${this.baseUrl}/${id}/prioritize`,
+      { prioritas }
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.message || 'Failed to set priority');
+  }
+
+  /**
+   * [🎯 PRIORITY_SYSTEM] Auto-assign prioritas 2 untuk proyek yang mendekati deadline
+   * @returns Jumlah proyek yang di-update dan di-clear
+   */
+  async autoPrioritize(): Promise<{ updated: number; cleared: number }> {
+    const response = await api.post<ApiResponse<{ updated: number; cleared: number }>>(
+      `${this.baseUrl}/auto-prioritize`
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.message || 'Failed to auto-prioritize');
+  }
+
+  /**
+   * [🎯 PRIORITY_SYSTEM] Dapatkan proyek prioritas untuk dashboard
+   */
+  async getDashboardPrioritized(params?: FilterParams): Promise<PaginatedResponse<Penagihan>> {
+    const response = await api.get<ApiResponse<PaginatedResponse<Penagihan>>>(
+      this.baseUrl,
+      { params: { ...params, dashboard: true } }
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.message || 'Failed to fetch prioritized projects');
+  }
 }
 
 export default new PenagihanService();

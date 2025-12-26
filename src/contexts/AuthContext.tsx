@@ -6,16 +6,19 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000
 interface User {
   id: number;
   name: string;
+  username: string;
   email: string;
   role: string;
   created_at: string;
+  nik?: string | null;
+  photo?: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
+  signIn: (identifier: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, name: string, username: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   loading: boolean;
   refreshUser: () => Promise<void>;
@@ -47,7 +50,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!storedToken) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/user`, {
+      const response = await fetch(`${API_BASE_URL}/profile`, {
         headers: {
           Authorization: `Bearer ${storedToken}`,
         },
@@ -55,8 +58,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setUser(data.data);
-        localStorage.setItem("user", JSON.stringify(data.data));
+        const refreshedUser: User = {
+          id: data.data.id,
+          name: data.data.name,
+          username: data.data.username,
+          email: data.data.email,
+          role: data.data.role,
+          created_at: data.data.created_at,
+          nik: data.data.nik ?? null,
+          photo: data.data.photo ?? null,
+        };
+
+        setUser(refreshedUser);
+        localStorage.setItem("user", JSON.stringify(refreshedUser));
       } else {
         // Token invalid, clear auth
         localStorage.removeItem("token");
@@ -69,16 +83,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (identifier: string, password: string) => {
     try {
-      console.log("Login attempt:", { email, API_BASE_URL });
+      console.log("Login attempt:", { identifier, API_BASE_URL });
       
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ identifier, password }),
       });
 
       console.log("Login response status:", response.status);
@@ -100,6 +114,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setToken(data.data.token);
       setUser(data.data.user);
 
+      // Pull fresh profile (photo, nik, latest name/username)
+      await refreshUser();
+
       navigate("/dashboard");
       return { error: null };
     } catch (error) {
@@ -108,7 +125,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (email: string, password: string, name: string, username: string) => {
     try {
       const response = await fetch(`${API_BASE_URL}/register`, {
         method: "POST",
@@ -118,6 +135,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         body: JSON.stringify({
           name,
           email,
+          username,
           password,
           password_confirmation: password,
         }),
@@ -136,6 +154,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Update state
       setToken(data.data.token);
       setUser(data.data.user);
+
+      // Pull fresh profile (photo, nik, latest name/username)
+      await refreshUser();
 
       navigate("/dashboard");
       return { error: null };

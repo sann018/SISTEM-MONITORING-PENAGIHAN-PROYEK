@@ -205,7 +205,7 @@ export function ProjectTimer({
         <div className="text-xs md:text-sm font-bold">
           {isOverdue ? (
             <div className="flex flex-col animate-blink">
-              <span className="text-red-700 font-extrabold">⏱️ Melewati Batas</span>
+              <span className="text-red-700 font-extrabold">Melewati Batas</span>
               <span className="text-red-600 text-xs font-semibold">
                 -{timeRemaining.hari}h -{timeRemaining.jam}j -{timeRemaining.menit}m -{timeRemaining.detik}d
               </span>

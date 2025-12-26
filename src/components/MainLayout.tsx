@@ -10,12 +10,12 @@ interface MainLayoutProps {
 export function MainLayout({ children, title }: MainLayoutProps) {
   return (
     <SidebarProvider>
-      <div className="flex w-full min-h-screen bg-gray-50">
+      <div className="flex w-full h-svh bg-gray-50 overflow-hidden">
         {/* Sidebar */}
         <AppSidebar />
         
         {/* Main Content */}
-        <main className="flex-1 flex flex-col">
+        <main className="flex-1 flex flex-col min-h-0">
           {/* Header Bar */}
           <header className="border-b border-gray-200 bg-white shadow-sm sticky top-0 z-40">
             <div className="flex items-center gap-4 px-4 md:px-6 py-3 md:py-4">
@@ -30,7 +30,7 @@ export function MainLayout({ children, title }: MainLayoutProps) {
           </header>
 
           {/* Page Content */}
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 min-h-0 overflow-auto">
             <div className="p-4 md:p-6 lg:p-8">
               {children}
             </div>

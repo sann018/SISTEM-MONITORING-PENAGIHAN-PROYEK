@@ -7,6 +7,7 @@ import { FolderKanban, CheckCircle2, Clock, AlertTriangle, SlidersHorizontal, Se
 import { toast } from "sonner";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface Project {
@@ -24,6 +25,8 @@ interface Project {
   rekon_material: string;
   pelurusan_material: string;
   status_procurement: string;
+  prioritas?: number | null;
+  prioritas_label?: string;
 }
 
 function DashboardContent() {
@@ -41,7 +44,8 @@ function DashboardContent() {
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const response = await penagihanService.getAll();
+      // Fetch dashboard prioritized projects
+      const response = await penagihanService.getDashboardPrioritized();
       
       // Map data dari API ke format yang dibutuhkan
       const mappedData = response.data.map((item: any) => ({
@@ -59,6 +63,8 @@ function DashboardContent() {
         rekon_material: item.rekon_material || 'BELUM REKON',
         pelurusan_material: item.pelurusan_material || 'BELUM LURUS',
         status_procurement: item.status_procurement || 'ANTRI PERIV',
+        prioritas: item.prioritas,
+        prioritas_label: item.prioritas_label,
       }));
       
       setProjects(mappedData);
@@ -67,6 +73,28 @@ function DashboardContent() {
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSetPriority = async (projectId: string, prioritas: number | null) => {
+    try {
+      await penagihanService.setPrioritize(Number(projectId), prioritas);
+      toast.success(prioritas ? `Proyek berhasil di-set sebagai prioritas ${prioritas}` : "Prioritas berhasil dihapus");
+      fetchProjects();
+    } catch (error) {
+      toast.error("Gagal mengatur prioritas");
+      console.error(error);
+    }
+  };
+
+  const handleAutoPrioritize = async () => {
+    try {
+      const result = await penagihanService.autoPrioritize();
+      toast.success(`Auto-prioritize berhasil! ${result.updated} proyek di-update, ${result.cleared} proyek di-clear`);
+      fetchProjects();
+    } catch (error) {
+      toast.error("Gagal menjalankan auto-prioritize");
+      console.error(error);
     }
   };
 
@@ -167,23 +195,11 @@ function DashboardContent() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen w-full bg-gray-100">
-        <AppSidebar />
-        <div className="flex flex-col flex-1">
-          <header className="bg-red-600 text-white px-6 py-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => toggleSidebar()}
-                className="text-white hover:bg-red-700 h-10 w-15"
-              >
-                <Menu className="w-6 h-6" />
-              </Button>
-              <h1 className="text-2xl font-bold">Dashboard Monitoring Penagihan Proyek</h1>
-            </div>
-          </header>
-          <div className="flex items-center justify-center flex-1">
+      <div className="flex flex-col h-svh w-full bg-gray-50 overflow-hidden">
+        <PageHeader title="Dashboard Monitoring Penagihan Proyek" />
+        <div className="flex flex-1 gap-4 px-4 pb-4">
+          <AppSidebar />
+          <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
               <p className="text-gray-600">Memuat data...</p>
@@ -195,30 +211,11 @@ function DashboardContent() {
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-gray-100">
-      <AppSidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <header className="bg-red-600 text-white px-5 py-3 shadow-lg flex items-center justify-between w-full overflow-hidden flex-shrink-0 z-50 rounded-bl-lg rounded-tl-lg">
-          <div className="flex items-center gap-3 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => toggleSidebar()}
-              className="text-white hover:bg-red-700 h-9 w-9 flex-shrink-0"
-              title="Toggle Menu"
-            >
-              <Menu className="w-3 h-3" />
-            </Button>
-            <h1 className="text-xl font-bold truncate">Dashboard Monitoring Penagihan Proyek</h1>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center">
-              <span className="text-red-600 font-bold text-sm">👤</span>
-            </div>
-            <span className="text-white font-semibold whitespace-nowrap text-sm">{user?.name || 'USER'}</span>
-          </div>
-        </header>
-        <div className="flex-1 p-6 flex flex-col min-h-0">
+    <div className="flex flex-col h-svh w-full bg-gray-50 overflow-hidden">
+      <PageHeader title="Dashboard Monitoring Penagihan Proyek" />
+      <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
+        <AppSidebar />
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
           {/* Stats Cards */}
           <div className="grid grid-cols-5 gap-4 mb-8">
             <div
@@ -306,6 +303,12 @@ function DashboardContent() {
               />
             </div>
             <Button
+              onClick={handleAutoPrioritize}
+              className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-6 py-3 rounded-xl h-12 text-base"
+            >
+              🎯 Auto Prioritize
+            </Button>
+            <Button
               onClick={() => navigate("/projects")}
               className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl h-12 text-base"
             >
@@ -316,9 +319,10 @@ function DashboardContent() {
           {/* Table */}
           <div className="flex-1 overflow-y-auto min-h-0 rounded-lg shadow bg-white">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm" style={{ minWidth: '1800px' }}>
+              <table className="w-full text-sm" style={{ minWidth: '2100px' }}>
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-gray-200 border-b-2 border-red-600">
+                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '120px' }}>Prioritas</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '180px' }}>Nama Proyek</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '150px' }}>Nama Mitra</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '100px' }}>PID</th>
@@ -332,12 +336,30 @@ function DashboardContent() {
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '140px' }}>Rekon Material</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '160px' }}>Pelurusan Material</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '180px' }}>Status Procurement</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-700 bg-gray-200" style={{ minWidth: '200px' }}>Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredProjects.length > 0 ? (
-                  filteredProjects.slice(0, 5).map((project) => (
+                  filteredProjects.slice(0, 10).map((project) => (
                     <tr key={project.id} className="border-b hover:bg-gray-50">
+                      <td className="px-4 py-3" style={{ minWidth: '120px' }}>
+                        {project.prioritas === 1 && (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-600 text-white animate-pulse">
+                            🔥 PRIORITAS 1
+                          </span>
+                        )}
+                        {project.prioritas === 2 && (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-orange-500 text-white">
+                            ⚠️ PRIORITAS 2
+                          </span>
+                        )}
+                        {!project.prioritas && (
+                          <span className="px-3 py-1 rounded text-xs font-semibold text-gray-400">
+                            -
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '180px' }}>{project.nama_proyek}</td>
                       <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '150px' }}>{project.nama_mitra}</td>
                       <td className="px-4 py-3 font-mono whitespace-nowrap" style={{ minWidth: '100px' }}>{project.pid}</td>
@@ -391,12 +413,35 @@ function DashboardContent() {
                           {project.status_procurement}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-center" style={{ minWidth: '200px' }}>
+                        <div className="flex gap-1 justify-center">
+                          {project.prioritas !== 1 && (
+                            <Button
+                              onClick={() => handleSetPriority(project.id, 1)}
+                              size="sm"
+                              className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 h-7"
+                            >
+                              Set P1
+                            </Button>
+                          )}
+                          {project.prioritas && (
+                            <Button
+                              onClick={() => handleSetPriority(project.id, null)}
+                              size="sm"
+                              variant="outline"
+                              className="text-gray-600 text-xs px-2 py-1 h-7"
+                            >
+                              Clear
+                            </Button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={13} className="px-4 py-3 text-center text-gray-500">
-                      Tidak ada data proyek
+                    <td colSpan={15} className="px-4 py-3 text-center text-gray-500">
+                      Tidak ada data proyek prioritas
                     </td>
                   </tr>
                 )}

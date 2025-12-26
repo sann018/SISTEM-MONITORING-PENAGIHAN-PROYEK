@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Camera, User, Upload, Lock, Menu } from "lucide-react";
@@ -11,6 +12,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 
 interface ProfileData {
   id: number;
+  username: string;
   name: string;
   email: string;
   role: string;
@@ -19,7 +21,7 @@ interface ProfileData {
 }
 
 function ProfileContent() {
-  const { user, token } = useAuth();
+  const { user, token, refreshUser } = useAuth();
   const { toggleSidebar } = useSidebar();
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -36,6 +38,7 @@ function ProfileContent() {
   });
   const [profile, setProfile] = useState<ProfileData>({
     id: 0,
+    username: "",
     name: "",
     email: "",
     role: "",
@@ -68,6 +71,7 @@ function ProfileContent() {
 
       setProfile({
         id: data.data.id,
+        username: data.data.username || "",
         name: data.data.name || "",
         email: data.data.email || "",
         role: data.data.role || "",
@@ -156,16 +160,22 @@ function ProfileContent() {
       }
 
       // Update profile data (name, nik)
+      const payload: Record<string, unknown> = {
+        name: profile.name,
+        nik: profile.nik,
+      };
+
+      if (profile.role === 'super_admin') {
+        payload.username = profile.username;
+      }
+
       const response = await fetch(`${API_BASE_URL}/profile`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: profile.name,
-          nik: profile.nik,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -176,7 +186,10 @@ function ProfileContent() {
 
       toast.success("Profil berhasil diperbarui!");
       setIsEditing(false);
-      
+
+      // Clear preview and sync latest profile to global/header
+      await refreshUser();
+
       // Clear preview and fetch profile again
       setPreviewPhoto("");
       await fetchProfile();
@@ -249,36 +262,16 @@ function ProfileContent() {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-gray-100">
-      <AppSidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <header className="bg-red-600 text-white px-4 py-3 shadow-lg flex items-center justify-between w-full overflow-hidden flex-shrink-0 z-50 rounded-bl-lg rounded-tl-lg">
-          <div className="flex items-center gap-3 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => toggleSidebar()}
-              className="text-white hover:bg-red-700 h-9 w-9 flex-shrink-0"
-              title="Toggle Menu"
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
-            <h1 className="text-xl font-bold truncate">Profil Pengguna</h1>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center">
-              <span className="text-red-600 font-bold text-sm">👤</span>
-            </div>
-            <span className="text-white font-semibold whitespace-nowrap text-sm">{user?.name || 'USER'}</span>
-          </div>
-        </header>
-        <div className="flex-1 p-6 flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto min-h-0">
-            {/* Main Content */}
-            <div className="max-w-7xl mx-auto">
-          <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 lg:p-6">
-            {/* Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
+    <div className="flex flex-col h-svh w-full bg-gray-50 overflow-hidden">
+      <PageHeader title="Profil Pengguna" />
+      <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
+        <AppSidebar />
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {/* Main Content */}
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 lg:p-6">
+              {/* Content Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
               {/* Left Side - Photo Profile Card */}
               <div className="lg:col-span-2 w-full">
                 <div className="bg-white rounded-3xl shadow-2xl p-6 border-4 border-red-600 h-full flex flex-col justify-center">
@@ -346,6 +339,21 @@ function ProfileContent() {
                   
                   {/* Info Cards without White Box - Single Line Layout */}
                   <div className="space-y-3">
+                    {/* Username Section */}
+                    <div className="bg-red-50 backdrop-blur-sm rounded-xl p-3 border-2 border-red-200 hover:bg-red-100 transition-all duration-300">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-red-100 rounded-lg p-1.5 flex-shrink-0">
+                          <User className="w-4 h-4 text-red-600" />
+                        </div>
+                        <p className="text-gray-700 text-xs font-bold uppercase tracking-wider flex-shrink-0">
+                          Username:
+                        </p>
+                        <p className="text-gray-900 font-bold text-base flex-1 truncate">
+                          {profile.username || "-"}
+                        </p>
+                      </div>
+                    </div>
+
                     {/* Nama Lengkap Section */}
                     <div className="bg-red-50 backdrop-blur-sm rounded-xl p-3 border-2 border-red-200 hover:bg-red-100 transition-all duration-300">
                       <div className="flex items-center gap-2">
@@ -418,12 +426,12 @@ function ProfileContent() {
                         </label>
                         <Input
                           type="text"
-                          name="name"
-                          value={profile.name}
+                          name="username"
+                          value={profile.username}
                           onChange={handleInputChange}
-                          disabled={!isEditing}
+                          disabled={!isEditing || profile.role !== 'super_admin'}
                           placeholder="Username"
-                          className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
+                          className={`w-full h-11 px-4 border-2 border-gray-300 rounded-xl ${(!isEditing || profile.role !== 'super_admin') ? 'bg-gray-50 text-gray-600' : 'bg-white'} focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium`}
                         />
                       </div>
 
@@ -606,8 +614,7 @@ function ProfileContent() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+            </div>
           </div>
         </div>
       </div>

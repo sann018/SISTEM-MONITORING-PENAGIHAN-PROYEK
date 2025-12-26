@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -387,32 +388,12 @@ function UserManagementContent() {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-gray-100">
-      <AppSidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <header className="bg-red-600 text-white px-4 py-3 shadow-lg flex items-center justify-between w-full overflow-hidden flex-shrink-0 z-50 rounded-bl-lg rounded-tl-lg">
-          <div className="flex items-center gap-4 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => toggleSidebar()}
-              className="text-white hover:bg-red-700 h-10 w-10 flex-shrink-0"
-              title="Toggle Menu"
-            >
-              <Menu className="w-6 h-6" />
-            </Button>
-            <h1 className="text-2xl font-bold truncate">Manajemen Pengguna</h1>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-              <span className="text-red-600 font-bold">👤</span>
-            </div>
-            <span className="text-white font-semibold whitespace-nowrap">{currentUser?.name || 'USER'}</span>
-          </div>
-        </header>
-        <div className="flex-1 p-6 flex flex-col min-h-0">
-            <div className="flex-1 overflow-y-auto min-h-0">
-            <div className="max-w-6xl mx-auto">
+    <div className="flex flex-col h-svh w-full bg-gray-50 overflow-hidden">
+      <PageHeader title="Manajemen Pengguna" />
+      <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
+        <AppSidebar />
+        <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="max-w-6xl mx-auto">
               <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 sm:p-6 lg:p-8">
                 {/* Header */}
             <div className="mb-6">
@@ -835,7 +816,6 @@ function UserManagementContent() {
         </Dialog>
             </div>
           </div>
-            </div>
         </div>
       </div>
     </div>

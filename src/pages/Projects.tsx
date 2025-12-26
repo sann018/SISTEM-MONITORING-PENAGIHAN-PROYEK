@@ -10,6 +10,7 @@ import { EditableStatusCell } from "@/components/EditableStatusCell";
 import { EditableNumberCell } from "@/components/EditableNumberCell";
 import { ProjectTimer } from "@/components/ProjectTimer";
 import ExcelUploadDialog from "@/components/ExcelUploadDialog";
+import { PageHeader } from "@/components/PageHeader";
 import { Menu } from "lucide-react";
 import {
   AlertDialog,
@@ -444,35 +445,13 @@ function ProjectsContent() {
   // JSX RETURN
   // =====================================
   return (
-    <div className="flex min-h-screen w-full bg-gray-100">
-      {/* Sidebar */}
-      <AppSidebar />
+    <div className="flex flex-col h-svh w-full bg-gray-50 overflow-hidden">
+      <PageHeader title="Daftar Penagihan Proyek" />
 
-      {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-hidden">
-        {/* Top Header with Toggle Button */}
-        <header className="bg-red-600 text-white px-4 py-3 shadow-lg flex items-center justify-between w-full overflow-hidden flex-shrink-0 z-50 rounded-bl-lg rounded-tl-lg">
-          <div className="flex items-center gap-3 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => toggleSidebar()}
-              className="text-white hover:bg-red-700 h-9 w-9 flex-shrink-0"
-              title={state === 'expanded' ? 'Tutup Menu' : 'Buka Menu'}
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
-            <h1 className="text-xl font-bold truncate">Daftar Penagihan Proyek</h1>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center">
-              <span className="text-red-600 font-bold text-sm">👤</span>
-            </div>
-            <span className="text-white font-semibold whitespace-nowrap text-sm">{user?.name || 'USER'}</span>
-          </div>
-        </header>
-        {/* Main Content Area */}
-        <div className="flex-1 p-6 flex flex-col min-h-0">
+      <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
+        <AppSidebar />
+
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
           {/* Action Buttons */}
           <div className="flex gap-3 mb-6">
             {!isReadOnly && (

@@ -7,7 +7,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Mail } from "lucide-react";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { signIn, user } = useAuth();
@@ -22,7 +22,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { error } = await signIn(email, password);
+      const { error } = await signIn(identifier, password);
       if (error) {
         toast.error(typeof error === "string" ? error : error.message || "Login failed");
       } else {
@@ -99,19 +99,19 @@ export default function Login() {
               </h2>
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Email Input */}
+                {/* Identifier Input */}
                 <div className="space-y-2">
                   <label className="flex items-center text-base font-bold text-black">
                     <Mail className="w-5 h-5 mr-3 text-red-600" />
-                    Email
+                    Email atau Username
                   </label>
                   <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="identifier"
+                    type="text"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
                     required
-                    placeholder="Masukkan email Anda"
+                    placeholder="Masukkan email atau username"
                     className="border-0 border-b-2 border-gray-300 focus:border-red-600 rounded-none h-12 text-base px-2"
                   />
                 </div>

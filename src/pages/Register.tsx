@@ -10,6 +10,7 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const { signUp, user } = useAuth();
   const navigate = useNavigate();
@@ -28,7 +29,12 @@ export default function Register() {
         setLoading(false);
         return;
       }
-      const { error } = await signUp(email, password, fullName);
+      if (!username.trim()) {
+        toast.error("Masukkan username Anda");
+        setLoading(false);
+        return;
+      }
+      const { error } = await signUp(email, password, fullName, username);
       if (error) {
         toast.error(typeof error === "string" ? error : error.message || "Registrasi gagal");
       } else {
@@ -125,6 +131,36 @@ export default function Register() {
                       required
                       placeholder="Masukkan nama lengkap Anda"
                       className="border-0 border-b-2 border-gray-300 focus:border-red-600 rounded-none h-12 text-base px-2"
+                    />
+                  </div>
+
+                  {/* Username Input */}
+                  <div className="space-y-2">
+                    <label className="flex items-center text-base font-bold text-black">
+                      <svg
+                        className="w-5 h-5 mr-3 text-red-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </svg>
+                      Username
+                    </label>
+                    <Input
+                      id="username"
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      required
+                      placeholder="Masukkan username"
+                      className="border-0 border-b-2 border-gray-300 focus:border-red-600 rounded-none h-12 text-base px-2"
+                      minLength={3}
                     />
                   </div>
 

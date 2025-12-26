@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { PageHeader } from "@/components/PageHeader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -103,16 +104,11 @@ export default function AddProject() {
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full bg-background relative">
-        <AppSidebar />
-        <main className="flex-1 overflow-hidden w-full min-w-0">
-          <header className="sticky top-0 z-30 border-b bg-white shadow-sm">
-            <div className="flex h-14 sm:h-16 md:h-20 items-center gap-2 md:gap-4 px-3 md:px-6 bg-gradient-to-r from-red-50 to-white border-b-2 border-red-200">
-              <SidebarTrigger className="flex-shrink-0 h-9 w-9 md:h-10 md:w-10 hover:bg-red-100 active:bg-red-200 border-2 border-transparent hover:border-red-300 rounded-lg transition-colors" />
-              <h1 className="text-sm sm:text-base md:text-xl lg:text-2xl font-bold text-red-600 truncate">Tambah Proyek Baru</h1>
-            </div>
-          </header>
-          <div className="p-3 sm:p-4 md:p-6 lg:p-8 overflow-auto flex-1">
+      <div className="flex flex-col h-svh w-full bg-gray-50 overflow-hidden">
+        <PageHeader title="Tambah Proyek Baru" />
+        <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
+          <AppSidebar />
+          <main className="flex-1 overflow-auto w-full min-w-0">
             <div className="max-w-5xl mx-auto">
             {/* Back Button */}
             <button
@@ -122,9 +118,6 @@ export default function AddProject() {
               <ArrowLeft className="w-5 h-5" />
               Kembali
             </button>
-
-            {/* Page Title */}
-            <h1 className="text-3xl font-bold text-red-600 mb-8">Tambah Proyek Baru</h1>
 
             {/* Form Card */}
             <div className="bg-white rounded-xl shadow-xl border-2 border-gray-200">
@@ -414,8 +407,8 @@ export default function AddProject() {
               </div>
             )}
             </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
     </SidebarProvider>
   );
