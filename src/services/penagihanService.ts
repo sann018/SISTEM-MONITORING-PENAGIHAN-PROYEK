@@ -104,6 +104,22 @@ class PenagihanService {
   }
 
   /**
+   * [💡 API_SERVICE] [📊 CARD_STATISTICS] Hitung statistik untuk card di dashboard
+   * Menghitung dari SEMUA data proyek (bukan hanya prioritas)
+   */
+  async getCardStatistics(): Promise<any> {
+    const response = await api.get<ApiResponse<any>>(
+      `${this.baseUrl}/card-statistics`
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.message || 'Failed to fetch card statistics');
+  }
+
+  /**
    * [💡 API_SERVICE] [📑 EXCEL_OPERATIONS] Import data penagihan dari file Excel
    * Upload file ke server dan kembalikan hasil import (success/failed count)
    */

@@ -44,6 +44,8 @@ interface Project {
   estimasi_durasi_hari?: number | string;
   tanggal_mulai?: string;
   dibuat_pada?: string;
+  prioritas?: number | null;
+  prioritas_label?: string;
 }
 
 function ProjectsContent() {
@@ -55,16 +57,46 @@ function ProjectsContent() {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [filterType, setFilterType] = useState<"all" | "completed" | "ongoing" | "delayed" | "not-recon">("all");
   const [selectedYear, setSelectedYear] = useState<string>("all");
+  const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  const [priorityDropdownOpen, setPriorityDropdownOpen] = useState<string | null>(null);
   
-  // Extract available years from projects
+  // Extract available years and months from PID (format: PID-YYYY-MMM)
   const availableYears = Array.from(new Set(
     projects
       .map(p => {
-        const match = p.nomor_po?.match(/PO-(\d{4})-/);
+        const match = p.pid?.match(/PID-(\d{4})-/);
         return match ? match[1] : null;
       })
       .filter(Boolean)
   )).sort((a, b) => b!.localeCompare(a!)) as string[];
+
+  // Get available months for selected year
+  const availableMonths = selectedYear === "all" ? [] : Array.from(new Set(
+    projects
+      .filter(p => {
+        const yearMatch = p.pid?.match(/PID-(\d{4})-/);
+        return yearMatch && yearMatch[1] === selectedYear;
+      })
+      .map(p => {
+        const monthMatch = p.pid?.match(/PID-\d{4}-(\d{3})/);
+        if (monthMatch) {
+          const monthNum = parseInt(monthMatch[1], 10);
+          return monthNum > 0 && monthNum <= 12 ? monthNum.toString() : null;
+        }
+        return null;
+      })
+      .filter(Boolean)
+  )).sort((a, b) => parseInt(a!) - parseInt(b!)) as string[];
+
+  // Helper: Convert month number to name
+  const getMonthName = (month: string): string => {
+    const monthNames = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+    const monthNum = parseInt(month, 10);
+    return monthNum >= 1 && monthNum <= 12 ? monthNames[monthNum - 1] : month;
+  };
   
   // Check if user is viewer (read-only)
   const isReadOnly = user?.role === 'viewer';
@@ -102,11 +134,28 @@ function ProjectsContent() {
   }, []);
 
   // =====================================
+  // useEffect untuk close dropdown saat click outside
+  // =====================================
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (priorityDropdownOpen) {
+        setPriorityDropdownOpen(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [priorityDropdownOpen]);
+
+  // =====================================
   // FUNCTION: fetchProjects
   // =====================================
   const fetchProjects = async () => {
     try {
-      const response = await penagihanService.getAll();
+      // Fetch ALL data (bukan pagination default 15)
+      const response = await penagihanService.getAll({ per_page: 1000 });
       setProjects(response.data.map((item: any) => ({
         id: item.id.toString(),
         nama_proyek: item.nama_proyek || '-',
@@ -125,6 +174,8 @@ function ProjectsContent() {
         estimasi_durasi_hari: item.estimasi_durasi_hari || 7,
         tanggal_mulai: item.tanggal_mulai || new Date().toISOString().split('T')[0],
         dibuat_pada: item.dibuat_pada,
+        prioritas: item.prioritas,
+        prioritas_label: item.prioritas_label,
       })));
     } catch (error) {
       toast.error("Gagal memuat data proyek");
@@ -212,15 +263,33 @@ function ProjectsContent() {
     );
   });
   
-  // Filter by year
-  const yearFilteredProjects = selectedYear === "all" 
-    ? searchFilteredProjects
-    : searchFilteredProjects.filter(project => {
-        const match = project.nomor_po?.match(/PO-(\d{4})-/);
-        return match && match[1] === selectedYear;
-      });
+  // Filter by year and month from PID (format: PID-YYYY-MMM)
+  const yearMonthFilteredProjects = searchFilteredProjects.filter(project => {
+    const pidMatch = project.pid?.match(/PID-(\d{4})-(\d{3})/);
+    if (!pidMatch) return selectedYear === "all" && selectedMonth === "all";
+    
+    const projectYear = pidMatch[1];
+    const projectMonthNum = parseInt(pidMatch[2], 10);
+    
+    // Validate month number
+    if (projectMonthNum < 1 || projectMonthNum > 12) {
+      return selectedYear === "all" && selectedMonth === "all";
+    }
+    
+    // Check year filter
+    if (selectedYear !== "all" && projectYear !== selectedYear) {
+      return false;
+    }
+    
+    // Check month filter
+    if (selectedMonth !== "all" && projectMonthNum.toString() !== selectedMonth) {
+      return false;
+    }
+    
+    return true;
+  });
   
-  const filteredProjects = getFilteredByCategory(yearFilteredProjects);
+  const filteredProjects = getFilteredByCategory(yearMonthFilteredProjects);
 
   // =====================================
   // FUNCTION: handleDurationUpdate
@@ -381,6 +450,21 @@ function ProjectsContent() {
   };
 
   // =====================================
+  // FUNCTION: handleSetPriority (🎯 PRIORITY_SYSTEM)
+  // =====================================
+  const handleSetPriority = async (projectId: string, prioritas: number | null) => {
+    try {
+      await penagihanService.setPrioritize(Number(projectId), prioritas);
+      const priorityLabel = prioritas === 1 ? 'Prioritas 1 (Urgent)' : (prioritas === 2 ? 'Prioritas 2 (Important)' : '');
+      toast.success(prioritas ? `Proyek berhasil di-set sebagai ${priorityLabel}` : "Prioritas berhasil dihapus");
+      fetchProjects();
+    } catch (error) {
+      toast.error("Gagal mengatur prioritas");
+      console.error(error);
+    }
+  };
+
+  // =====================================
   // FUNCTION: getStatusVariant
   // =====================================
   const getStatusVariant = (status: string): string => {
@@ -497,7 +581,10 @@ function ProjectsContent() {
             {/* Year Filter */}
             <select
               value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
+              onChange={(e) => {
+                setSelectedYear(e.target.value);
+                setSelectedMonth("all"); // Reset month when year changes
+              }}
               className="h-12 px-4 border-2 border-gray-300 rounded-lg bg-red-600 text-white font-bold cursor-pointer hover:bg-red-700 transition-all"
             >
               <option value="all">Semua Tahun</option>
@@ -505,6 +592,22 @@ function ProjectsContent() {
                 <option key={year} value={year}>{year}</option>
               ))}
             </select>
+
+            {/* Month Filter (only show when year is selected) */}
+            {selectedYear !== "all" && availableMonths.length > 0 && (
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="h-12 px-4 border-2 border-gray-300 rounded-lg bg-red-500 text-white font-bold cursor-pointer hover:bg-red-600 transition-all"
+              >
+                <option value="all">Semua Bulan</option>
+                {availableMonths.map(month => (
+                  <option key={month} value={month}>
+                    {getMonthName(month)} ({month.padStart(2, '0')})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Projects Table */}
@@ -665,6 +768,56 @@ function ProjectsContent() {
                                 >
                                   <Trash2 className="h-4 w-4 text-red-600" />
                                 </Button>
+                                {/* Tombol Priority dengan Dropdown */}
+                                <div className="relative">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setPriorityDropdownOpen(priorityDropdownOpen === project.id ? null : project.id)}
+                                    className={`hover:bg-orange-100 p-2 ${
+                                      project.prioritas ? 'bg-orange-50' : ''
+                                    }`}
+                                    title="Set prioritas"
+                                  >
+                                    <span className="text-orange-600 font-bold text-base">
+                                      {project.prioritas === 1 ? '🔥' : project.prioritas === 2 ? '⚠️' : '⭐'}
+                                    </span>
+                                  </Button>
+                                  {/* Dropdown Menu */}
+                                  {priorityDropdownOpen === project.id && (
+                                    <div className="absolute right-0 mt-1 w-44 bg-white border-2 border-gray-200 rounded-lg shadow-xl z-50">
+                                      <button
+                                        onClick={() => {
+                                          handleSetPriority(project.id, 1);
+                                          setPriorityDropdownOpen(null);
+                                        }}
+                                        className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-sm font-semibold text-red-600 border-b border-gray-100 flex items-center gap-2"
+                                      >
+                                        <span className="text-base">🔥</span> Set P1 (Urgent)
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          handleSetPriority(project.id, 2);
+                                          setPriorityDropdownOpen(null);
+                                        }}
+                                        className="w-full text-left px-4 py-2.5 hover:bg-orange-50 text-sm font-semibold text-orange-600 border-b border-gray-100 flex items-center gap-2"
+                                      >
+                                        <span className="text-base">⚠️</span> Set P2 (Important)
+                                      </button>
+                                      {project.prioritas && (
+                                        <button
+                                          onClick={() => {
+                                            handleSetPriority(project.id, null);
+                                            setPriorityDropdownOpen(null);
+                                          }}
+                                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm text-gray-600 flex items-center gap-2"
+                                        >
+                                          <span className="text-base">❌</span> Clear Priority
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </>
                             )}
                           </div>

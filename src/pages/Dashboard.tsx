@@ -34,11 +34,19 @@ function DashboardContent() {
   const navigate = useNavigate();
   const { toggleSidebar, state } = useSidebar();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [cardStats, setCardStats] = useState({
+    total_proyek: 0,
+    sudah_penuh: 0,
+    sedang_berjalan: 0,
+    tertunda: 0,
+    belum_rekon: 0
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchProjects();
+    fetchCardStatistics();
   }, []);
 
   const fetchProjects = async () => {
@@ -76,6 +84,16 @@ function DashboardContent() {
     }
   };
 
+  const fetchCardStatistics = async () => {
+    try {
+      const response = await penagihanService.getCardStatistics();
+      setCardStats(response);
+    } catch (error) {
+      toast.error("Gagal memuat statistik");
+      console.error(error);
+    }
+  };
+
   const handleSetPriority = async (projectId: string, prioritas: number | null) => {
     try {
       await penagihanService.setPrioritize(Number(projectId), prioritas);
@@ -92,6 +110,7 @@ function DashboardContent() {
       const result = await penagihanService.autoPrioritize();
       toast.success(`Auto-prioritize berhasil! ${result.updated} proyek di-update, ${result.cleared} proyek di-clear`);
       fetchProjects();
+      fetchCardStatistics(); // Refresh card stats juga
     } catch (error) {
       toast.error("Gagal menjalankan auto-prioritize");
       console.error(error);
@@ -99,46 +118,13 @@ function DashboardContent() {
   };
 
   // =====================================
-  // STATISTICS CALCULATION
+  // STATISTICS FROM BACKEND (ALL DATA)
   // =====================================
-  const totalProjects = projects.length;
-
-  const completedProjects = projects.filter((p) => 
-    p.status_ct.toLowerCase() === "sudah ct" &&
-    p.status_ut.toLowerCase() === "sudah ut" &&
-    p.rekon_material.toLowerCase() === "sudah rekon" &&
-    p.pelurusan_material.toLowerCase() === "sudah lurus" &&
-    p.status_procurement.toLowerCase() === "otw reg"
-  ).length;
-
-  const ongoingProjects = projects.filter((p) => {
-    const ct = p.status_ct.toLowerCase();
-    const ut = p.status_ut.toLowerCase();
-    const rekon = p.rekon_material.toLowerCase();
-    const alignment = p.pelurusan_material.toLowerCase();
-    const procurement = p.status_procurement.toLowerCase();
-    
-    return (
-      ct === "belum ct" ||
-      ut === "belum ut" ||
-      rekon === "belum rekon" ||
-      alignment === "belum lurus" ||
-      procurement === "antri periv" ||
-      procurement === "proses periv" ||
-      procurement === "sekuler ttd" ||
-      procurement === "scan dokumen mitra" ||
-      procurement === "revisi mitra"
-    );
-  }).length;
-
-  const delayedProjects = projects.filter((project) => {
-    const procurement = project.status_procurement?.toLowerCase().trim() || "";
-    return procurement === "revisi mitra";
-  }).length;
-
-  const notReconProjects = projects.filter((p) => 
-    p.rekon_material.toLowerCase() !== "sudah rekon"
-  ).length;
+  const totalProjects = cardStats.total_proyek;
+  const completedProjects = cardStats.sudah_penuh;
+  const ongoingProjects = cardStats.sedang_berjalan;
+  const delayedProjects = cardStats.tertunda;
+  const notReconProjects = cardStats.belum_rekon;
 
   // =====================================
   // NAVIGATION HANDLERS

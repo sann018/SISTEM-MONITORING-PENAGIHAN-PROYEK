@@ -51,6 +51,42 @@ function ActivityContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
+  // Helper: Get backend base URL (remove /api from end)
+  const getBackendBaseUrl = () => {
+    return API_BASE_URL.replace(/\/?api\/?$/, '');
+  };
+
+  // Helper: Generate photo URL dari backend
+  const getPhotoUrl = (foto_profile: string | undefined | null): string | null => {
+    if (!foto_profile) return null;
+    
+    // Jika sudah URL lengkap (http/https), gunakan langsung
+    if (/^https?:\/\//i.test(foto_profile)) {
+      return foto_profile;
+    }
+    
+    const backendBaseUrl = getBackendBaseUrl();
+    
+    // Jika dimulai dengan '/', langsung append ke base URL
+    if (foto_profile.startsWith('/')) {
+      return `${backendBaseUrl}${foto_profile}`;
+    }
+    
+    // Jika hanya nama file, tambahkan '/' dan append
+    return `${backendBaseUrl}/${foto_profile}`;
+  };
+
+  // Helper: Generate initials dari nama
+  const getInitials = (name: string): string => {
+    if (!name) return 'U';
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   const getActivityColor = (type: string) => {
     switch (type) {
       case 'login':
@@ -257,17 +293,24 @@ function ActivityContent() {
                         <div className="flex gap-4">
                           {/* Profile Photo */}
                           <div className="flex-shrink-0">
-                            {activity.foto_profile ? (
+                            {getPhotoUrl(activity.foto_profile) ? (
                               <img 
-                                src={activity.foto_profile} 
+                                src={getPhotoUrl(activity.foto_profile)!} 
                                 alt={activity.nama_pengguna}
                                 className="w-12 h-12 rounded-full object-cover border-2 border-current"
+                                onError={(e) => {
+                                  // Fallback to initials if image fails to load
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  target.nextElementSibling?.classList.remove('hidden');
+                                }}
                               />
-                            ) : (
-                              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${getActivityColor(activity.tipe)} border-2`}>
-                                {getActivityIcon(activity.tipe)}
-                              </div>
-                            )}
+                            ) : null}
+                            <div 
+                              className={`w-12 h-12 rounded-full flex items-center justify-center ${getActivityColor(activity.tipe)} border-2 font-bold text-lg ${getPhotoUrl(activity.foto_profile) ? 'hidden' : ''}`}
+                            >
+                              {getInitials(activity.nama_pengguna)}
+                            </div>
                           </div>
 
                           {/* Content */}
