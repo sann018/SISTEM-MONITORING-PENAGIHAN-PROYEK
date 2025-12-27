@@ -12,7 +12,6 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 
 interface ProfileData {
   id: number;
-  username: string;
   name: string;
   email: string;
   role: string;
@@ -38,7 +37,6 @@ function ProfileContent() {
   });
   const [profile, setProfile] = useState<ProfileData>({
     id: 0,
-    username: "",
     name: "",
     email: "",
     role: "",
@@ -71,7 +69,6 @@ function ProfileContent() {
 
       setProfile({
         id: data.data.id,
-        username: data.data.username || "",
         name: data.data.name || "",
         email: data.data.email || "",
         role: data.data.role || "",
@@ -164,10 +161,6 @@ function ProfileContent() {
         name: profile.name,
         nik: profile.nik,
       };
-
-      if (profile.role === 'super_admin') {
-        payload.username = profile.username;
-      }
 
       const response = await fetch(`${API_BASE_URL}/profile`, {
         method: 'PUT',
@@ -339,21 +332,6 @@ function ProfileContent() {
                   
                   {/* Info Cards without White Box - Single Line Layout */}
                   <div className="space-y-3">
-                    {/* Username Section */}
-                    <div className="bg-red-50 backdrop-blur-sm rounded-xl p-3 border-2 border-red-200 hover:bg-red-100 transition-all duration-300">
-                      <div className="flex items-center gap-2">
-                        <div className="bg-red-100 rounded-lg p-1.5 flex-shrink-0">
-                          <User className="w-4 h-4 text-red-600" />
-                        </div>
-                        <p className="text-gray-700 text-xs font-bold uppercase tracking-wider flex-shrink-0">
-                          Username:
-                        </p>
-                        <p className="text-gray-900 font-bold text-base flex-1 truncate">
-                          {profile.username || "-"}
-                        </p>
-                      </div>
-                    </div>
-
                     {/* Nama Lengkap Section */}
                     <div className="bg-red-50 backdrop-blur-sm rounded-xl p-3 border-2 border-red-200 hover:bg-red-100 transition-all duration-300">
                       <div className="flex items-center gap-2">
@@ -419,22 +397,6 @@ function ProfileContent() {
                   {/* Form Content */}
                   <div className="p-6 flex-1 flex flex-col">
                     <form onSubmit={handleSubmit} className="space-y-4 flex-1 flex flex-col">
-                      {/* Username */}
-                      <div>
-                        <label className="block text-sm font-bold text-gray-900 mb-2">
-                          Username
-                        </label>
-                        <Input
-                          type="text"
-                          name="username"
-                          value={profile.username}
-                          onChange={handleInputChange}
-                          disabled={!isEditing || profile.role !== 'super_admin'}
-                          placeholder="Username"
-                          className={`w-full h-11 px-4 border-2 border-gray-300 rounded-xl ${(!isEditing || profile.role !== 'super_admin') ? 'bg-gray-50 text-gray-600' : 'bg-white'} focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium`}
-                        />
-                      </div>
-
                       {/* Email */}
                       <div>
                         <label className="block text-sm font-bold text-gray-900 mb-2">

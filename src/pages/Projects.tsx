@@ -630,7 +630,9 @@ function ProjectsContent() {
                     <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '140px' }}>Rekon Material</th>
                     <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '160px' }}>Pelurusan Material</th>
                     <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '180px' }}>Status Procurement</th>
-                    <th className="px-4 py-3 text-center font-bold" style={{ minWidth: '120px' }}>Aksi</th>
+                    {!isReadOnly && (
+                      <th className="px-4 py-3 text-center font-bold" style={{ minWidth: '120px' }}>Aksi</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -659,6 +661,7 @@ function ProjectsContent() {
                             tanggalMulai={project.tanggal_mulai || new Date().toISOString().split('T')[0]}
                             statusProcurement={project.status_procurement}
                             onUpdateDuration={handleDurationUpdate}
+                            disabled={isReadOnly}
                           />
                         </td>
                         <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '180px' }}>
@@ -677,6 +680,7 @@ function ProjectsContent() {
                             onUpdate={handleStatusUpdate}
                             variant={getStatusVariant(project.status_ct)}
                             options={statusCtOptions}
+                            disabled={isReadOnly}
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -687,6 +691,7 @@ function ProjectsContent() {
                             onUpdate={handleStatusUpdate}
                             variant={getStatusVariant(project.status_ut)}
                             options={statusUtOptions}
+                            disabled={isReadOnly}
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -697,6 +702,7 @@ function ProjectsContent() {
                             onUpdate={handleStatusUpdate}
                             variant={getStatusVariant(project.rekap_boq)}
                             options={rekapBoqOptions}
+                            disabled={isReadOnly}
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -705,6 +711,7 @@ function ProjectsContent() {
                             column="rekon_nilai"
                             value={project.rekon_nilai}
                             onUpdate={handleNumberUpdate}
+                            disabled={isReadOnly}
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -715,6 +722,7 @@ function ProjectsContent() {
                             onUpdate={handleStatusUpdate}
                             variant={getStatusVariant(project.rekon_material)}
                             options={rekonMaterialOptions}
+                            disabled={isReadOnly}
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -725,6 +733,7 @@ function ProjectsContent() {
                             onUpdate={handleStatusUpdate}
                             variant={getStatusVariant(project.pelurusan_material)}
                             options={materialAlignmentOptions}
+                            disabled={isReadOnly}
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -735,93 +744,92 @@ function ProjectsContent() {
                             onUpdate={handleStatusUpdate}
                             variant={getStatusVariant(project.status_procurement)}
                             options={procurementOptions}
+                            disabled={isReadOnly}
                           />
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex justify-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => navigate(`/projects/${project.id}`)}
-                              className="hover:bg-blue-100 p-2"
-                              title="Lihat detail"
-                            >
-                              <Eye className="h-4 w-4 text-blue-600" />
-                            </Button>
-                            {!isReadOnly && (
-                              <>
+                        {!isReadOnly && (
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex justify-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => navigate(`/projects/${project.id}`)}
+                                className="hover:bg-blue-100 p-2"
+                                title="Lihat detail"
+                              >
+                                <Eye className="h-4 w-4 text-blue-600" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => navigate(`/projects/edit/${project.id}`)}
+                                className="hover:bg-yellow-100 p-2"
+                                title="Edit proyek"
+                              >
+                                <Pencil className="h-4 w-4 text-yellow-600" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setDeleteId(project.id)}
+                                className="hover:bg-red-100 p-2"
+                                title="Hapus proyek"
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                              {/* Tombol Priority dengan Dropdown */}
+                              <div className="relative">
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  onClick={() => navigate(`/projects/edit/${project.id}`)}
-                                  className="hover:bg-yellow-100 p-2"
-                                  title="Edit proyek"
+                                  onClick={() => setPriorityDropdownOpen(priorityDropdownOpen === project.id ? null : project.id)}
+                                  className={`hover:bg-orange-100 p-2 ${
+                                    project.prioritas ? 'bg-orange-50' : ''
+                                  }`}
+                                  title="Set prioritas"
                                 >
-                                  <Pencil className="h-4 w-4 text-yellow-600" />
+                                  <span className="text-orange-600 font-bold text-base">
+                                    {project.prioritas === 1 ? '🔥' : project.prioritas === 2 ? '⚠️' : '⭐'}
+                                  </span>
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => setDeleteId(project.id)}
-                                  className="hover:bg-red-100 p-2"
-                                  title="Hapus proyek"
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-600" />
-                                </Button>
-                                {/* Tombol Priority dengan Dropdown */}
-                                <div className="relative">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setPriorityDropdownOpen(priorityDropdownOpen === project.id ? null : project.id)}
-                                    className={`hover:bg-orange-100 p-2 ${
-                                      project.prioritas ? 'bg-orange-50' : ''
-                                    }`}
-                                    title="Set prioritas"
-                                  >
-                                    <span className="text-orange-600 font-bold text-base">
-                                      {project.prioritas === 1 ? '🔥' : project.prioritas === 2 ? '⚠️' : '⭐'}
-                                    </span>
-                                  </Button>
-                                  {/* Dropdown Menu */}
-                                  {priorityDropdownOpen === project.id && (
-                                    <div className="absolute right-0 mt-1 w-44 bg-white border-2 border-gray-200 rounded-lg shadow-xl z-50">
+                                {/* Dropdown Menu */}
+                                {priorityDropdownOpen === project.id && (
+                                  <div className="absolute right-0 mt-1 w-44 bg-white border-2 border-gray-200 rounded-lg shadow-xl z-50">
+                                    <button
+                                      onClick={() => {
+                                        handleSetPriority(project.id, 1);
+                                        setPriorityDropdownOpen(null);
+                                      }}
+                                      className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-sm font-semibold text-red-600 border-b border-gray-100 flex items-center gap-2"
+                                    >
+                                      <span className="text-base">🔥</span> Set P1 (Urgent)
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        handleSetPriority(project.id, 2);
+                                        setPriorityDropdownOpen(null);
+                                      }}
+                                      className="w-full text-left px-4 py-2.5 hover:bg-orange-50 text-sm font-semibold text-orange-600 border-b border-gray-100 flex items-center gap-2"
+                                    >
+                                      <span className="text-base">⚠️</span> Set P2 (Important)
+                                    </button>
+                                    {project.prioritas && (
                                       <button
                                         onClick={() => {
-                                          handleSetPriority(project.id, 1);
+                                          handleSetPriority(project.id, null);
                                           setPriorityDropdownOpen(null);
                                         }}
-                                        className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-sm font-semibold text-red-600 border-b border-gray-100 flex items-center gap-2"
+                                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm text-gray-600 flex items-center gap-2"
                                       >
-                                        <span className="text-base">🔥</span> Set P1 (Urgent)
+                                        <span className="text-base">❌</span> Clear Priority
                                       </button>
-                                      <button
-                                        onClick={() => {
-                                          handleSetPriority(project.id, 2);
-                                          setPriorityDropdownOpen(null);
-                                        }}
-                                        className="w-full text-left px-4 py-2.5 hover:bg-orange-50 text-sm font-semibold text-orange-600 border-b border-gray-100 flex items-center gap-2"
-                                      >
-                                        <span className="text-base">⚠️</span> Set P2 (Important)
-                                      </button>
-                                      {project.prioritas && (
-                                        <button
-                                          onClick={() => {
-                                            handleSetPriority(project.id, null);
-                                            setPriorityDropdownOpen(null);
-                                          }}
-                                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm text-gray-600 flex items-center gap-2"
-                                        >
-                                          <span className="text-base">❌</span> Clear Priority
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </td>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}

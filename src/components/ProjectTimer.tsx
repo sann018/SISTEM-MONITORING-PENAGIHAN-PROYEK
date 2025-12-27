@@ -11,6 +11,7 @@ interface ProjectTimerProps {
   tanggalMulai?: string; // Tanggal mulai (YYYY-MM-DD)
   statusProcurement?: string; // Status untuk mengecek apakah selesai
   onUpdateDuration?: (projectId: string, durasi: number, tanggalMulai: string) => Promise<void>;
+  disabled?: boolean; // Read-only mode for viewer
 }
 
 interface TimeRemaining {
@@ -28,6 +29,7 @@ export function ProjectTimer({
   tanggalMulai = new Date().toISOString().split("T")[0],
   statusProcurement = "",
   onUpdateDuration,
+  disabled = false,
 }: ProjectTimerProps) {
   const [timeRemaining, setTimeRemaining] = useState<TimeRemaining>({
     hari: 0,
@@ -178,7 +180,9 @@ export function ProjectTimer({
 
   return (
     <div
-      className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border transition-all cursor-pointer group ${
+      className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border transition-all group ${
+        disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+      } ${
         isOverdue
           ? "bg-red-100 border-red-300 hover:bg-red-200"
           : isDanger
@@ -187,8 +191,8 @@ export function ProjectTimer({
           ? "bg-yellow-100 border-yellow-300 hover:bg-yellow-200"
           : "bg-blue-100 border-blue-300 hover:bg-blue-200"
       }`}
-      onClick={() => setIsEditing(true)}
-      title={`Klik untuk mengubah durasi. Mulai: ${tanggalMulai}`}
+      onClick={() => !disabled && setIsEditing(true)}
+      title={disabled ? 'Read-only mode' : `Klik untuk mengubah durasi. Mulai: ${tanggalMulai}`}
     >
       <div className="flex items-center gap-2 flex-1">
         <Clock

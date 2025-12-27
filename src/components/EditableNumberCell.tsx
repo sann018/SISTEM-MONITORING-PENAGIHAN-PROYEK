@@ -7,6 +7,7 @@ interface EditableNumberCellProps {
   column: string;
   value: string | number;
   onUpdate: (projectId: string, column: string, newValue: string) => Promise<void>;
+  disabled?: boolean; // NEW: Support read-only mode
 }
 
 export function EditableNumberCell({
@@ -14,6 +15,7 @@ export function EditableNumberCell({
   column,
   value,
   onUpdate,
+  disabled = false, // NEW: Default false
 }: EditableNumberCellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [newValue, setNewValue] = useState(String(value || ""));
@@ -120,9 +122,11 @@ export function EditableNumberCell({
 
   return (
     <div
-      onClick={() => setIsEditing(true)}
-      className="border border-gray-300 rounded px-2 md:px-3 py-1 bg-blue-50 text-blue-900 font-medium inline-block text-[10px] md:text-xs cursor-pointer hover:bg-blue-100 transition-colors font-mono whitespace-nowrap"
-      title="Klik untuk mengedit"
+      onClick={() => !disabled && setIsEditing(true)}
+      className={`border border-gray-300 rounded px-2 md:px-3 py-1 bg-blue-50 text-blue-900 font-medium inline-block text-[10px] md:text-xs transition-colors font-mono whitespace-nowrap ${
+        disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-blue-100'
+      }`}
+      title={disabled ? 'Read-only mode' : 'Klik untuk mengedit'}
     >
       {formatCurrency(value)}
     </div>

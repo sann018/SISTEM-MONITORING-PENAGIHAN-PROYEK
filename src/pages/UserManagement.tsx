@@ -30,6 +30,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 interface User {
   id: number;
   name: string;
+  username: string;
   email: string;
   nik?: string;
   role: string;
@@ -52,6 +53,7 @@ function UserManagementContent() {
   const [editUserDialog, setEditUserDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [resetPasswordDialog, setResetPasswordDialog] = useState(false);
+  const [photoViewerDialog, setPhotoViewerDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   
   // Form states for Add User
@@ -465,6 +467,9 @@ function UserManagementContent() {
                       Nama Lengkap
                     </th>
                     <th className="px-4 py-3 text-left font-bold text-red-600">
+                      Username
+                    </th>
+                    <th className="px-4 py-3 text-left font-bold text-red-600">
                       NIK
                     </th>
                     <th className="px-4 py-3 text-left font-bold text-red-600">
@@ -494,7 +499,15 @@ function UserManagementContent() {
                           />
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <div className="w-10 h-10 mx-auto rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                          <div 
+                            className="w-10 h-10 mx-auto rounded-full bg-gray-200 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-red-500 transition-all"
+                            onClick={() => {
+                              if (user.photo) {
+                                setSelectedUser(user);
+                                setPhotoViewerDialog(true);
+                              }
+                            }}
+                          >
                             {user.photo ? (
                               <img src={user.photo} alt={user.name} className="w-full h-full object-cover" />
                             ) : (
@@ -502,8 +515,11 @@ function UserManagementContent() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 font-medium text-gray-900">
+                        <td className="px-4 py-3">
                           {user.name}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">
+                          {user.username}
                         </td>
                         <td className="px-4 py-3 text-gray-700">
                           {user.nik || '-'}
@@ -812,6 +828,58 @@ function UserManagementContent() {
                 {loading ? "Menghapus..." : "Ya, Hapus"}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Photo Viewer Dialog - WhatsApp Style */}
+        <Dialog open={photoViewerDialog} onOpenChange={setPhotoViewerDialog}>
+          <DialogContent className="max-w-3xl p-0 bg-black/95 border-0">
+            <div className="relative">
+              {/* Close Button */}
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setPhotoViewerDialog(false);
+                  setSelectedUser(null);
+                }}
+                className="absolute top-4 right-4 z-50 bg-black/50 hover:bg-black/70 text-white rounded-full w-10 h-10 p-0"
+              >
+                ✕
+              </Button>
+              
+              {/* User Info Header */}
+              <div className="absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/70 to-transparent p-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
+                    {selectedUser?.photo ? (
+                      <img src={selectedUser.photo} alt={selectedUser.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Camera className="w-6 h-6 text-gray-300" />
+                    )}
+                  </div>
+                  <div className="text-white">
+                    <h3 className="font-semibold text-lg">{selectedUser?.name}</h3>
+                    <p className="text-sm text-gray-300">{selectedUser?.email}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Photo Container */}
+              <div className="flex items-center justify-center min-h-[60vh] max-h-[80vh] p-4">
+                {selectedUser?.photo ? (
+                  <img 
+                    src={selectedUser.photo} 
+                    alt={selectedUser.name} 
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-4 text-gray-400">
+                    <Camera className="w-24 h-24" />
+                    <p className="text-xl">Tidak ada foto profil</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
             </div>

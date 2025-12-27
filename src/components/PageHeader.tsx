@@ -37,6 +37,7 @@ export function PageHeader({ title }: PageHeaderProps) {
   const getRoleDisplay = (role: string | undefined) => {
     if (role === "super_admin") return "Super Admin";
     if (role === "admin") return "Admin";
+    if (role === "viewer") return "Viewer";
     return "User";
   };
 

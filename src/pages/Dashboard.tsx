@@ -34,6 +34,7 @@ function DashboardContent() {
   const navigate = useNavigate();
   const { toggleSidebar, state } = useSidebar();
   const [projects, setProjects] = useState<Project[]>([]);
+  const isReadOnly = user?.role === 'viewer';
   const [cardStats, setCardStats] = useState({
     total_proyek: 0,
     sudah_penuh: 0,
@@ -401,24 +402,31 @@ function DashboardContent() {
                       </td>
                       <td className="px-4 py-3 text-center" style={{ minWidth: '200px' }}>
                         <div className="flex gap-1 justify-center">
-                          {project.prioritas !== 1 && (
-                            <Button
-                              onClick={() => handleSetPriority(project.id, 1)}
-                              size="sm"
-                              className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 h-7"
-                            >
-                              Set P1
-                            </Button>
+                          {!isReadOnly && (
+                            <>
+                              {project.prioritas !== 1 && (
+                                <Button
+                                  onClick={() => handleSetPriority(project.id, 1)}
+                                  size="sm"
+                                  className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 h-7"
+                                >
+                                  Set P1
+                                </Button>
+                              )}
+                              {project.prioritas && (
+                                <Button
+                                  onClick={() => handleSetPriority(project.id, null)}
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-gray-600 text-xs px-2 py-1 h-7"
+                                >
+                                  Clear
+                                </Button>
+                              )}
+                            </>
                           )}
-                          {project.prioritas && (
-                            <Button
-                              onClick={() => handleSetPriority(project.id, null)}
-                              size="sm"
-                              variant="outline"
-                              className="text-gray-600 text-xs px-2 py-1 h-7"
-                            >
-                              Clear
-                            </Button>
+                          {isReadOnly && project.prioritas && (
+                            <span className="text-red-600 font-semibold text-xs">P{project.prioritas}</span>
                           )}
                         </div>
                       </td>

@@ -17,6 +17,7 @@ interface EditableStatusCellProps {
   onUpdate: (projectId: string, column: string, newValue: string) => Promise<void>;
   variant: string;
   options?: string[];
+  disabled?: boolean; // NEW: Support read-only mode
 }
 
 export function EditableStatusCell({
@@ -26,6 +27,7 @@ export function EditableStatusCell({
   onUpdate,
   variant,
   options = [],
+  disabled = false, // NEW: Default false
 }: EditableStatusCellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [newValue, setNewValue] = useState(value);
@@ -92,8 +94,11 @@ export function EditableStatusCell({
   if (!isEditing) {
     return (
       <div
-        className="cursor-pointer hover:opacity-80 hover:scale-105 transition-all duration-200 inline-block"
-        onClick={() => setIsEditing(true)}
+        className={`hover:opacity-80 hover:scale-105 transition-all duration-200 inline-block ${
+          disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+        }`}
+        onClick={() => !disabled && setIsEditing(true)}
+        title={disabled ? 'Read-only mode' : 'Click to edit'}
       >
         <Badge variant={getStatusVariant(value) as any}>
           {value}

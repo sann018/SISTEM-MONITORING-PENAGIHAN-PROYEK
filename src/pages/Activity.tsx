@@ -58,10 +58,14 @@ function ActivityContent() {
 
   // Helper: Generate photo URL dari backend
   const getPhotoUrl = (foto_profile: string | undefined | null): string | null => {
-    if (!foto_profile) return null;
+    if (!foto_profile) {
+      console.log('[Activity] No foto_profile provided');
+      return null;
+    }
     
     // Jika sudah URL lengkap (http/https), gunakan langsung
     if (/^https?:\/\//i.test(foto_profile)) {
+      console.log('[Activity] Using full URL:', foto_profile);
       return foto_profile;
     }
     
@@ -69,11 +73,15 @@ function ActivityContent() {
     
     // Jika dimulai dengan '/', langsung append ke base URL
     if (foto_profile.startsWith('/')) {
-      return `${backendBaseUrl}${foto_profile}`;
+      const fullUrl = `${backendBaseUrl}${foto_profile}`;
+      console.log('[Activity] Constructed URL from path:', fullUrl);
+      return fullUrl;
     }
     
     // Jika hanya nama file, tambahkan '/' dan append
-    return `${backendBaseUrl}/${foto_profile}`;
+    const fullUrl = `${backendBaseUrl}/${foto_profile}`;
+    console.log('[Activity] Constructed URL from filename:', fullUrl);
+    return fullUrl;
   };
 
   // Helper: Generate initials dari nama
@@ -160,6 +168,9 @@ function ActivityContent() {
         throw new Error(data.message || 'Gagal memuat aktivitas');
       }
 
+      console.log('[Activity] Received activities:', data.data);
+      console.log('[Activity] First activity foto_profile:', data.data[0]?.foto_profile);
+      
       setActivities(data.data || []);
       setPagination(data.pagination);
     } catch (error: any) {
@@ -292,25 +303,43 @@ function ActivityContent() {
                       <div className="p-4 hover:shadow-md transition-all">
                         <div className="flex gap-4">
                           {/* Profile Photo */}
-                          <div className="flex-shrink-0">
-                            {getPhotoUrl(activity.foto_profile) ? (
-                              <img 
-                                src={getPhotoUrl(activity.foto_profile)!} 
-                                alt={activity.nama_pengguna}
-                                className="w-12 h-12 rounded-full object-cover border-2 border-current"
-                                onError={(e) => {
-                                  // Fallback to initials if image fails to load
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                  target.nextElementSibling?.classList.remove('hidden');
-                                }}
-                              />
-                            ) : null}
-                            <div 
-                              className={`w-12 h-12 rounded-full flex items-center justify-center ${getActivityColor(activity.tipe)} border-2 font-bold text-lg ${getPhotoUrl(activity.foto_profile) ? 'hidden' : ''}`}
-                            >
-                              {getInitials(activity.nama_pengguna)}
-                            </div>
+                          <div className="flex-shrink-0 relative">
+                            {(() => {
+                              const photoUrl = getPhotoUrl(activity.foto_profile);
+                              const hasPhoto = photoUrl !== null;
+                              
+                              return (
+                                <>
+                                  {hasPhoto && (
+                                    <img 
+                                      src={photoUrl} 
+                                      alt={activity.nama_pengguna}
+                                      className="w-12 h-12 rounded-full object-cover border-2 border-current"
+                                      onError={(e) => {
+                                        console.error('[Activity] Image load failed for:', photoUrl);
+                                        console.error('[Activity] User:', activity.nama_pengguna);
+                                        // Hide image, show initials
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                        const initialsDiv = target.nextElementSibling as HTMLDivElement;
+                                        if (initialsDiv) {
+                                          initialsDiv.classList.remove('hidden');
+                                        }
+                                      }}
+                                      onLoad={() => {
+                                        console.log('[Activity] Image loaded successfully:', photoUrl);
+                                      }}
+                                    />
+                                  )}
+                                  <div 
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center ${getActivityColor(activity.tipe)} border-2 font-bold text-lg ${hasPhoto ? 'hidden' : ''}`}
+                                    title={activity.nama_pengguna}
+                                  >
+                                    {getInitials(activity.nama_pengguna)}
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </div>
 
                           {/* Content */}
