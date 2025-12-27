@@ -11,6 +11,9 @@ interface User {
   role: string;
   created_at: string;
   nik?: string | null;
+  jobdesk?: string | null;
+  mitra?: string | null;
+  nomor_hp?: string | null;
   photo?: string | null;
 }
 

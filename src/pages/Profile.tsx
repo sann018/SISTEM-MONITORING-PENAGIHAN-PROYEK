@@ -13,9 +13,13 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 interface ProfileData {
   id: number;
   name: string;
+  username?: string;
   email: string;
   role: string;
   nik?: string;
+  jobdesk?: string;
+  mitra?: string;
+  nomor_hp?: string;
   photo?: string;
 }
 
@@ -38,9 +42,13 @@ function ProfileContent() {
   const [profile, setProfile] = useState<ProfileData>({
     id: 0,
     name: "",
+    username: "",
     email: "",
     role: "",
     nik: "",
+    jobdesk: "",
+    mitra: "",
+    nomor_hp: "",
     photo: "",
   });
 
@@ -70,9 +78,13 @@ function ProfileContent() {
       setProfile({
         id: data.data.id,
         name: data.data.name || "",
+        username: data.data.username || "",
         email: data.data.email || "",
         role: data.data.role || "",
         nik: data.data.nik || "",
+        jobdesk: data.data.jobdesk || "",
+        mitra: data.data.mitra || "",
+        nomor_hp: data.data.nomor_hp || "",
         photo: data.data.photo || "",
       });
       
@@ -156,11 +168,17 @@ function ProfileContent() {
         }
       }
 
-      // Update profile data (name, nik)
+      // Update profile data (name, username, nik, jobdesk, mitra, nomor_hp)
       const payload: Record<string, unknown> = {
         name: profile.name,
+        username: profile.username,
         nik: profile.nik,
+        jobdesk: profile.jobdesk,
+        mitra: profile.mitra,
+        nomor_hp: profile.nomor_hp,
       };
+
+      console.log('Saving profile with payload:', payload);
 
       const response = await fetch(`${API_BASE_URL}/profile`, {
         method: 'PUT',
@@ -171,7 +189,11 @@ function ProfileContent() {
         body: JSON.stringify(payload),
       });
 
+      console.log('Save response status:', response.status);
+
       const data = await response.json();
+      
+      console.log('Save response data:', data);
 
       if (!response.ok) {
         throw new Error(data.message || 'Gagal memperbarui profil');
@@ -359,7 +381,58 @@ function ProfileContent() {
                           NIK:
                         </p>
                         <p className="text-gray-900 font-bold text-base flex-1">
-                          {profile.nik || profile.id || "9856789"}
+                          {profile.nik || "-"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Jobdesk Section */}
+                    <div className="bg-red-50 backdrop-blur-sm rounded-xl p-3 border-2 border-red-200 hover:bg-red-100 transition-all duration-300">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-red-100 rounded-lg p-1.5 flex-shrink-0">
+                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <p className="text-gray-700 text-xs font-bold uppercase tracking-wider flex-shrink-0">
+                          Jobdesk:
+                        </p>
+                        <p className="text-gray-900 font-bold text-base flex-1 truncate">
+                          {profile.jobdesk || "-"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Mitra Section */}
+                    <div className="bg-red-50 backdrop-blur-sm rounded-xl p-3 border-2 border-red-200 hover:bg-red-100 transition-all duration-300">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-red-100 rounded-lg p-1.5 flex-shrink-0">
+                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
+                        </div>
+                        <p className="text-gray-700 text-xs font-bold uppercase tracking-wider flex-shrink-0">
+                          Mitra:
+                        </p>
+                        <p className="text-gray-900 font-bold text-base flex-1 truncate">
+                          {profile.mitra || "-"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Nomor HP Section */}
+                    <div className="bg-red-50 backdrop-blur-sm rounded-xl p-3 border-2 border-red-200 hover:bg-red-100 transition-all duration-300">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-red-100 rounded-lg p-1.5 flex-shrink-0">
+                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                        </div>
+                        <p className="text-gray-700 text-xs font-bold uppercase tracking-wider flex-shrink-0">
+                          No HP:
+                        </p>
+                        <p className="text-gray-900 font-bold text-base flex-1">
+                          {profile.nomor_hp || "-"}
                         </p>
                       </div>
                     </div>
@@ -411,6 +484,22 @@ function ProfileContent() {
                         />
                       </div>
 
+                      {/* Username */}
+                      <div>
+                        <label className="block text-sm font-bold text-gray-900 mb-2">
+                          Username
+                        </label>
+                        <Input
+                          type="text"
+                          name="username"
+                          value={profile.username}
+                          onChange={handleInputChange}
+                          disabled={!isEditing}
+                          placeholder="Username"
+                          className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
+                        />
+                      </div>
+
                       {/* Nama Lengkap */}
                       <div>
                         <label className="block text-sm font-bold text-gray-900 mb-2">
@@ -436,13 +525,14 @@ function ProfileContent() {
                           <Input
                             type="text"
                             name="nik"
-                            value={profile.nik || profile.id.toString()}
+                            value={profile.nik}
                             onChange={handleInputChange}
                             disabled={!isEditing}
                             placeholder="NIK"
                             className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
                           />
                         </div>
+
                         <div>
                           <label className="block text-sm font-bold text-gray-900 mb-2">
                             Role
@@ -457,7 +547,56 @@ function ProfileContent() {
                         </div>
                       </div>
 
-                      {/* Ubah Password - Super Admin Only - Moved Below NIK & Role */}
+                      {/* Jobdesk and Mitra */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-bold text-gray-900 mb-2">
+                            Jobdesk
+                          </label>
+                          <Input
+                            type="text"
+                            name="jobdesk"
+                            value={profile.jobdesk}
+                            onChange={handleInputChange}
+                            disabled={!isEditing}
+                            placeholder="Jobdesk"
+                            className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-bold text-gray-900 mb-2">
+                            Nama Mitra
+                          </label>
+                          <Input
+                            type="text"
+                            name="mitra"
+                            value={profile.mitra}
+                            onChange={handleInputChange}
+                            disabled={!isEditing}
+                            placeholder="Nama Mitra"
+                            className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Nomor HP */}
+                      <div>
+                        <label className="block text-sm font-bold text-gray-900 mb-2">
+                          Nomor HP
+                        </label>
+                        <Input
+                          type="text"
+                          name="nomor_hp"
+                          value={profile.nomor_hp}
+                          onChange={handleInputChange}
+                          disabled={!isEditing}
+                          placeholder="Nomor HP"
+                          className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
+                        />
+                      </div>
+
+                      {/* Ubah Password - Super Admin Only */}
                       {profile.role === 'super_admin' && (
                         <div className="border-2 border-red-200 rounded-xl p-4 bg-red-50">
                           <div className="flex items-center justify-between mb-3">
