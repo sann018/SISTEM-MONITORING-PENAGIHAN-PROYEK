@@ -109,15 +109,12 @@ export default function AddProject() {
         <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
           <AppSidebar />
           <main className="flex-1 overflow-auto w-full min-w-0">
-            <div className="max-w-5xl mx-auto">
+            <div className="w-full max-w-none">
             {/* Back Button */}
-            <button
-              onClick={() => navigate("/projects")}
-              className="flex items-center gap-2 text-gray-700 hover:text-red-600 mb-6 font-semibold transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
+            <Button variant="outline" onClick={() => navigate("/projects")} className="mb-2 md:mb-4 text-xs md:text-sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
               Kembali
-            </button>
+            </Button>
 
             {/* Form Card */}
             <div className="bg-white rounded-xl shadow-xl border-2 border-gray-200">

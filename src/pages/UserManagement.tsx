@@ -13,7 +13,9 @@ import {
   Trash2,
   Camera,
   Key,
-  Menu
+  Menu,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -32,8 +34,10 @@ interface User {
   name: string;
   username: string;
   email: string;
-  nik?: string;
   role: string;
+  jobdesk?: string;
+  mitra?: string;
+  phone?: string;
   photo?: string;
   created_at: string;
 }
@@ -45,8 +49,8 @@ function UserManagementContent() {
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
-  const [selectAll, setSelectAll] = useState(false);
   
   // Dialog states
   const [addUserDialog, setAddUserDialog] = useState(false);
@@ -55,12 +59,24 @@ function UserManagementContent() {
   const [resetPasswordDialog, setResetPasswordDialog] = useState(false);
   const [photoViewerDialog, setPhotoViewerDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [deleteMode, setDeleteMode] = useState<'single' | 'bulk'>('single');
+
+  const [showNewUserPassword, setShowNewUserPassword] = useState(false);
+  const [showNewUserPasswordConfirmation, setShowNewUserPasswordConfirmation] = useState(false);
+
+  const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    username: string;
+    email?: string;
+    password: string;
+    createdAtLabel: string;
+  } | null>(null);
   
   // Form states for Add User
   const [newUserData, setNewUserData] = useState({
     name: "",
+    username: "",
     email: "",
-    nik: "",
     password: "",
     password_confirmation: "",
     role: "viewer"
@@ -69,8 +85,8 @@ function UserManagementContent() {
   // Form states for Edit User
   const [editUserData, setEditUserData] = useState({
     name: "",
+    username: "",
     email: "",
-    nik: "",
   });
   
   // Form states for Reset Password
@@ -78,6 +94,30 @@ function UserManagementContent() {
     password: "",
     password_confirmation: ""
   });
+
+  const currentUserId = Number(currentUser?.id);
+  const isCurrentUserRow = (user: User) => {
+    // Prioritas 1: cek ID dulu (paling akurat)
+    if (Number.isFinite(currentUserId) && currentUserId > 0) {
+      return user.id === currentUserId;
+    }
+    
+    // Fallback 2: cek username (hanya jika kedua nilai tidak kosong/null/whitespace)
+    const currentUsernameTrimmed = currentUser?.username?.trim();
+    const usernameTrimmed = user.username?.trim();
+    if (currentUsernameTrimmed && usernameTrimmed) {
+      return currentUsernameTrimmed.toLowerCase() === usernameTrimmed.toLowerCase();
+    }
+    
+    // Fallback 3: cek email (hanya jika kedua nilai valid email dengan '@')
+    const currentEmailValid = currentUser?.email && currentUser.email.includes('@');
+    const userEmailValid = user.email && user.email.includes('@');
+    if (currentEmailValid && userEmailValid) {
+      return currentUser!.email.toLowerCase() === user.email.toLowerCase();
+    }
+    
+    return false;
+  };
 
   useEffect(() => {
     // Check if user is super admin
@@ -91,10 +131,15 @@ function UserManagementContent() {
   }, [currentUser, navigate]);
 
   const fetchUsers = async () => {
-    if (!token) return;
+    if (!token) {
+      console.error('[UserManagement] Token tidak tersedia');
+      return;
+    }
     
     setLoading(true);
     try {
+      console.log('[UserManagement] Fetching users from:', `${API_BASE_URL}/users`);
+      
       const response = await fetch(`${API_BASE_URL}/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -102,18 +147,117 @@ function UserManagementContent() {
         },
       });
 
+      console.log('[UserManagement] Response status:', response.status);
+      
       const data = await response.json();
+      console.log('[UserManagement] Response data:', data);
 
       if (!response.ok) {
+        console.error('[UserManagement] API Error:', data);
         throw new Error(data.message || 'Gagal memuat data users');
       }
 
-      setUsers(data.data || []);
+      // Validasi struktur response
+      if (!data || typeof data !== 'object') {
+        console.error('[UserManagement] Invalid response structure:', data);
+        throw new Error('Format response tidak valid');
+      }
+
+      const rawUsers = Array.isArray(data.data) ? data.data : [];
+      console.log('[UserManagement] Raw users count:', rawUsers.length);
+      console.log('[UserManagement] Sample raw user:', rawUsers[0]);
+
+      const normalizedUsers: User[] = rawUsers
+        .map((raw: any, index: number) => {
+          // Coba semua kemungkinan field ID
+          const rawId = raw?.id ?? raw?.id_pengguna ?? raw?.idPengguna ?? raw?.user_id;
+          const parsedId = typeof rawId === 'string' ? parseInt(rawId, 10) : Number(rawId);
+          
+          // Debug logging untuk ID yang tidak valid
+          if (!Number.isFinite(parsedId)) {
+            console.warn(`[UserManagement] Invalid ID at index ${index}:`, {
+              rawId,
+              parsedId,
+              raw
+            });
+            return null;
+          }
+
+          const normalized = {
+            id: parsedId,
+            name: String(raw?.name ?? raw?.nama ?? ''),
+            username: String(raw?.username ?? ''),
+            email: String(raw?.email ?? ''),
+            role: String(raw?.role ?? raw?.peran ?? ''),
+            jobdesk: String(
+              raw?.jobdesk ??
+                raw?.job_desc ??
+                raw?.jobDescription ??
+                raw?.jabatan ??
+                raw?.posisi ??
+                raw?.role_description ??
+                ''
+            ),
+            mitra: String(
+              raw?.mitra ??
+                raw?.nama_mitra ??
+                raw?.mitra_name ??
+                raw?.partner ??
+                raw?.partner_name ??
+                raw?.namaMitra ??
+                ''
+            ),
+            phone: String(
+              raw?.phone ??
+                raw?.no_hp ??
+                raw?.nomor_hp ??
+                raw?.hp ??
+                raw?.telp ??
+                raw?.no_telp ??
+                raw?.nomor_telepon ??
+                ''
+            ),
+            photo: typeof raw?.photo === 'string' ? raw.photo : undefined,
+            created_at: String(raw?.created_at ?? raw?.dibuat_pada ?? ''),
+          } as User;
+
+          return normalized;
+        })
+        .filter(Boolean) as User[];
+
+      console.log('[UserManagement] Normalized users count:', normalizedUsers.length);
+      console.log('[UserManagement] Sample normalized user:', normalizedUsers[0]);
+
+      setUsers(normalizedUsers);
+      
+      if (normalizedUsers.length > 0) {
+        toast.success(`Berhasil memuat ${normalizedUsers.length} user`);
+      } else {
+        toast.info('Tidak ada data user di database');
+      }
     } catch (error: any) {
+      console.error('[UserManagement] Error fetching users:', error);
       toast.error(error.message || "Gagal memuat data users");
-      console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const isValidUsername = (username: string) => {
+    return /^(?=.{4,30}$)(?![._-])(?!.*[._-]{2})[a-zA-Z0-9._-]+(?<![._-])$/.test(username);
+  };
+
+  const isValidPassword = (password: string) => {
+    // Minimal 8, harus ada huruf kecil, huruf besar, angka, simbol
+    return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(password);
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Berhasil disalin");
+    } catch {
+      toast.error("Gagal menyalin");
     }
   };
 
@@ -121,13 +265,43 @@ function UserManagementContent() {
   const handleAddUser = async () => {
     if (!token) return;
 
+    if (!newUserData.username.trim()) {
+      toast.error("Username wajib diisi");
+      return;
+    }
+
+    if (!isValidUsername(newUserData.username.trim())) {
+      toast.error("Username tidak valid (4-30 karakter, huruf/angka/._-, tidak diawali/diakhiri simbol, tidak ada simbol berurutan)");
+      return;
+    }
+
+    if (!newUserData.email.trim()) {
+      toast.error("Email wajib diisi");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUserData.email.trim())) {
+      toast.error("Format email tidak valid");
+      return;
+    }
+
+    if (!newUserData.password) {
+      toast.error("Password wajib diisi");
+      return;
+    }
+
+    if (!newUserData.password_confirmation) {
+      toast.error("Konfirmasi password wajib diisi");
+      return;
+    }
+
     if (newUserData.password !== newUserData.password_confirmation) {
       toast.error("Password dan konfirmasi password tidak cocok");
       return;
     }
 
-    if (newUserData.password.length < 8) {
-      toast.error("Password minimal 8 karakter");
+    if (!isValidPassword(newUserData.password)) {
+      toast.error("Password minimal 8 karakter dan wajib mengandung huruf besar, huruf kecil, angka, dan simbol");
       return;
     }
 
@@ -141,8 +315,8 @@ function UserManagementContent() {
         },
         body: JSON.stringify({
           name: newUserData.name,
+          username: newUserData.username.trim(),
           email: newUserData.email,
-          nik: newUserData.nik,
           password: newUserData.password,
           password_confirmation: newUserData.password_confirmation,
           role: newUserData.role,
@@ -155,16 +329,37 @@ function UserManagementContent() {
         throw new Error(data.message || 'Gagal menambah user');
       }
 
-      toast.success("User berhasil ditambahkan");
+      const createdUsername = data?.data?.user?.username || newUserData.username.trim();
+      const createdEmail = data?.data?.user?.email || newUserData.email || "";
+      const createdPassword = newUserData.password;
+
+      const createdAtLabel = new Date().toLocaleString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      setCreatedCredentials({
+        username: createdUsername,
+        email: createdEmail || undefined,
+        password: createdPassword,
+        createdAtLabel,
+      });
+      setCredentialsDialogOpen(true);
+
       setAddUserDialog(false);
       setNewUserData({
         name: "",
+        username: "",
         email: "",
-        nik: "",
         password: "",
         password_confirmation: "",
         role: "viewer"
       });
+      setShowNewUserPassword(false);
+      setShowNewUserPasswordConfirmation(false);
       fetchUsers();
     } catch (error: any) {
       toast.error(error.message || "Gagal menambah user");
@@ -177,15 +372,36 @@ function UserManagementContent() {
   const handleEditUser = async () => {
     if (!selectedUser || !token) return;
 
+    if (!editUserData.username.trim()) {
+      toast.error("Username wajib diisi");
+      return;
+    }
+
+    if (!isValidUsername(editUserData.username.trim())) {
+      toast.error("Username tidak valid (4-30 karakter, huruf/angka/._-, tidak diawali/diakhiri simbol, tidak ada simbol berurutan)");
+      return;
+    }
+
     setLoading(true);
     try {
+      if (!Number.isFinite(selectedUser.id)) {
+        toast.error("User tidak ditemukan");
+        return;
+      }
+
+      // Kirim hanya field yang valid agar tidak memicu 'sometimes|required' di backend
+      const payload: Record<string, unknown> = {};
+      if (editUserData.name.trim()) payload.name = editUserData.name.trim();
+      if (editUserData.username.trim()) payload.username = editUserData.username.trim().toLowerCase();
+      if (editUserData.email.trim()) payload.email = editUserData.email.trim();
+
       const response = await fetch(`${API_BASE_URL}/users/${selectedUser.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(editUserData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -243,8 +459,8 @@ function UserManagementContent() {
       return;
     }
 
-    if (resetPasswordData.password.length < 8) {
-      toast.error("Password minimal 8 karakter");
+    if (!isValidPassword(resetPasswordData.password)) {
+      toast.error("Password minimal 8 karakter dan wajib mengandung huruf besar, huruf kecil, angka, dan simbol");
       return;
     }
 
@@ -283,8 +499,19 @@ function UserManagementContent() {
   const handleDeleteUser = async () => {
     if (!selectedUser || !token) return;
 
+    if (isCurrentUserRow(selectedUser)) {
+      toast.error("Anda tidak dapat menghapus akun Anda sendiri");
+      return;
+    }
+
+    if (selectedUser.role === 'super_admin') {
+      toast.error("Akun Super Admin tidak dapat dihapus");
+      return;
+    }
+
     setLoading(true);
     try {
+      const deletingUserId = selectedUser.id;
       const response = await fetch(`${API_BASE_URL}/users/${selectedUser.id}`, {
         method: 'DELETE',
         headers: {
@@ -299,6 +526,11 @@ function UserManagementContent() {
       }
 
       toast.success("User berhasil dihapus");
+
+      // Optimistic update: langsung hilangkan dari tabel
+      setUsers((prev) => prev.filter((u) => u.id !== deletingUserId));
+      setSelectedUsers((prev) => prev.filter((id) => id !== deletingUserId));
+
       setDeleteDialog(false);
       setSelectedUser(null);
       fetchUsers();
@@ -315,25 +547,55 @@ function UserManagementContent() {
 
     setLoading(true);
     try {
-      // Delete each selected user
-      const deletePromises = selectedUsers.map(userId =>
-        fetch(`${API_BASE_URL}/users/${userId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+      const idsToDelete = selectedUsers.filter((id) => {
+        const target = users.find((u) => u.id === id);
+        if (!target) return false;
+        if (target.role === 'super_admin') return false;
+        if (isCurrentUserRow(target)) return false;
+        return true;
+      });
+
+      if (idsToDelete.length === 0) {
+        toast.error("Tidak ada akun yang dapat dihapus dari pilihan saat ini");
+        return;
+      }
+
+      // Delete each selected user and validate response
+      const results = await Promise.all(
+        idsToDelete.map(async (userId) => {
+          const res = await fetch(`${API_BASE_URL}/users/${userId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          let payload: any = null;
+          try {
+            payload = await res.json();
+          } catch {
+            payload = null;
+          }
+
+          return { userId, ok: res.ok, message: payload?.message };
         })
       );
 
-      await Promise.all(deletePromises);
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length > 0) {
+        throw new Error(failed[0].message || `Gagal menghapus ${failed.length} user`);
+      }
 
-      toast.success(`${selectedUsers.length} user berhasil dihapus`);
+      toast.success(`${idsToDelete.length} user berhasil dihapus`);
+
+      // Optimistic update: langsung hilangkan dari tabel
+      setUsers((prev) => prev.filter((u) => !idsToDelete.includes(u.id)));
       setSelectedUsers([]);
-      setSelectAll(false);
       setDeleteDialog(false);
+
       fetchUsers();
     } catch (error: any) {
-      toast.error("Gagal menghapus user");
+      toast.error(error.message || "Gagal menghapus user");
     } finally {
       setLoading(false);
     }
@@ -341,27 +603,46 @@ function UserManagementContent() {
 
   // Handle Select All
   const handleSelectAll = () => {
-    if (selectAll) {
-      setSelectedUsers([]);
-    } else {
-      setSelectedUsers(filteredUsers.map(u => u.id));
-    }
-    setSelectAll(!selectAll);
+    const allIds = filteredUsers
+      .filter((u) => u.role !== 'super_admin' && !isCurrentUserRow(u))
+      .map((u) => u.id);
+    const allSelected = allIds.length > 0 && allIds.every(id => selectedUsers.includes(id));
+    setSelectedUsers(allSelected ? [] : allIds);
   };
 
   // Handle Select Single
   const handleSelectUser = (userId: number) => {
-    if (selectedUsers.includes(userId)) {
-      setSelectedUsers(selectedUsers.filter(id => id !== userId));
-    } else {
-      setSelectedUsers([...selectedUsers, userId]);
-    }
+    setSelectedUsers((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
   };
 
-  const filteredUsers = users.filter((user) =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredUsers = users.filter((user) => {
+    // Filter berdasarkan search term
+    const matchesSearch = 
+      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.phone || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.mitra || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.jobdesk || "").toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Filter berdasarkan role
+    const matchesRole = 
+      roleFilter === "all" ||
+      (roleFilter === "super_admin" && user.role === "super_admin") ||
+      (roleFilter === "admin" && user.role === "admin") ||
+      (roleFilter === "viewer" && user.role === "viewer");
+    
+    return matchesSearch && matchesRole;
+  });
+
+  const deletableFilteredUsers = filteredUsers.filter(
+    (u) => u.role !== 'super_admin' && !isCurrentUserRow(u),
   );
+
+  const isAllSelected =
+    deletableFilteredUsers.length > 0 && deletableFilteredUsers.every((u) => selectedUsers.includes(u.id));
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
@@ -395,58 +676,68 @@ function UserManagementContent() {
       <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
         <AppSidebar />
         <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="max-w-6xl mx-auto">
+          <div className="w-full max-w-none">
               <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 sm:p-6 lg:p-8">
-                {/* Header */}
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold text-red-600 mb-1">
-                Manajemen User
-              </h1>
-              <p className="text-lg font-semibold text-red-600">Admin dan User</p>
-            </div>
+                <div className="sticky top-0 z-10 bg-white -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 lg:pt-8 pb-4 border-b border-gray-100">
+                  {/* Header */}
+                  <div>
+                    <h1 className="text-3xl font-bold text-red-600 mb-1">
+                      Manajemen User
+                    </h1>
+                    <p className="text-lg font-semibold text-red-600">Admin dan User</p>
+                  </div>
 
-            {/* Search, Filter, and Action Buttons */}
-            <div className="mb-6 flex flex-col md:flex-row gap-4 items-center">
-              {/* Search */}
-              <div className="flex-1 w-full relative">
-                <Input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-10 border-2 border-gray-300 rounded-md px-4 focus:border-red-500"
-                />
-              </div>
+                  {/* Search, Filter, and Action Buttons */}
+                  <div className="mt-4 flex flex-col md:flex-row gap-4 items-center">
+                    {/* Search */}
+                    <div className="flex-1 w-full relative">
+                      <Input
+                        type="text"
+                        placeholder="Search..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full h-10 border-2 border-gray-300 rounded-md px-4 focus:border-red-500"
+                      />
+                    </div>
 
-              {/* Filter Dropdown */}
-              <select className="h-10 px-4 border-2 border-gray-300 rounded-md bg-white text-gray-700 font-medium focus:border-red-500 min-w-[200px]">
-                <option>Semua Pengguna</option>
-                <option>Super Admin</option>
-                <option>Admin</option>
-                <option>Viewer</option>
-              </select>
+                    {/* Filter Dropdown */}
+                    <select 
+                      value={roleFilter}
+                      onChange={(e) => setRoleFilter(e.target.value)}
+                      className="h-10 px-4 border-2 border-gray-300 rounded-md bg-white text-gray-700 font-medium focus:border-red-500 min-w-[200px]"
+                    >
+                      <option value="all">Semua Pengguna</option>
+                      <option value="super_admin">Super Admin</option>
+                      <option value="admin">Admin</option>
+                      <option value="viewer">Viewer</option>
+                    </select>
 
-              {/* Delete Multiple Button */}
-              {selectedUsers.length > 0 && (
-                <Button 
-                  onClick={() => setDeleteDialog(true)}
-                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-md flex items-center gap-2"
-                >
-                  <Trash2 className="w-5 h-5" />
-                  Hapus ({selectedUsers.length})
-                </Button>
-              )}
+                    {/* Delete Multiple Button */}
+                    {selectedUsers.length > 0 && (
+                      <Button
+                        onClick={() => {
+                          setDeleteMode('bulk');
+                          setDeleteDialog(true);
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-md flex items-center gap-2"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        Hapus ({selectedUsers.length})
+                      </Button>
+                    )}
 
-              {/* Add User Button */}
-              <Button 
-                onClick={() => setAddUserDialog(true)}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-md flex items-center gap-2 whitespace-nowrap"
-              >
-                <Plus className="w-5 h-5" />
-                Tambah Akun
-              </Button>
-            </div>
+                    {/* Add User Button */}
+                    <Button
+                      onClick={() => setAddUserDialog(true)}
+                      className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-md flex items-center gap-2 whitespace-nowrap"
+                    >
+                      <Plus className="w-5 h-5" />
+                      Tambah Akun
+                    </Button>
+                  </div>
+                </div>
 
+                <div className="pt-4">
             {/* Users Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -455,7 +746,7 @@ function UserManagementContent() {
                     <th className="px-4 py-3 text-center">
                       <input
                         type="checkbox"
-                        checked={selectAll}
+                        checked={isAllSelected}
                         onChange={handleSelectAll}
                         className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
                       />
@@ -470,16 +761,22 @@ function UserManagementContent() {
                       Username
                     </th>
                     <th className="px-4 py-3 text-left font-bold text-red-600">
-                      NIK
-                    </th>
-                    <th className="px-4 py-3 text-left font-bold text-red-600">
                       Email
                     </th>
                     <th className="px-4 py-3 text-left font-bold text-red-600">
                       Role
                     </th>
                     <th className="px-4 py-3 text-left font-bold text-red-600">
-                      Terakhir Akses
+                      Jobdesk
+                    </th>
+                    <th className="px-4 py-3 text-left font-bold text-red-600">
+                      Nama Mitra
+                    </th>
+                    <th className="px-4 py-3 text-left font-bold text-red-600">
+                      Nomor HP
+                    </th>
+                    <th className="px-4 py-3 text-left font-bold text-red-600">
+                      Tanggal Dibuat
                     </th>
                     <th className="px-4 py-3 text-center font-bold text-red-600">
                       Aksi
@@ -491,12 +788,16 @@ function UserManagementContent() {
                     filteredUsers.map((user) => (
                       <tr key={user.id} className="border-b hover:bg-gray-50">
                         <td className="px-4 py-3 text-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedUsers.includes(user.id)}
-                            onChange={() => handleSelectUser(user.id)}
-                            className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
-                          />
+                          {user.role === 'super_admin' || isCurrentUserRow(user) ? (
+                            <span className="inline-block w-4 h-4" />
+                          ) : (
+                            <input
+                              type="checkbox"
+                              checked={selectedUsers.includes(user.id)}
+                              onChange={() => handleSelectUser(user.id)}
+                              className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+                            />
+                          )}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <div 
@@ -522,9 +823,6 @@ function UserManagementContent() {
                           {user.username}
                         </td>
                         <td className="px-4 py-3 text-gray-700">
-                          {user.nik || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-gray-700">
                           {user.email}
                         </td>
                         <td className="px-4 py-3">
@@ -538,12 +836,21 @@ function UserManagementContent() {
                               value={user.role}
                               onChange={(e) => handleRoleChange(user.id, e.target.value)}
                               className={`px-3 py-1 rounded-full text-xs font-semibold border-0 focus:ring-2 focus:ring-red-500 ${getRoleBadgeColor(user.role)}`}
-                              disabled={user.id === currentUser?.id}
+                              disabled={isCurrentUserRow(user)}
                             >
                               <option value="admin">Admin</option>
                               <option value="viewer">Viewer</option>
                             </select>
                           )}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700 text-xs">
+                          {user.jobdesk || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700 text-xs">
+                          {user.mitra || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700 text-xs">
+                          {user.phone || "-"}
                         </td>
                         <td className="px-4 py-3 text-gray-600 text-xs">
                           {formatDate(user.created_at)}
@@ -555,8 +862,8 @@ function UserManagementContent() {
                                 setSelectedUser(user);
                                 setEditUserData({
                                   name: user.name,
-                                  email: user.email,
-                                  nik: user.nik || "",
+                                  username: user.username,
+                                  email: user.email || "",
                                 });
                                 setEditUserDialog(true);
                               }}
@@ -579,11 +886,13 @@ function UserManagementContent() {
                                 </button>
                                 <button 
                                   onClick={() => {
+                                    setDeleteMode('single');
+                                    setSelectedUsers([]);
                                     setSelectedUser(user);
                                     setDeleteDialog(true);
                                   }}
                                   className="text-red-600 hover:text-red-800 transition"
-                                  disabled={user.id === currentUser?.id}
+                                  disabled={isCurrentUserRow(user)}
                                   title="Hapus User"
                                 >
                                   <Trash2 className="w-5 h-5" />
@@ -596,7 +905,7 @@ function UserManagementContent() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
                         Tidak ada data pengguna
                       </td>
                     </tr>
@@ -605,16 +914,18 @@ function UserManagementContent() {
               </table>
             </div>
 
+              </div>
+
         {/* Add User Dialog */}
         <Dialog open={addUserDialog} onOpenChange={setAddUserDialog}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-2xl border-4 border-red-600">
             <DialogHeader>
               <DialogTitle>Tambah User Baru</DialogTitle>
               <DialogDescription>
                 Masukkan informasi user yang akan ditambahkan
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4 border-2 border-red-600 rounded-lg p-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Nama Lengkap</label>
                 <Input
@@ -624,20 +935,20 @@ function UserManagementContent() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium mb-2">Username</label>
+                <Input
+                  value={newUserData.username}
+                  onChange={(e) => setNewUserData({...newUserData, username: e.target.value})}
+                  placeholder="john.doe"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-2">Email</label>
                 <Input
                   type="email"
                   value={newUserData.email}
                   onChange={(e) => setNewUserData({...newUserData, email: e.target.value})}
                   placeholder="john@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">NIK (Opsional)</label>
-                <Input
-                  value={newUserData.nik}
-                  onChange={(e) => setNewUserData({...newUserData, nik: e.target.value})}
-                  placeholder="1234567890"
                 />
               </div>
               <div>
@@ -653,21 +964,51 @@ function UserManagementContent() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Password</label>
-                <Input
-                  type="password"
-                  value={newUserData.password}
-                  onChange={(e) => setNewUserData({...newUserData, password: e.target.value})}
-                  placeholder="Minimal 8 karakter"
-                />
+                <div className="relative">
+                  <Input
+                    type={showNewUserPassword ? "text" : "password"}
+                    value={newUserData.password}
+                    onChange={(e) => setNewUserData({...newUserData, password: e.target.value})}
+                    placeholder="Minimal 8 karakter"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewUserPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    aria-label={showNewUserPassword ? "Sembunyikan password" : "Lihat password"}
+                  >
+                    {showNewUserPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Konfirmasi Password</label>
-                <Input
-                  type="password"
-                  value={newUserData.password_confirmation}
-                  onChange={(e) => setNewUserData({...newUserData, password_confirmation: e.target.value})}
-                  placeholder="Ulangi password"
-                />
+                <div className="relative">
+                  <Input
+                    type={showNewUserPasswordConfirmation ? "text" : "password"}
+                    value={newUserData.password_confirmation}
+                    onChange={(e) => setNewUserData({...newUserData, password_confirmation: e.target.value})}
+                    placeholder="Ulangi password"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewUserPasswordConfirmation((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    aria-label={showNewUserPasswordConfirmation ? "Sembunyikan konfirmasi password" : "Lihat konfirmasi password"}
+                  >
+                    {showNewUserPasswordConfirmation ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -676,6 +1017,86 @@ function UserManagementContent() {
               </Button>
               <Button onClick={handleAddUser} disabled={loading} className="bg-red-600 hover:bg-red-700">
                 {loading ? "Menyimpan..." : "Tambah User"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Created Credentials Popup (Centered, Close-button only) */}
+        <Dialog open={credentialsDialogOpen} onOpenChange={setCredentialsDialogOpen}>
+          <DialogContent
+            hideClose
+            className="max-w-lg border-4 border-red-600"
+            onEscapeKeyDown={(e) => e.preventDefault()}
+            onInteractOutside={(e) => e.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-red-600">Akun berhasil dibuat</DialogTitle>
+              <DialogDescription>
+                {createdCredentials?.createdAtLabel}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 text-sm">
+                  <span className="font-semibold">Username:</span>{" "}
+                  <span className="font-mono break-all">{createdCredentials?.username || "-"}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => createdCredentials?.username && copyToClipboard(createdCredentials.username)}
+                  className="text-xs text-red-700 hover:text-red-900 underline whitespace-nowrap"
+                >
+                  Salin
+                </button>
+              </div>
+
+              {createdCredentials?.email ? (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 text-sm">
+                    <span className="font-semibold">Email:</span>{" "}
+                    <span className="font-mono break-all">{createdCredentials.email}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => createdCredentials?.email && copyToClipboard(createdCredentials.email)}
+                    className="text-xs text-red-700 hover:text-red-900 underline whitespace-nowrap"
+                  >
+                    Salin
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 text-sm">
+                  <span className="font-semibold">Password:</span>{" "}
+                  <span className="font-mono break-all">{createdCredentials?.password || "-"}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => createdCredentials?.password && copyToClipboard(createdCredentials.password)}
+                  className="text-xs text-red-700 hover:text-red-900 underline whitespace-nowrap"
+                >
+                  Salin
+                </button>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Simpan informasi ini sekarang. Password tidak akan ditampilkan lagi setelah Anda menutup popup.
+              </p>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={() => {
+                  setCredentialsDialogOpen(false);
+                  setCreatedCredentials(null);
+                }}
+              >
+                Tutup
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -701,6 +1122,15 @@ function UserManagementContent() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Username</label>
+                <Input
+                  value={editUserData.username}
+                  onChange={(e) => setEditUserData({...editUserData, username: e.target.value})}
+                  className="h-12 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:ring-red-500"
+                  placeholder="Masukkan username"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
                 <Input
                   type="email"
@@ -708,15 +1138,6 @@ function UserManagementContent() {
                   onChange={(e) => setEditUserData({...editUserData, email: e.target.value})}
                   className="h-12 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:ring-red-500"
                   placeholder="user@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">NIK</label>
-                <Input
-                  value={editUserData.nik}
-                  onChange={(e) => setEditUserData({...editUserData, nik: e.target.value})}
-                  className="h-12 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:ring-red-500"
-                  placeholder="Nomor Induk Karyawan (opsional)"
                 />
               </div>
             </div>
@@ -806,7 +1227,7 @@ function UserManagementContent() {
             <DialogHeader>
               <DialogTitle>Konfirmasi Hapus</DialogTitle>
               <DialogDescription>
-                {selectedUsers.length > 0 
+                {deleteMode === 'bulk'
                   ? `Apakah Anda yakin ingin menghapus ${selectedUsers.length} user?` 
                   : `Apakah Anda yakin ingin menghapus user "${selectedUser?.name}"?`}
                 <br />
@@ -821,7 +1242,7 @@ function UserManagementContent() {
                 Batal
               </Button>
               <Button 
-                onClick={selectedUsers.length > 0 ? handleDeleteMultiple : handleDeleteUser} 
+                onClick={deleteMode === 'bulk' ? handleDeleteMultiple : handleDeleteUser} 
                 disabled={loading} 
                 className="bg-red-600 hover:bg-red-700"
               >

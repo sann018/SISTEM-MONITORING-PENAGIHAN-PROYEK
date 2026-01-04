@@ -11,23 +11,26 @@ import { toast } from "sonner";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 interface ActivityLog {
-  id: number;
+  id_aktivitas: number;
+  id_pengguna: number;
   nama_pengguna: string;
   aksi: string;
-  deskripsi: string;
-  waktu_aksi: string;
-  tipe: 'login' | 'edit' | 'create' | 'delete';
-  tabel_yang_diubah?: string;
-  ip_address?: string;
-  user_id?: number;
+  tabel_target: string | null;
+  id_target: string | null;
+  detail_perubahan: {
+    sebelum?: Record<string, any>;
+    sesudah?: Record<string, any>;
+    perubahan?: Array<{
+      field: string;
+      label: string;
+      nilai_lama: any;
+      nilai_baru: any;
+    }>;
+  } | null;
+  alamat_ip: string | null;
+  user_agent: string | null;
+  waktu_kejadian: string;
   foto_profile?: string;
-  perubahan_detail?: {
-    [key: string]: {
-      nilai_lama: string | number | null;
-      nilai_baru: string | number | null;
-      nama_field: string;
-    }
-  };
 }
 
 interface PaginationInfo {
@@ -95,10 +98,17 @@ function ActivityContent() {
       .slice(0, 2);
   };
 
-  const getActivityColor = (type: string) => {
+  // Helper: Determine activity type from aksi
+  const getActivityType = (aksi: string): 'create' | 'edit' | 'delete' | 'other' => {
+    if (aksi.includes('membuat') || aksi.includes('create') || aksi.includes('menambah')) return 'create';
+    if (aksi.includes('mengubah') || aksi.includes('edit') || aksi.includes('update')) return 'edit';
+    if (aksi.includes('menghapus') || aksi.includes('delete') || aksi.includes('remove')) return 'delete';
+    return 'other';
+  };
+
+  const getActivityColor = (aksi: string) => {
+    const type = getActivityType(aksi);
     switch (type) {
-      case 'login':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
       case 'create':
         return 'bg-green-100 text-green-800 border-green-300';
       case 'edit':
@@ -110,10 +120,9 @@ function ActivityContent() {
     }
   };
 
-  const getActivityIcon = (type: string) => {
+  const getActivityIcon = (aksi: string) => {
+    const type = getActivityType(aksi);
     switch (type) {
-      case 'login':
-        return <User className="w-5 h-5" />;
       case 'create':
         return <FileText className="w-5 h-5" />;
       case 'edit':
@@ -133,7 +142,13 @@ function ActivityContent() {
     };
   };
 
-  const fetchActivities = async (page: number = 1) => {
+  const fetchActivities = async (
+    page: number = 1,
+    overrides?: {
+      filterType?: string;
+      searchTerm?: string;
+    }
+  ) => {
     if (!token) return;
 
     // Check if user is super admin or admin
@@ -145,14 +160,17 @@ function ActivityContent() {
 
     setLoading(true);
     try {
-      let url = `${API_BASE_URL}/aktivitas?page=${page}&per_page=20`;
+      let url = `${API_BASE_URL}/aktivitas-sistem?page=${page}&per_page=20`;
+
+      const effectiveFilterType = overrides?.filterType ?? filterType;
+      const effectiveSearchTerm = overrides?.searchTerm ?? searchTerm;
       
-      if (filterType) {
-        url += `&tipe=${filterType}`;
+      if (effectiveFilterType) {
+        url += `&tipe=${effectiveFilterType}`;
       }
       
-      if (searchTerm) {
-        url += `&search=${encodeURIComponent(searchTerm)}`;
+      if (effectiveSearchTerm) {
+        url += `&search=${encodeURIComponent(effectiveSearchTerm)}`;
       }
 
       const response = await fetch(url, {
@@ -194,6 +212,7 @@ function ActivityContent() {
   const handleFilterChange = (type: string) => {
     setFilterType(type);
     setCurrentPage(1);
+    fetchActivities(1, { filterType: type });
   };
 
   const handleSearch = () => {
@@ -223,61 +242,64 @@ function ActivityContent() {
       <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
         <AppSidebar />
         <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="max-w-6xl mx-auto">
+          <div className="w-full max-w-none">
               <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 sm:p-6 lg:p-8">
-            {/* Header */}
-            <div className="mb-6 flex items-center gap-3">
-              <ActivityIcon className="w-8 h-8 text-red-600" />
-              <div>
-                <h1 className="text-3xl font-bold text-red-600">
-                  Aktivitas Sistem
-                </h1>
-                <p className="text-gray-600 text-sm mt-1">Riwayat aktivitas pengguna dan sistem</p>
+            <div className="sticky top-0 z-10 bg-white -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 lg:pt-8 pb-4 border-b border-gray-100">
+              {/* Header */}
+              <div className="flex items-center gap-3">
+                <ActivityIcon className="w-8 h-8 text-red-600" />
+                <div>
+                  <h1 className="text-3xl font-bold text-red-600">
+                    Aktivitas Sistem
+                  </h1>
+                  <p className="text-gray-600 text-sm mt-1">Riwayat aktivitas pengguna dan sistem</p>
+                </div>
+              </div>
+
+              {/* Filters and Search */}
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Cari Aktivitas
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Cari nama user atau deskripsi..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Filter Tipe
+                  </label>
+                  <select
+                    value={filterType}
+                    onChange={(e) => handleFilterChange(e.target.value)}
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none bg-white"
+                  >
+                    <option value="">Semua Tipe</option>
+                    <option value="create">Create</option>
+                    <option value="edit">Edit</option>
+                    <option value="delete">Delete</option>
+                  </select>
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    onClick={handleSearch}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-all"
+                  >
+                    Cari
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Filters and Search */}
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Cari Aktivitas
-                </label>
-                <input
-                  type="text"
-                  placeholder="Cari nama user atau deskripsi..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Filter Tipe
-                </label>
-                <select
-                  value={filterType}
-                  onChange={(e) => handleFilterChange(e.target.value)}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none bg-white"
-                >
-                  <option value="">Semua Tipe</option>
-                  <option value="login">Login</option>
-                  <option value="create">Create</option>
-                  <option value="edit">Edit</option>
-                  <option value="delete">Delete</option>
-                </select>
-              </div>
-
-              <div className="flex items-end">
-                <button
-                  onClick={handleSearch}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-all"
-                >
-                  Cari
-                </button>
-              </div>
-            </div>
+            <div className="pt-4">
 
             {/* Loading State */}
             {loading && (
@@ -290,14 +312,14 @@ function ActivityContent() {
             {!loading && activities.length > 0 && (
               <div className="space-y-4 mt-8">
                 {activities.map((activity) => {
-                  const { date, time } = formatDateTime(activity.waktu_aksi);
-                  const isExpanded = expandedId === activity.id;
-                  const hasChanges = activity.perubahan_detail && Object.keys(activity.perubahan_detail).length > 0;
+                  const { date, time } = formatDateTime(activity.waktu_kejadian);
+                  const isExpanded = expandedId === activity.id_aktivitas;
+                  const hasChanges = activity.detail_perubahan?.perubahan && activity.detail_perubahan.perubahan.length > 0;
                   
                   return (
                     <div
-                      key={activity.id}
-                      className={`rounded-lg border-2 overflow-hidden transition-all ${getActivityColor(activity.tipe)}`}
+                      key={activity.id_aktivitas}
+                      className={`rounded-lg border-2 overflow-hidden transition-all ${getActivityColor(activity.aksi)}`}
                     >
                       {/* Main Activity Card */}
                       <div className="p-4 hover:shadow-md transition-all">
@@ -332,7 +354,7 @@ function ActivityContent() {
                                     />
                                   )}
                                   <div 
-                                    className={`w-12 h-12 rounded-full flex items-center justify-center ${getActivityColor(activity.tipe)} border-2 font-bold text-lg ${hasPhoto ? 'hidden' : ''}`}
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center ${getActivityColor(activity.aksi)} border-2 font-bold text-lg ${hasPhoto ? 'hidden' : ''}`}
                                     title={activity.nama_pengguna}
                                   >
                                     {getInitials(activity.nama_pengguna)}
@@ -346,10 +368,15 @@ function ActivityContent() {
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-col sm:flex-row items-start sm:items-start sm:justify-between gap-2 sm:gap-0 mb-2">
                               <div className="min-w-0">
-                                <h3 className="font-bold text-lg">{activity.aksi}</h3>
+                                <h3 className="font-bold text-lg capitalize">
+                                  {activity.aksi.replace(/_/g, ' ')}
+                                </h3>
                                 <p className="text-sm font-semibold opacity-80">oleh {activity.nama_pengguna}</p>
-                                {activity.tabel_yang_diubah && (
-                                  <p className="text-xs opacity-60 mt-1">Tabel: {activity.tabel_yang_diubah}</p>
+                                {activity.tabel_target && (
+                                  <p className="text-xs opacity-60 mt-1">
+                                    Tabel: {activity.tabel_target}
+                                    {activity.id_target && ` (ID: ${activity.id_target})`}
+                                  </p>
                                 )}
                               </div>
                               <div className="text-right flex-shrink-0">
@@ -358,17 +385,16 @@ function ActivityContent() {
                                   {time}
                                 </div>
                                 <p className="text-xs opacity-70 mt-1 whitespace-nowrap">{date}</p>
-                                {activity.ip_address && (
-                                  <p className="text-xs opacity-60 mt-1">IP: {activity.ip_address}</p>
+                                {activity.alamat_ip && (
+                                  <p className="text-xs opacity-60 mt-1">IP: {activity.alamat_ip}</p>
                                 )}
                               </div>
                             </div>
-                            <p className="text-sm opacity-90 mb-2">{activity.deskripsi}</p>
 
                             {/* Expand Button for Details */}
                             {hasChanges && (
                               <button
-                                onClick={() => setExpandedId(isExpanded ? null : activity.id)}
+                                onClick={() => setExpandedId(isExpanded ? null : activity.id_aktivitas)}
                                 className="flex items-center gap-2 text-xs font-semibold opacity-70 hover:opacity-100 transition-all"
                               >
                                 {isExpanded ? (
@@ -379,7 +405,7 @@ function ActivityContent() {
                                 ) : (
                                   <>
                                     <ChevronDown className="w-4 h-4" />
-                                    Lihat Detail Perubahan ({Object.keys(activity.perubahan_detail || {}).length})
+                                    Lihat Detail Perubahan ({activity.detail_perubahan?.perubahan?.length || 0})
                                   </>
                                 )}
                               </button>
@@ -389,17 +415,17 @@ function ActivityContent() {
                       </div>
 
                       {/* Expanded Details Section */}
-                      {isExpanded && hasChanges && (
+                      {isExpanded && hasChanges && activity.detail_perubahan?.perubahan && (
                         <div className="border-t-2 bg-black bg-opacity-5 p-4 space-y-3">
                           <h4 className="font-bold text-sm mb-3 opacity-80">Detail Perubahan:</h4>
-                          {Object.entries(activity.perubahan_detail || {}).map(([key, change]) => (
-                            <div key={key} className="bg-white bg-opacity-40 rounded-lg p-3 space-y-2">
-                              <p className="font-semibold text-sm">{change.nama_field}</p>
+                          {activity.detail_perubahan.perubahan.map((change, idx) => (
+                            <div key={idx} className="bg-white bg-opacity-40 rounded-lg p-3 space-y-2">
+                              <p className="font-semibold text-sm">{change.label || change.field}</p>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-1">
                                   <p className="text-xs opacity-70 font-semibold">Nilai Lama:</p>
                                   <div className="bg-red-100 bg-opacity-50 p-2 rounded text-sm break-words">
-                                    {change.nilai_lama ? (
+                                    {change.nilai_lama != null ? (
                                       <span className="font-mono">{String(change.nilai_lama)}</span>
                                     ) : (
                                       <span className="italic opacity-60">-</span>
@@ -409,7 +435,7 @@ function ActivityContent() {
                                 <div className="space-y-1">
                                   <p className="text-xs opacity-70 font-semibold">Nilai Baru:</p>
                                   <div className="bg-green-100 bg-opacity-50 p-2 rounded text-sm break-words">
-                                    {change.nilai_baru ? (
+                                    {change.nilai_baru != null ? (
                                       <span className="font-mono font-bold">{String(change.nilai_baru)}</span>
                                     ) : (
                                       <span className="italic opacity-60">-</span>
@@ -426,6 +452,8 @@ function ActivityContent() {
                 })}
               </div>
             )}
+
+            </div>
 
             {/* Empty State */}
             {!loading && activities.length === 0 && (

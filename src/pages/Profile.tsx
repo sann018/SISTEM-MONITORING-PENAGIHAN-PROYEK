@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Camera, User, Upload, Lock, Menu } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -16,7 +17,6 @@ interface ProfileData {
   username?: string;
   email: string;
   role: string;
-  nik?: string;
   jobdesk?: string;
   mitra?: string;
   nomor_hp?: string;
@@ -26,8 +26,12 @@ interface ProfileData {
 function ProfileContent() {
   const { user, token, refreshUser } = useAuth();
   const { toggleSidebar } = useSidebar();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const canEdit = !!user;
+  const canEditUsername = user?.role === 'admin' || user?.role === 'super_admin';
+  const canChangePassword = user?.role === 'super_admin';
   const [profilePhoto, setProfilePhoto] = useState<string>("");
   const [previewPhoto, setPreviewPhoto] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,7 +49,6 @@ function ProfileContent() {
     username: "",
     email: "",
     role: "",
-    nik: "",
     jobdesk: "",
     mitra: "",
     nomor_hp: "",
@@ -58,6 +61,13 @@ function ProfileContent() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (!canEdit) {
+      setIsEditing(false);
+      setShowPasswordForm(false);
+    }
+  }, [canEdit]);
+
   const fetchProfile = async () => {
     if (!token) return;
     
@@ -66,6 +76,7 @@ function ProfileContent() {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
       });
 
@@ -76,12 +87,11 @@ function ProfileContent() {
       }
 
       setProfile({
-        id: data.data.id,
+        id: Number(data.data.id_pengguna ?? data.data.id ?? 0),
         name: data.data.name || "",
         username: data.data.username || "",
         email: data.data.email || "",
         role: data.data.role || "",
-        nik: data.data.nik || "",
         jobdesk: data.data.jobdesk || "",
         mitra: data.data.mitra || "",
         nomor_hp: data.data.nomor_hp || "",
@@ -102,9 +112,9 @@ function ProfileContent() {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validasi ukuran file (max 1MB)
-      if (file.size > 1 * 1024 * 1024) {
-        toast.error("Ukuran foto maksimal 1MB");
+      // Validasi ukuran file (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error("Ukuran foto maksimal 2MB");
         return;
       }
 
@@ -124,6 +134,7 @@ function ProfileContent() {
   };
 
   const handlePhotoClick = () => {
+    if (!canEdit) return;
     if (isEditing) {
       fileInputRef.current?.click();
     }
@@ -131,15 +142,20 @@ function ProfileContent() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    const nextValue = name === 'nomor_hp' ? value.slice(0, 20) : value;
     setProfile((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: nextValue,
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
+    if (!canEdit) {
+      toast.error('Akses ditolak');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -152,6 +168,7 @@ function ProfileContent() {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
           },
           body: formData,
         });
@@ -168,35 +185,57 @@ function ProfileContent() {
         }
       }
 
-      // Update profile data (name, username, nik, jobdesk, mitra, nomor_hp)
+      // Update profile data
       const payload: Record<string, unknown> = {
         name: profile.name,
-        username: profile.username,
-        nik: profile.nik,
         jobdesk: profile.jobdesk,
         mitra: profile.mitra,
         nomor_hp: profile.nomor_hp,
+        ...(canEditUsername ? { username: profile.username } : {}),
       };
 
       console.log('Saving profile with payload:', payload);
 
-      const response = await fetch(`${API_BASE_URL}/profile`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      const requestJson = async (method: 'PUT' | 'POST') => {
+        const res = await fetch(`${API_BASE_URL}/profile`, {
+          method,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
 
-      console.log('Save response status:', response.status);
+        const raw = await res.text();
+        let parsed: any = null;
+        try {
+          parsed = raw ? JSON.parse(raw) : null;
+        } catch {
+          parsed = null;
+        }
 
-      const data = await response.json();
-      
-      console.log('Save response data:', data);
+        return { res, raw, data: parsed };
+      };
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Gagal memperbarui profil');
+      // Coba PUT dulu (standar REST). Jika server membalas HTML/405, fallback ke POST alias.
+      let result = await requestJson('PUT');
+      console.log('Save response status:', result.res.status);
+
+      const looksLikeHtml = result.raw.trim().startsWith('<');
+      const shouldFallback = result.res.status === 405 || result.res.status === 404 || looksLikeHtml;
+      if (shouldFallback) {
+        result = await requestJson('POST');
+        console.log('Save response fallback(POST) status:', result.res.status);
+      }
+
+      console.log('Save response data:', result.data);
+
+      if (!result.res.ok) {
+        const message = result.data?.message
+          || (looksLikeHtml ? 'Server mengembalikan HTML (bukan JSON). Cek konfigurasi API/route.' : null)
+          || `Gagal memperbarui profil (HTTP ${result.res.status})`;
+        throw new Error(message);
       }
 
       toast.success("Profil berhasil diperbarui!");
@@ -281,14 +320,14 @@ function ProfileContent() {
       <PageHeader title="Profil Pengguna" />
       <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
         <AppSidebar />
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="w-full max-w-none">
           {/* Main Content */}
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full max-w-none">
             <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 lg:p-6">
               {/* Content Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
               {/* Left Side - Photo Profile Card */}
-              <div className="lg:col-span-2 w-full">
+              <div className="lg:col-span-2 w-none">
                 <div className="bg-white rounded-3xl shadow-2xl p-6 border-4 border-red-600 h-full flex flex-col justify-center">
                   {/* Header with Icon */}
                   <div className="text-center mb-6">
@@ -303,7 +342,7 @@ function ProfileContent() {
                   {/* Profile Photo with Upload - Optimized Size */}
                   <div className="relative mb-6 mx-auto w-48 h-48">
                     <div 
-                      className={`bg-white rounded-full w-full h-full shadow-2xl border-[6px] border-white ring-4 ring-red-400/50 overflow-hidden ${isEditing ? 'cursor-pointer hover:opacity-90 hover:scale-105 transition-all duration-300' : ''}`}
+                      className={`bg-white rounded-full w-full h-full shadow-2xl border-[6px] border-white ring-4 ring-red-400/50 overflow-hidden ${isEditing && canEdit ? 'cursor-pointer hover:opacity-90 hover:scale-105 transition-all duration-300' : ''}`}
                       onClick={handlePhotoClick}
                     >
                       {(previewPhoto || profilePhoto) ? (
@@ -333,7 +372,7 @@ function ProfileContent() {
                     </div>
                     
                     {/* Upload Icon Overlay when Editing */}
-                    {isEditing && (
+                    {isEditing && canEdit && (
                       <div 
                         className="absolute bottom-2 right-2 bg-white rounded-full p-3 shadow-xl cursor-pointer hover:bg-red-50 transition-all duration-300 hover:scale-110 border-3 border-red-600"
                         onClick={handlePhotoClick}
@@ -348,8 +387,13 @@ function ProfileContent() {
                       type="file"
                       accept="image/*"
                       onChange={handlePhotoChange}
+                      disabled={!canEdit}
                       className="hidden"
                     />
+                  </div>
+
+                  <div className="text-center text-xs text-gray-600 font-medium -mt-2">
+                    Ukuran foto maksimal 2MB
                   </div>
                   
                   {/* Info Cards without White Box - Single Line Layout */}
@@ -365,23 +409,6 @@ function ProfileContent() {
                         </p>
                         <p className="text-gray-900 font-bold text-base flex-1 truncate">
                           {profile.name || "Super Admin"}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* NIK Section */}
-                    <div className="bg-red-50 backdrop-blur-sm rounded-xl p-3 border-2 border-red-200 hover:bg-red-100 transition-all duration-300">
-                      <div className="flex items-center gap-2">
-                        <div className="bg-red-100 rounded-lg p-1.5 flex-shrink-0">
-                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
-                          </svg>
-                        </div>
-                        <p className="text-gray-700 text-xs font-bold uppercase tracking-wider flex-shrink-0">
-                          NIK:
-                        </p>
-                        <p className="text-gray-900 font-bold text-base flex-1">
-                          {profile.nik || "-"}
                         </p>
                       </div>
                     </div>
@@ -494,7 +521,7 @@ function ProfileContent() {
                           name="username"
                           value={profile.username}
                           onChange={handleInputChange}
-                          disabled={!isEditing}
+                            disabled={!isEditing || !canEditUsername}
                           placeholder="Username"
                           className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
                         />
@@ -516,19 +543,55 @@ function ProfileContent() {
                         />
                       </div>
 
-                      {/* NIK and Role - Two columns */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
+                        {/* Jobdesk */}
+                      <div>
                           <label className="block text-sm font-bold text-gray-900 mb-2">
-                            NIK
+                            Jobdesk
                           </label>
                           <Input
                             type="text"
-                            name="nik"
-                            value={profile.nik}
+                            name="jobdesk"
+                            value={profile.jobdesk}
                             onChange={handleInputChange}
                             disabled={!isEditing}
-                            placeholder="NIK"
+                            placeholder="Jobdesk"
+                            className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
+                          />
+                        </div>
+
+                      {/* Mitra */}
+                      <div>
+                          <label className="block text-sm font-bold text-gray-900 mb-2">
+                            Nama Mitra
+                          </label>
+                          <Input
+                            type="text"
+                            name="mitra"
+                            value={profile.mitra}
+                            onChange={handleInputChange}
+                            disabled={!isEditing}
+                            placeholder="Nama Mitra"
+                            className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
+                          />
+                        </div>
+
+                      {/* Nomor HP and Role - Two columns */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                         {/* Nomor HP */}
+                        <div>
+                          <label className="block text-sm font-bold text-gray-900 mb-2">
+                            Nomor HP
+                          </label>
+                          <Input
+                            type="text"
+                            name="nomor_hp"
+                            value={profile.nomor_hp}
+                            onChange={handleInputChange}
+                            maxLength={12}
+                            inputMode="tel"
+                            pattern="[0-9+\\-() ]*"
+                            disabled={!isEditing}
+                            placeholder="Nomor HP"
                             className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
                           />
                         </div>
@@ -547,167 +610,62 @@ function ProfileContent() {
                         </div>
                       </div>
 
-                      {/* Jobdesk and Mitra */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-bold text-gray-900 mb-2">
-                            Jobdesk
-                          </label>
-                          <Input
-                            type="text"
-                            name="jobdesk"
-                            value={profile.jobdesk}
-                            onChange={handleInputChange}
-                            disabled={!isEditing}
-                            placeholder="Jobdesk"
-                            className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-bold text-gray-900 mb-2">
-                            Nama Mitra
-                          </label>
-                          <Input
-                            type="text"
-                            name="mitra"
-                            value={profile.mitra}
-                            onChange={handleInputChange}
-                            disabled={!isEditing}
-                            placeholder="Nama Mitra"
-                            className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Nomor HP */}
-                      <div>
-                        <label className="block text-sm font-bold text-gray-900 mb-2">
-                          Nomor HP
-                        </label>
-                        <Input
-                          type="text"
-                          name="nomor_hp"
-                          value={profile.nomor_hp}
-                          onChange={handleInputChange}
-                          disabled={!isEditing}
-                          placeholder="Nomor HP"
-                          className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
-                        />
-                      </div>
-
-                      {/* Ubah Password - Super Admin Only */}
-                      {profile.role === 'super_admin' && (
-                        <div className="border-2 border-red-200 rounded-xl p-4 bg-red-50">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <Lock className="w-4 h-4 text-red-600" />
-                              <label className="text-sm font-bold text-gray-900">
-                                Ubah Password
-                              </label>
-                            </div>
-                            <Button
-                              type="button"
-                              onClick={() => setShowPasswordForm(!showPasswordForm)}
-                              variant="ghost"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-100 font-semibold text-sm h-8"
-                            >
-                              {showPasswordForm ? "Tutup" : "Tampilkan"}
-                            </Button>
-                          </div>
-                          
-                          {showPasswordForm && (
-                            <div className="space-y-3 mt-3">
-                              <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                  Password Lama
-                                </label>
-                                <Input
-                                  type="password"
-                                  value={passwordData.current_password}
-                                  onChange={(e) => setPasswordData({...passwordData, current_password: e.target.value})}
-                                  placeholder="Masukkan password lama"
-                                  className="h-10 border-2 border-gray-300 rounded-lg focus:border-red-500 text-sm"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                  Password Baru
-                                </label>
-                                <Input
-                                  type="password"
-                                  value={passwordData.password}
-                                  onChange={(e) => setPasswordData({...passwordData, password: e.target.value})}
-                                  placeholder="Minimal 8 karakter"
-                                  className="h-10 border-2 border-gray-300 rounded-lg focus:border-red-500 text-sm"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                  Konfirmasi Password Baru
-                                </label>
-                                <Input
-                                  type="password"
-                                  value={passwordData.password_confirmation}
-                                  onChange={(e) => setPasswordData({...passwordData, password_confirmation: e.target.value})}
-                                  placeholder="Ulangi password baru"
-                                  className="h-10 border-2 border-gray-300 rounded-lg focus:border-red-500 text-sm"
-                                />
-                              </div>
-                              <Button
-                                type="button"
-                                onClick={handlePasswordChange}
-                                disabled={loading}
-                                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold h-10 rounded-lg text-sm"
-                              >
-                                {loading ? "Mengubah..." : "Ubah Password"}
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
                       {/* Spacer to push buttons to bottom */}
                       <div className="flex-1"></div>
 
                       {/* Buttons */}
                       <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                        {!isEditing ? (
-                          <>
-                            <Button
-                              type="button"
-                              onClick={() => setIsEditing(true)}
-                              className="w-full sm:flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl text-base shadow-lg hover:shadow-xl transition-all uppercase tracking-wide"
-                            >
-                              EDIT
-                            </Button>
-                            <Button
-                              disabled
-                              className="w-full sm:flex-1 bg-pink-200 text-pink-400 font-bold py-3 rounded-xl text-base cursor-not-allowed uppercase tracking-wide"
-                            >
-                              SIMPAN
-                            </Button>
-                          </>
+                        {canEdit ? (
+                          !isEditing ? (
+                            <>
+                              <Button
+                                type="button"
+                                onClick={() => setIsEditing(true)}
+                                className="w-full sm:flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl text-base shadow-lg hover:shadow-xl transition-all uppercase tracking-wide"
+                              >
+                                EDIT
+                              </Button>
+                              {canChangePassword && (
+                                <Button
+                                  type="button"
+                                  onClick={() => navigate('/change-password')}
+                                  className="w-full sm:flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-base shadow-lg hover:shadow-xl transition-all uppercase tracking-wide"
+                                >
+                                  GANTI PASSWORD
+                                </Button>
+                              )}
+                              <Button
+                                disabled
+                                className="w-full sm:flex-1 bg-pink-200 text-pink-400 font-bold py-3 rounded-xl text-base cursor-not-allowed uppercase tracking-wide"
+                              >
+                                SIMPAN
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                type="button"
+                                onClick={() => {
+                                  setIsEditing(false);
+                                  fetchProfile(); // Reset to original data
+                                }}
+                                className="w-full sm:flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 rounded-xl text-base shadow-lg hover:shadow-xl transition-all uppercase tracking-wide"
+                              >
+                                BATAL
+                              </Button>
+                              <Button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full sm:flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl text-base shadow-lg hover:shadow-xl transition-all disabled:opacity-60 uppercase tracking-wide"
+                              >
+                                {loading ? "Menyimpan..." : "SIMPAN"}
+                              </Button>
+                            </>
+                          )
                         ) : (
-                          <>
-                            <Button
-                              type="button"
-                              onClick={() => {
-                                setIsEditing(false);
-                                fetchProfile(); // Reset to original data
-                              }}
-                              className="w-full sm:flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 rounded-xl text-base shadow-lg hover:shadow-xl transition-all uppercase tracking-wide"
-                            >
-                              BATAL
-                            </Button>
-                            <Button
-                              type="submit"
-                              disabled={loading}
-                              className="w-full sm:flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl text-base shadow-lg hover:shadow-xl transition-all disabled:opacity-60 uppercase tracking-wide"
-                            >
-                              {loading ? "Menyimpan..." : "SIMPAN"}
-                            </Button>
-                          </>
+                          <div className="w-full text-center text-gray-500 font-medium py-3">
+                            Mode viewer
+                          </div>
                         )}
                       </div>
                     </form>

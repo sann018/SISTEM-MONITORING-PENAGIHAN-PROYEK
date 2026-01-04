@@ -3,12 +3,21 @@ import { useNavigate } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/Badge";
 import { FolderKanban, CheckCircle2, Clock, AlertTriangle, SlidersHorizontal, Search, Menu } from "lucide-react";
 import { toast } from "sonner";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/contexts/AuthContext";
+import { normalizeStatusText } from "@/lib/status";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Project {
   id: string;
@@ -27,6 +36,19 @@ interface Project {
   status_procurement: string;
   prioritas?: number | null;
   prioritas_label?: string;
+  priority_info?: {
+    level: string;
+    level_label: string;
+    level_icon: string;
+    level_color: string;
+    source: string | null;
+    source_label: string | null;
+    can_override: boolean;
+    score: number;
+    reason: string | null;
+    is_high_priority: boolean;
+    is_critical: boolean;
+  };
 }
 
 function DashboardContent() {
@@ -50,6 +72,8 @@ function DashboardContent() {
     fetchCardStatistics();
   }, []);
 
+  // Dropdown prioritas pakai Radix (auto flip/shift), tidak perlu manual close.
+
   const fetchProjects = async () => {
     try {
       setLoading(true);
@@ -58,24 +82,25 @@ function DashboardContent() {
       
       // Map data dari API ke format yang dibutuhkan
       const mappedData = response.data.map((item: any) => ({
-        id: item.id.toString(),
+        id: item.pid || '',  // ✅ Gunakan PID sebagai ID (primary key)
         nama_proyek: item.nama_proyek || '',
         nama_mitra: item.nama_mitra || '',
         pid: item.pid || '',
         jenis_po: item.jenis_po || '',
         nomor_po: item.nomor_po || '',
         phase: item.phase || '',
-        status_ct: item.status_ct || 'BELUM CT',
-        status_ut: item.status_ut || 'BELUM UT',
-        rekap_boq: item.rekap_boq || '',
+        status_ct: normalizeStatusText(item.status_ct) || 'Belum CT',
+        status_ut: normalizeStatusText(item.status_ut) || 'Belum UT',
+        rekap_boq: normalizeStatusText(item.rekap_boq) || '',
         rekon_nilai: item.rekon_nilai?.toString() || '0',
-        rekon_material: item.rekon_material || 'BELUM REKON',
-        pelurusan_material: item.pelurusan_material || 'BELUM LURUS',
-        status_procurement: item.status_procurement || 'ANTRI PERIV',
-        prioritas: item.prioritas,
-        prioritas_label: item.prioritas_label,
+        rekon_material: normalizeStatusText(item.rekon_material) || 'Belum Rekon',
+        pelurusan_material: normalizeStatusText(item.pelurusan_material) || 'Belum Lurus',
+        status_procurement: normalizeStatusText(item.status_procurement) || 'Antri Periv',
+        prioritas: item.prioritas ?? null,
+        prioritas_label: item.prioritas_label ?? null,
+        priority_info: item.priority_info,
       }));
-      
+
       setProjects(mappedData);
     } catch (error) {
       toast.error("Gagal memuat data proyek");
@@ -95,27 +120,61 @@ function DashboardContent() {
     }
   };
 
-  const handleSetPriority = async (projectId: string, prioritas: number | null) => {
+  const handleSetPriority = async (projectId: string, priorityValue: number | null) => {
     try {
-      await penagihanService.setPrioritize(Number(projectId), prioritas);
-      toast.success(prioritas ? `Proyek berhasil di-set sebagai prioritas ${prioritas}` : "Prioritas berhasil dihapus");
-      fetchProjects();
-    } catch (error) {
-      toast.error("Gagal mengatur prioritas");
-      console.error(error);
+      const project = projects.find(p => p.id === projectId);
+      const projectName = project?.nama_proyek || 'Proyek';
+
+      await penagihanService.setPrioritize(projectId, priorityValue);
+
+      // Update UI langsung (tanpa refresh manual)
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === projectId
+            ? {
+                ...p,
+                prioritas: priorityValue,
+                prioritas_label:
+                  priorityValue === 1
+                    ? 'Prioritas 1'
+                    : priorityValue === 2
+                      ? 'Prioritas 2'
+                      : priorityValue === 3
+                        ? 'Prioritas 3'
+                        : null,
+              }
+            : p
+        )
+      );
+      
+      if (priorityValue === null) {
+        toast.success(`Prioritas ${projectName} berhasil dihapus`, {
+          position: 'bottom-center',
+          duration: 3000,
+        });
+      } else {
+        toast.success(`${projectName} menjadi Prioritas ${priorityValue}`, {
+          position: 'bottom-center',
+          duration: 3000,
+        });
+      }
+      // Sync data dari server (sorting/filter tetap konsisten)
+      await Promise.all([fetchProjects(), fetchCardStatistics()]);
+    } catch (error: any) {
+      const message = error?.response?.data?.message || "Gagal mengatur prioritas";
+      toast.error(message);
+      console.error('Error setting priority:', error);
     }
   };
 
-  const handleAutoPrioritize = async () => {
-    try {
-      const result = await penagihanService.autoPrioritize();
-      toast.success(`Auto-prioritize berhasil! ${result.updated} proyek di-update, ${result.cleared} proyek di-clear`);
-      fetchProjects();
-      fetchCardStatistics(); // Refresh card stats juga
-    } catch (error) {
-      toast.error("Gagal menjalankan auto-prioritize");
-      console.error(error);
-    }
+  // =====================================
+  // Helpers: match Projects style (read-only)
+  // =====================================
+  const formatCurrency = (num: string | number | null | undefined): string => {
+    if (!num) return "Rp 0";
+    const numStr = String(num).replace(/\D/g, "");
+    const formatted = numStr.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return `Rp ${formatted}`;
   };
 
   // =====================================
@@ -164,6 +223,7 @@ function DashboardContent() {
     if (statusLower === "sudah ut") return "sudah-ut";
     if (statusLower === "sudah lurus") return "sudah-lurus";
     if (statusLower === "sudah rekon") return "sudah-rekon";
+    if (statusLower === "sudah rekap") return "sudah-rekap";
     if (statusLower === "otw reg") return "otw-reg";
 
     if (statusLower === "proses periv") return "proses-periv";
@@ -174,6 +234,7 @@ function DashboardContent() {
     if (statusLower === "belum ut") return "belum-ut";
     if (statusLower === "belum lurus") return "belum-lurus";
     if (statusLower === "belum rekon") return "belum-rekon";
+    if (statusLower === "belum rekap") return "belum-rekap";
     if (statusLower === "antri periv") return "antri-periv";
     if (statusLower === "revisi mitra") return "revisi-mitra";
 
@@ -289,18 +350,14 @@ function DashboardContent() {
                 className="h-12 border-2 border-red-500 rounded-xl pl-12 pr-4 text-base font-medium placeholder:text-gray-400 focus:border-red-600 focus:ring-2 focus:ring-red-200 transition-all"
               />
             </div>
-            <Button
-              onClick={handleAutoPrioritize}
-              className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-6 py-3 rounded-xl h-12 text-base"
-            >
-              🎯 Auto Prioritize
-            </Button>
-            <Button
-              onClick={() => navigate("/projects")}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl h-12 text-base"
-            >
-              Lihat Semua Proyek
-            </Button>
+            {!isReadOnly && (
+              <Button
+                onClick={() => navigate("/projects")}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl h-12 text-base"
+              >
+                Lihat Semua Proyek
+              </Button>
+            )}
           </div>
 
           {/* Table */}
@@ -323,29 +380,130 @@ function DashboardContent() {
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '140px' }}>Rekon Material</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '160px' }}>Pelurusan Material</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '180px' }}>Status Procurement</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-700 bg-gray-200" style={{ minWidth: '200px' }}>Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredProjects.length > 0 ? (
-                  filteredProjects.slice(0, 10).map((project) => (
-                    <tr key={project.id} className="border-b hover:bg-gray-50">
+                  filteredProjects.map((project) => (
+                    <tr
+                      key={project.id}
+                      className="border-b hover:bg-gray-50 cursor-pointer"
+                      onClick={() => navigate('/projects', { state: { focusPid: project.pid } })}
+                      title="Klik untuk membuka proyek ini di menu Project"
+                    >
                       <td className="px-4 py-3" style={{ minWidth: '120px' }}>
-                        {project.prioritas === 1 && (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-600 text-white animate-pulse">
-                            🔥 PRIORITAS 1
-                          </span>
-                        )}
-                        {project.prioritas === 2 && (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-orange-500 text-white">
-                            ⚠️ PRIORITAS 2
-                          </span>
-                        )}
-                        {!project.prioritas && (
-                          <span className="px-3 py-1 rounded text-xs font-semibold text-gray-400">
-                            -
-                          </span>
-                        )}
+                        <div className="relative inline-flex">
+                          {isReadOnly ? (
+                            project.prioritas ? (
+                              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm ${
+                                project.prioritas === 1 ? 'bg-gradient-to-r from-red-500 to-red-600 text-white ring-2 ring-red-200' :
+                                project.prioritas === 2 ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white ring-2 ring-orange-200' :
+                                'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white ring-2 ring-yellow-200'
+                              }`}>
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                </svg>
+                                Prioritas {project.prioritas}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium text-gray-400 bg-gray-50">
+                                -
+                              </span>
+                            )
+                          ) : (
+                            <>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    onClick={(e) => e.stopPropagation()}
+                                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all duration-200 hover:shadow-md ${
+                                      project.prioritas === 1
+                                        ? 'bg-gradient-to-r from-red-500 to-red-600 text-white ring-2 ring-red-200'
+                                        : project.prioritas === 2
+                                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white ring-2 ring-orange-200'
+                                          : project.prioritas === 3
+                                            ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white ring-2 ring-yellow-200'
+                                            : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-orange-300 hover:text-orange-600'
+                                    }`}
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
+                                    {project.prioritas ? `Prioritas ${project.prioritas}` : 'Prioritas'}
+                                  </button>
+                                </DropdownMenuTrigger>
+
+                                <DropdownMenuContent
+                                  align="end"
+                                  sideOffset={8}
+                                  className="w-56 rounded-xl shadow-2xl border border-gray-100 overflow-hidden"
+                                >
+                                  <DropdownMenuItem
+                                    onSelect={() => handleSetPriority(project.id, 1)}
+                                    className="py-3 px-4 gap-3 cursor-pointer data-[highlighted]:bg-red-50 focus:bg-red-50"
+                                  >
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 text-red-600">
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold text-sm text-gray-900">Prioritas 1</div>
+                                      <div className="text-xs text-gray-500">Prioritas tertinggi</div>
+                                    </div>
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuItem
+                                    onSelect={() => handleSetPriority(project.id, 2)}
+                                    className="py-3 px-4 gap-3 cursor-pointer data-[highlighted]:bg-orange-50 focus:bg-orange-50"
+                                  >
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 text-orange-600">
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold text-sm text-gray-900">Prioritas 2</div>
+                                      <div className="text-xs text-gray-500">Prioritas menengah</div>
+                                    </div>
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuItem
+                                    onSelect={() => handleSetPriority(project.id, 3)}
+                                    className="py-3 px-4 gap-3 cursor-pointer data-[highlighted]:bg-yellow-50 focus:bg-yellow-50"
+                                  >
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-yellow-100 text-yellow-600">
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold text-sm text-gray-900">Prioritas 3</div>
+                                      <div className="text-xs text-gray-500">Prioritas rendah</div>
+                                    </div>
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuSeparator className="my-1" />
+
+                                  <DropdownMenuItem
+                                    onSelect={() => handleSetPriority(project.id, null)}
+                                    className="py-3 px-4 gap-3 cursor-pointer data-[highlighted]:bg-gray-50 focus:bg-gray-50"
+                                  >
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold text-sm text-gray-900">Hapus Prioritas</div>
+                                      <div className="text-xs text-gray-500">Batalkan prioritas</div>
+                                    </div>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '180px' }}>{project.nama_proyek}</td>
                       <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '150px' }}>{project.nama_mitra}</td>
@@ -354,87 +512,45 @@ function DashboardContent() {
                       <td className="px-4 py-3 whitespace-nowrap" style={{ minWidth: '120px' }}>{project.nomor_po}</td>
                       <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '100px' }}>{project.phase}</td>
                       <td className="px-4 py-3" style={{ minWidth: '120px' }}>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          project.status_ct === 'Sudah CT' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {project.status_ct}
-                        </span>
+                        <div className="inline-block">
+                          <Badge variant={getStatusVariant(project.status_ct) as any}>{project.status_ct}</Badge>
+                        </div>
                       </td>
                       <td className="px-4 py-3" style={{ minWidth: '120px' }}>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          project.status_ut === 'Sudah UT' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {project.status_ut}
-                        </span>
+                        <div className="inline-block">
+                          <Badge variant={getStatusVariant(project.status_ut) as any}>{project.status_ut}</Badge>
+                        </div>
                       </td>
                       <td className="px-4 py-3" style={{ minWidth: '130px' }}>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          project.rekap_boq === 'Sudah Rekap' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {project.rekap_boq}
-                        </span>
+                        <div className="inline-block">
+                          <Badge variant={getStatusVariant(project.rekap_boq) as any}>{project.rekap_boq}</Badge>
+                        </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap" style={{ minWidth: '150px' }}>
-                        {project.rekon_nilai ? `Rp ${Number(project.rekon_nilai).toLocaleString('id-ID')}` : '-'}
+                        <div className="border border-gray-300 rounded px-2 md:px-3 py-1 bg-blue-50 text-blue-900 font-medium inline-block text-[10px] md:text-xs font-mono whitespace-nowrap">
+                          {project.rekon_nilai ? formatCurrency(project.rekon_nilai) : '-'}
+                        </div>
                       </td>
                       <td className="px-4 py-3" style={{ minWidth: '140px' }}>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          project.rekon_material === 'Sudah Rekap' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {project.rekon_material}
-                        </span>
+                        <div className="inline-block">
+                          <Badge variant={getStatusVariant(project.rekon_material) as any}>{project.rekon_material}</Badge>
+                        </div>
                       </td>
                       <td className="px-4 py-3" style={{ minWidth: '160px' }}>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          project.pelurusan_material === 'Sudah Diluruskan' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {project.pelurusan_material}
-                        </span>
+                        <div className="inline-block">
+                          <Badge variant={getStatusVariant(project.pelurusan_material) as any}>{project.pelurusan_material}</Badge>
+                        </div>
                       </td>
                       <td className="px-4 py-3" style={{ minWidth: '180px' }}>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          project.status_procurement?.includes('OTW') || project.status_procurement?.includes('Sekuler') 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {project.status_procurement}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center" style={{ minWidth: '200px' }}>
-                        <div className="flex gap-1 justify-center">
-                          {!isReadOnly && (
-                            <>
-                              {project.prioritas !== 1 && (
-                                <Button
-                                  onClick={() => handleSetPriority(project.id, 1)}
-                                  size="sm"
-                                  className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 h-7"
-                                >
-                                  Set P1
-                                </Button>
-                              )}
-                              {project.prioritas && (
-                                <Button
-                                  onClick={() => handleSetPriority(project.id, null)}
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-gray-600 text-xs px-2 py-1 h-7"
-                                >
-                                  Clear
-                                </Button>
-                              )}
-                            </>
-                          )}
-                          {isReadOnly && project.prioritas && (
-                            <span className="text-red-600 font-semibold text-xs">P{project.prioritas}</span>
-                          )}
+                        <div className="inline-block">
+                          <Badge variant={getStatusVariant(project.status_procurement) as any}>{project.status_procurement}</Badge>
                         </div>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={15} className="px-4 py-3 text-center text-gray-500">
+                    <td colSpan={14} className="px-4 py-3 text-center text-gray-500">
                       Tidak ada data proyek prioritas
                     </td>
                   </tr>

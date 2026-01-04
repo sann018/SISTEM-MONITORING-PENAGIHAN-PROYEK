@@ -30,8 +30,9 @@ class PenagihanService {
 
   /**
    * [💡 API_SERVICE] Dapatkan detail penagihan berdasarkan ID
+   * @param id - PID (string) or numeric ID
    */
-  async getById(id: number): Promise<Penagihan> {
+  async getById(id: number | string): Promise<Penagihan> {
     const response = await api.get<ApiResponse<Penagihan>>(
       `${this.baseUrl}/${id}`
     );
@@ -61,8 +62,9 @@ class PenagihanService {
 
   /**
    * [💡 API_SERVICE] Update data penagihan
+   * @param id - PID (string) or numeric ID
    */
-  async update(id: number, data: Partial<PenagihanFormData>): Promise<Penagihan> {
+  async update(id: number | string, data: Partial<PenagihanFormData>): Promise<Penagihan> {
     const response = await api.put<ApiResponse<Penagihan>>(
       `${this.baseUrl}/${id}`,
       data
@@ -77,8 +79,9 @@ class PenagihanService {
 
   /**
    * [💡 API_SERVICE] Hapus penagihan berdasarkan ID
+   * @param id - PID (string) or numeric ID
    */
-  async delete(id: number): Promise<void> {
+  async delete(id: number | string): Promise<void> {
     const response = await api.delete<ApiResponse>(
       `${this.baseUrl}/${id}`
     );
@@ -209,14 +212,16 @@ class PenagihanService {
   }
 
   /**
-   * [🎯 PRIORITY_SYSTEM] Set/unset prioritas manual untuk proyek
-   * @param id - ID proyek
-   * @param prioritas - 1 untuk set priority, null untuk remove priority
+   * Set/unset prioritas manual untuk proyek
+   * @param id - PID (string) or numeric ID
+   * @param prioritas - 1, 2, 3, atau null untuk hapus prioritas
    */
-  async setPrioritize(id: number, prioritas: number | null): Promise<Penagihan> {
+  async setPrioritize(id: number | string, prioritas: number | null): Promise<Penagihan> {
     const response = await api.put<ApiResponse<Penagihan>>(
       `${this.baseUrl}/${id}/prioritize`,
-      { prioritas }
+      { 
+        prioritas: prioritas
+      }
     );
 
     if (response.data.success && response.data.data) {

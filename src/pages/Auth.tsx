@@ -13,6 +13,14 @@ export default function Auth() {
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
 
+  const isValidUsername = (value: string) => {
+    return /^(?=.{4,30}$)(?![._-])(?!.*[._-]{2})[a-zA-Z0-9._-]+(?<![._-])$/.test(value);
+  };
+
+  const isValidEmail = (value: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  };
+
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -22,6 +30,27 @@ export default function Auth() {
     setLoading(true);
 
     try {
+      const trimmedIdentifier = email.trim();
+      if (!trimmedIdentifier) {
+        toast.error("Email / Username wajib diisi");
+        return;
+      }
+      if (trimmedIdentifier.includes("@")) {
+        if (!isValidEmail(trimmedIdentifier)) {
+          toast.error("Format email tidak valid");
+          return;
+        }
+      } else {
+        if (!isValidUsername(trimmedIdentifier)) {
+          toast.error("Username tidak valid (4-30 karakter, huruf/angka/._-, tidak diawali/diakhiri simbol, tidak ada simbol berurutan)");
+          return;
+        }
+      }
+      if (!password) {
+        toast.error("Password wajib diisi");
+        return;
+      }
+
       const { error } = await signIn(email, password);
       if (error) {
         toast.error(typeof error === "string" ? error : error.message || "Login failed");
@@ -66,9 +95,17 @@ export default function Auth() {
                 <div className="space-y-2">
                   <label className="flex items-center text-base font-bold text-black mb-2">
                     <Mail className="w-5 h-5 mr-3 text-red-600" />
-                    Email
+                    Email / Username
                   </label>
-                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="Masukkan email Anda" className="border-0 border-b-2 border-gray-300 focus:border-red-600 rounded-none h-12 text-base px-2" />
+                  <Input
+                    id="identifier"
+                    type="text"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="Masukkan email atau username"
+                    className="border-0 border-b-2 border-gray-300 focus:border-red-600 rounded-none h-12 text-base px-2"
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="flex items-center text-base font-bold text-black mb-2">
@@ -80,9 +117,9 @@ export default function Auth() {
                   <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Masukkan password Anda" className="border-0 border-b-2 border-gray-300 focus:border-red-600 rounded-none h-12 text-base px-2" minLength={8} />
                 </div>
                 <div className="text-right">
-                  <button type="button" onClick={() => navigate("/auth/forgot-password")} className="text-sm font-medium text-red-600 hover:text-red-700 hover:underline">
-                    Lupa Password?
-                  </button>
+                  <p className="text-sm font-medium text-gray-600">
+                    Lupa password? Hubungi Super Admin.
+                  </p>
                 </div>
                 <Button type="submit" disabled={loading} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold h-14 text-lg rounded-xl transition-colors duration-200 shadow-lg mt-6">
                   {loading ? "Loading..." : "LOGIN"}

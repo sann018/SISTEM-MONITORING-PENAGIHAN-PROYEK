@@ -1,4 +1,4 @@
-import { Activity, FolderKanban, LayoutDashboard, LogOut, User, Users } from "lucide-react";
+import { Activity, FolderKanban, LayoutDashboard, LogOut, User, Users, Bell, History, Database } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -15,14 +15,20 @@ import { Link, useLocation } from "react-router-dom";
 import "./AppSidebar.css";
 
 const baseMenuItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Project", url: "/projects", icon: FolderKanban },
-  { title: "Profile", url: "/profile", icon: User },
+  { title: "Dasbor", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Proyek", url: "/projects", icon: FolderKanban },
+  { title: "Profil", url: "/profile", icon: User },
+];
+
+const adminMenuItems = [
+  { title: "Notifikasi", url: "/notifications", icon: Bell },
 ];
 
 const superAdminMenuItems = [
-  { title: "Man User", url: "/user-management", icon: Users },
-  { title: "Activity", url: "/activity", icon: Activity },
+  { title: "Manajemen Pengguna", url: "/user-management", icon: Users },
+  { title: "Aktivitas", url: "/activity", icon: Activity },
+  { title: "Log Aktivitas", url: "/log-activity", icon: History },
+  { title: "Pembersihan Data", url: "/data-cleanup", icon: Database },
 ];
 
 export function AppSidebar() {
@@ -30,15 +36,20 @@ export function AppSidebar() {
   const location = useLocation();
 
   const isSuperAdmin = user?.role === "super_admin";
+  const isAdminOrSuperAdmin = user?.role === "admin" || isSuperAdmin;
   const isActive = (url: string) => location.pathname === url;
 
-  const menuItems = [...baseMenuItems, ...(isSuperAdmin ? superAdminMenuItems : [])];
+  const menuItems = [
+    ...baseMenuItems,
+    ...(isAdminOrSuperAdmin ? adminMenuItems : []),
+    ...(isSuperAdmin ? superAdminMenuItems : []),
+  ];
 
   return (
-    <Sidebar className="w-56 rounded-3xl overflow-hidden bg-transparent" collapsible="none">
-      <SidebarContent className="bg-gradient-to-b from-red-700 to-red-600 h-full flex flex-col rounded-3xl shadow-lg overflow-hidden">
+    <Sidebar className="w-56 rounded-1xl overflow-hidden bg-transparent" collapsible="none">
+      <SidebarContent className="bg-gradient-to-b from-red-700 to-red-600 h-full flex flex-col rounded-2xl shadow-lg overflow-hidden">
         <div className="px-4 pt-5 pb-4">
-          <div className="text-white font-extrabold text-sm leading-snug">Monitoring Penagihan Proyek</div>
+          <div className="text-white font-extrabold text-sm leading-snug">Pemantauan Penagihan Proyek</div>
           <div className="text-white/80 font-semibold text-xs mt-1">Telkom Akses</div>
         </div>
 
@@ -62,7 +73,7 @@ export function AppSidebar() {
                         ? "bg-white text-red-700 shadow-[0_10px_24px_rgba(0,0,0,0.14)]"
                         : "bg-transparent text-white hover:bg-white/10"
                       }
-                      w-full font-semibold py-3 px-4 rounded-2xl
+                      w-full font-semibold py-3 px-4 rounded-2x2
                       transition-all duration-200 ease-in-out
                       flex items-center justify-start gap-3 text-sm
                     `}
@@ -81,7 +92,7 @@ export function AppSidebar() {
         <div className="mt-auto p-3 border-t border-white/20">
           <Button
             onClick={signOut}
-            className="w-full bg-white hover:bg-gray-50 text-red-700 font-bold py-3 px-4 rounded-2xl transition-all duration-200 ease-in-out shadow-sm flex items-center justify-start gap-3"
+            className="w-full bg-white hover:bg-gray-50 text-red-700 font-bold py-3 px-4 rounded-2x2 transition-all duration-200 ease-in-out shadow-sm flex items-center justify-start gap-3"
           >
             <LogOut className="h-5 w-5" />
             <span className="truncate">Keluar</span>

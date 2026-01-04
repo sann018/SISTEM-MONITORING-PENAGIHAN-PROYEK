@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { normalizeStatusText } from "@/lib/status";
 
 interface Project {
   id: string;
@@ -74,7 +75,7 @@ export default function ProjectDetail() {
   const fetchProject = async () => {
     try {
       setLoading(true);
-      const data = await penagihanService.getById(parseInt(id!));
+      const data = await penagihanService.getById(id!);
       
       // Map data dari API ke format yang dibutuhkan
       // Sesuaikan dengan Model Penagihan di backend
@@ -85,12 +86,12 @@ export default function ProjectDetail() {
         pid: data.pid || '',
         nomor_po: data.nomor_po || '',
         phase: data.phase || '',
-        status_ct: data.status_ct || 'BELUM CT',
-        status_ut: data.status_ut || 'BELUM UT',
+        status_ct: normalizeStatusText(data.status_ct) || 'Belum CT',
+        status_ut: normalizeStatusText(data.status_ut) || 'Belum UT',
         rekon_nilai: data.rekon_nilai?.toString() || '0',
-        rekon_material: data.rekon_material || 'BELUM REKON',
-        pelurusan_material: data.pelurusan_material || 'BELUM LURUS',
-        status_procurement: data.status_procurement || 'ANTRI PERIV',
+        rekon_material: normalizeStatusText(data.rekon_material) || 'Belum Rekon',
+        pelurusan_material: normalizeStatusText(data.pelurusan_material) || 'Belum Lurus',
+        status_procurement: normalizeStatusText(data.status_procurement) || 'Antri Periv',
         tanggal_invoice: data.tanggal_invoice || '',
         tanggal_jatuh_tempo: data.tanggal_jatuh_tempo || '',
         created_at: data.created_at || new Date().toISOString(),

@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { normalizeStatusText } from "@/lib/status";
 
 interface EditableStatusCellProps {
   projectId: string;
@@ -17,6 +18,7 @@ interface EditableStatusCellProps {
   onUpdate: (projectId: string, column: string, newValue: string) => Promise<void>;
   variant: string;
   options?: string[];
+  disabledOptions?: string[]; // NEW: Disable specific options (e.g., procurement stages)
   disabled?: boolean; // NEW: Support read-only mode
 }
 
@@ -27,10 +29,12 @@ export function EditableStatusCell({
   onUpdate,
   variant,
   options = [],
+  disabledOptions = [],
   disabled = false, // NEW: Default false
 }: EditableStatusCellProps) {
+  const normalizedValue = normalizeStatusText(value) || value;
   const [isEditing, setIsEditing] = useState(false);
-  const [newValue, setNewValue] = useState(value);
+  const [newValue, setNewValue] = useState(normalizedValue);
   const [isLoading, setIsLoading] = useState(false);
 
   // =====================================
@@ -88,7 +92,7 @@ export function EditableStatusCell({
 
   const handleCancel = () => {
     setIsEditing(false);
-    setNewValue(value);
+    setNewValue(normalizedValue);
   };
 
   if (!isEditing) {
@@ -97,11 +101,15 @@ export function EditableStatusCell({
         className={`hover:opacity-80 hover:scale-105 transition-all duration-200 inline-block ${
           disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
         }`}
-        onClick={() => !disabled && setIsEditing(true)}
+        onClick={() => {
+          if (disabled) return;
+          setNewValue(normalizedValue);
+          setIsEditing(true);
+        }}
         title={disabled ? 'Read-only mode' : 'Click to edit'}
       >
         <Badge variant={getStatusVariant(value) as any}>
-          {value}
+          {normalizedValue}
         </Badge>
       </div>
     );
@@ -115,7 +123,11 @@ export function EditableStatusCell({
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (
-            <SelectItem key={option} value={option}>
+            <SelectItem
+              key={option}
+              value={option}
+              disabled={disabledOptions.includes(option) && option !== normalizedValue}
+            >
               {option}
             </SelectItem>
           ))}

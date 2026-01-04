@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { PageHeader } from "@/components/PageHeader";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DurationPicker from "@/components/DurationPicker";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { normalizeStatusText } from "@/lib/status";
 
 interface Project {
   id: string;
@@ -38,12 +39,12 @@ export default function EditProject() {
   const [project, setProject] = useState<Project | null>(null);
   const [formData, setFormData] = useState<Project | null>(null);
 
-  const statusCtOptions = ["SUDAH CT", "BELUM CT"];
-  const statusUtOptions = ["SUDAH UT", "BELUM UT"];
+  const statusCtOptions = ["Sudah CT", "Belum CT"];
+  const statusUtOptions = ["Sudah UT", "Belum UT"];
   const rekapBoqOptions = ["Sudah Rekap", "Belum Rekap"];
-  const rekonMaterialOptions = ["SUDAH REKON", "BELUM REKON"];
-  const materialAlignmentOptions = ["SUDAH LURUS", "BELUM LURUS"];
-  const procurementOptions = ["ANTRI PERIV", "PROSES PERIV", "REVISI MITRA", "SEKULER TTD", "SCAN DOKUMEN MITRA", "OTW REG"];
+  const rekonMaterialOptions = ["Sudah Rekon", "Belum Rekon"];
+  const materialAlignmentOptions = ["Sudah Lurus", "Belum Lurus"];
+  const procurementOptions = ["Antri Periv", "Proses Periv", "Revisi Mitra", "Sekuler TTD", "Scan Dokumen Mitra", "OTW Reg"];
   const phaseOptions = ["Instalasi", "Konstruksi", "Optimasi", "Perencanaan", "Implementasi", "Aktivasi", "Maintenance", "Penyelesaian"];
   const jenisPoOptions = ["Baru", "Perpanjangan", "Perubahan", "Addendum"];
 
@@ -53,25 +54,26 @@ export default function EditProject() {
 
   const fetchProject = async () => {
     try {
-      const data = await penagihanService.getById(parseInt(id!));
+      // NOTE: parameter route sekarang memakai PID (string), bukan numeric ID
+      const data = await penagihanService.getById(id!);
       
       // Map data dari API ke form
       const mappedData: Project = {
-        id: data.id.toString(),
+        id: (data.pid || data.id?.toString?.() || id || "").toString(),
         nama_proyek: data.nama_proyek || '',
         nama_mitra: data.nama_mitra || '',
         pid: data.pid || '',
         jenis_po: data.jenis_po || '',
         nomor_po: data.nomor_po || '',
         phase: data.phase || '',
-        status_ct: data.status_ct || 'Belum CT',
-        status_ut: data.status_ut || 'Belum UT',
-        rekap_boq: data.rekap_boq || 'Belum Rekap',
+        status_ct: normalizeStatusText(data.status_ct) || 'Belum CT',
+        status_ut: normalizeStatusText(data.status_ut) || 'Belum UT',
+        rekap_boq: normalizeStatusText(data.rekap_boq) || 'Belum Rekap',
         rekon_nilai: data.rekon_nilai?.toString() || '0',
-        rekon_material: data.rekon_material || 'Belum Rekon',
-        pelurusan_material: data.pelurusan_material || 'Belum Lurus',
-        status_procurement: data.status_procurement || 'Antri Periv',
-        estimasi_durasi_hari: data.estimasi_durasi_hari || '7',
+        rekon_material: normalizeStatusText(data.rekon_material) || 'Belum Rekon',
+        pelurusan_material: normalizeStatusText(data.pelurusan_material) || 'Belum Lurus',
+        status_procurement: normalizeStatusText(data.status_procurement) || 'Antri Periv',
+        estimasi_durasi_hari: data.estimasi_durasi_hari || '',
         tanggal_mulai: data.tanggal_mulai || new Date().toISOString().split('T')[0],
       };
       
@@ -125,7 +127,7 @@ export default function EditProject() {
         tanggal_mulai: formData.tanggal_mulai,
       };
 
-      await penagihanService.update(parseInt(id!), mappedData);
+      await penagihanService.update(id!, mappedData);
       toast.success("Proyek berhasil diperbarui");
       navigate("/projects");
     } catch (error) {
@@ -151,7 +153,7 @@ export default function EditProject() {
         <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
           <AppSidebar />
           <main className="flex-1 overflow-y-auto w-full min-w-0">
-            <div className="space-y-4 md:space-y-6 lg:space-y-8 max-w-4xl mx-auto">
+            <div className="w-full max-w-none">
             <Button variant="outline" onClick={() => navigate("/projects")} className="mb-2 md:mb-4 text-xs md:text-sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Kembali

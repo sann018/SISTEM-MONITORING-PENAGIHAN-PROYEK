@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/Badge";
+import { PriorityBadge, PrioritySourceBadge } from "@/components/PriorityBadge";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { EditableStatusCell } from "@/components/EditableStatusCell";
@@ -11,7 +12,7 @@ import { EditableNumberCell } from "@/components/EditableNumberCell";
 import { ProjectTimer } from "@/components/ProjectTimer";
 import ExcelUploadDialog from "@/components/ExcelUploadDialog";
 import { PageHeader } from "@/components/PageHeader";
-import { Menu } from "lucide-react";
+import { Menu, ArrowLeft, X } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +25,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Eye, Pencil, Trash2, Plus, Upload, Search, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import { normalizeStatusText } from "@/lib/status";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Project {
   id: string;
@@ -46,6 +55,19 @@ interface Project {
   dibuat_pada?: string;
   prioritas?: number | null;
   prioritas_label?: string;
+  priority_info?: {
+    level: string;
+    level_label: string;
+    level_icon: string;
+    level_color: string;
+    source: string | null;
+    source_label: string | null;
+    can_override: boolean;
+    score: number;
+    reason: string | null;
+    is_high_priority: boolean;
+    is_critical: boolean;
+  };
 }
 
 function ProjectsContent() {
@@ -58,7 +80,11 @@ function ProjectsContent() {
   const [filterType, setFilterType] = useState<"all" | "completed" | "ongoing" | "delayed" | "not-recon">("all");
   const [selectedYear, setSelectedYear] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
-  const [priorityDropdownOpen, setPriorityDropdownOpen] = useState<string | null>(null);
+  const [tableContextLabel, setTableContextLabel] = useState<string | null>(null);
+  
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   // Extract available years and months from PID (format: PID-YYYY-MMM)
   const availableYears = Array.from(new Set(
@@ -106,9 +132,6 @@ function ProjectsContent() {
   // =====================================
   const [isDeleting, setIsDeleting] = useState(false);  // ← Loading state
 
-  const navigate = useNavigate();
-  const location = useLocation();
-
   const statusCtOptions = ["Sudah CT", "Belum CT"];
   const statusUtOptions = ["Sudah UT", "Belum UT"];
   const rekapBoqOptions = ["Sudah Rekap", "Belum Rekap"];
@@ -117,66 +140,224 @@ function ProjectsContent() {
   const procurementOptions = ["Antri Periv", "Proses Periv", "Revisi Mitra", "Sekuler TTD", "Scan Dokumen Mitra", "OTW Reg"];
 
   // =====================================
-  // useEffect untuk handle filter dari navigation state
+  // Helpers: dashboard card filter parity
+  // =====================================
+  const isCompletedProject = (project: Project): boolean => {
+    const ct = project.status_ct?.toLowerCase().trim() || "";
+    const ut = project.status_ut?.toLowerCase().trim() || "";
+    const boq = project.rekap_boq?.toLowerCase().trim() || "";
+    const rekon = project.rekon_material?.toLowerCase().trim() || "";
+    const alignment = project.pelurusan_material?.toLowerCase().trim() || "";
+    const procurement = project.status_procurement?.toLowerCase().trim() || "";
+
+    return (
+      ct === "sudah ct" &&
+      ut === "sudah ut" &&
+      boq === "sudah rekap" &&
+      rekon === "sudah rekon" &&
+      alignment === "sudah lurus" &&
+      procurement === "otw reg"
+    );
+  };
+
+  const isProcurementPrerequisitesDone = (project: Project): boolean => {
+    const ct = project.status_ct?.toLowerCase().trim() || "";
+    const ut = project.status_ut?.toLowerCase().trim() || "";
+    const boq = project.rekap_boq?.toLowerCase().trim() || "";
+    const rekon = project.rekon_material?.toLowerCase().trim() || "";
+    const alignment = project.pelurusan_material?.toLowerCase().trim() || "";
+
+    return (
+      ct === "sudah ct" &&
+      ut === "sudah ut" &&
+      boq === "sudah rekap" &&
+      rekon === "sudah rekon" &&
+      alignment === "sudah lurus"
+    );
+  };
+
+  // =====================================
+  // useEffect untuk handle filter dari URL params dan navigation state
   // =====================================
   useEffect(() => {
-    const state = location.state as { filter?: string } | null;
-    if (state?.filter) {
-      setFilterType(state.filter as "all" | "completed" | "ongoing" | "delayed" | "not-recon");
+    // Priority 1: Check URL params (for refresh persistence)
+    const focusPidParam = searchParams.get('pid');
+    const filterParam = searchParams.get('filter');
+    const yearParam = searchParams.get('year');
+    const monthParam = searchParams.get('month');
+
+    if (focusPidParam) {
+      // Jika ada PID di URL, fokuskan ke PID tersebut
+      setFilterType('all');
+      setSelectedYear('all');
+      setSelectedMonth('all');
+      setSearchTerm(focusPidParam);
+      setTableContextLabel(`Data Proyek ${focusPidParam}`);
+      return;
     }
-  }, [location.state]);
+
+    if (filterParam) {
+      // Restore filter dari URL
+      const filter = filterParam as "all" | "completed" | "ongoing" | "delayed" | "not-recon";
+      setFilterType(filter);
+
+      const labelMap: Record<typeof filter, string> = {
+        all: "Data Total Proyek",
+        completed: "Data Selesai Penuh",
+        ongoing: "Data Sedang Berjalan",
+        delayed: "Data Tertunda",
+        "not-recon": "Data Belum Rekon",
+      };
+      
+      if (filter !== 'all') {
+        setTableContextLabel(labelMap[filter] ?? null);
+      } else {
+        setTableContextLabel(null);
+      }
+
+      // Restore year/month if available
+      if (yearParam && yearParam !== 'all') {
+        setSelectedYear(yearParam);
+        if (monthParam && monthParam !== 'all') {
+          setSelectedMonth(monthParam);
+        }
+      }
+      return;
+    }
+
+    // Priority 2: Check navigation state (for first-time navigation from dashboard)
+    const state = location.state as { filter?: string; focusPid?: string } | null;
+
+    if (state?.focusPid) {
+      // Dari Dashboard (klik proyek prioritas), fokuskan ke 1 PID saja
+      setFilterType('all');
+      setSelectedYear('all');
+      setSelectedMonth('all');
+      setSearchTerm(state.focusPid);
+      setTableContextLabel(`Data Proyek ${state.focusPid}`);
+      
+      // Update URL dengan PID
+      setSearchParams({ pid: state.focusPid });
+      return;
+    }
+
+    if (state?.filter) {
+      // Dari Dashboard (klik card statistics)
+      const filter = state.filter as "all" | "completed" | "ongoing" | "delayed" | "not-recon";
+      setFilterType(filter);
+
+      const labelMap: Record<typeof filter, string> = {
+        all: "Data Total Proyek",
+        completed: "Data Selesai Penuh",
+        ongoing: "Data Sedang Berjalan",
+        delayed: "Data Tertunda",
+        "not-recon": "Data Belum Rekon",
+      };
+      
+      if (filter !== 'all') {
+        setTableContextLabel(labelMap[filter] ?? null);
+        // Update URL dengan filter
+        setSearchParams({ filter });
+      } else {
+        setTableContextLabel(null);
+        setSearchParams({});
+      }
+      return;
+    }
+
+    // Default: no filter
+    setTableContextLabel(null);
+  }, [location.state, searchParams, setSearchParams]);
+
+  // =====================================
+  // Function: Reset semua filter
+  // =====================================
+  const handleResetFilter = () => {
+    setFilterType('all');
+    setSelectedYear('all');
+    setSelectedMonth('all');
+    setSearchTerm('');
+    setTableContextLabel(null);
+    
+    // Clear URL params
+    setSearchParams({});
+    
+    // Clear navigation state
+    navigate('/projects', { replace: true, state: null });
+    
+    toast.success("Filter direset, menampilkan semua data");
+  };
+
+  // =====================================
+  // Function: Check if any filter is active
+  // =====================================
+  const hasActiveFilter = (): boolean => {
+    return (
+      searchTerm.trim() !== '' ||
+      filterType !== 'all' ||
+      selectedYear !== 'all' ||
+      selectedMonth !== 'all' ||
+      tableContextLabel !== null
+    );
+  };
 
   // =====================================
   // useEffect untuk fetch projects
   // =====================================
   useEffect(() => {
     fetchProjects();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterType]);
 
-  // =====================================
-  // useEffect untuk close dropdown saat click outside
-  // =====================================
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (priorityDropdownOpen) {
-        setPriorityDropdownOpen(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [priorityDropdownOpen]);
+  // Dropdown prioritas sekarang pakai Radix (auto flip/shift), tidak perlu manual close.
 
   // =====================================
   // FUNCTION: fetchProjects
   // =====================================
   const fetchProjects = async () => {
     try {
+      const cardFilterMap: Record<typeof filterType, any> = {
+        all: undefined,
+        completed: 'sudah_penuh',
+        ongoing: 'sedang_berjalan',
+        delayed: 'tertunda',
+        'not-recon': 'belum_rekon',
+      };
+
+      const card_filter = cardFilterMap[filterType];
+
       // Fetch ALL data (bukan pagination default 15)
-      const response = await penagihanService.getAll({ per_page: 1000 });
-      setProjects(response.data.map((item: any) => ({
-        id: item.id.toString(),
+      // IMPORTANT: gunakan sorting stabil supaya saat prioritas berubah, baris tidak "loncat" ke atas
+      const response = await penagihanService.getAll({
+        per_page: 1000,
+        sort_by: 'dibuat_pada',
+        sort_order: 'desc',
+        ...(card_filter ? { card_filter } : {}),
+      });
+      const mappedData = response.data.map((item: any) => ({
+        id: item.pid || '-',  // ✅ Gunakan PID sebagai ID (primary key)
         nama_proyek: item.nama_proyek || '-',
         nama_mitra: item.nama_mitra || '-',
         pid: item.pid || '-',
         jenis_po: item.jenis_po || '-',
         nomor_po: item.nomor_po || '-',
         phase: item.phase || '-',
-        status_ct: item.status_ct || 'Belum CT',
-        status_ut: item.status_ut || 'Belum UT',
-        rekap_boq: item.rekap_boq || 'Belum Rekap',
+        status_ct: normalizeStatusText(item.status_ct) || 'Belum CT',
+        status_ut: normalizeStatusText(item.status_ut) || 'Belum UT',
+        rekap_boq: normalizeStatusText(item.rekap_boq) || 'Belum Rekap',
         rekon_nilai: item.rekon_nilai || '0',
-        rekon_material: item.rekon_material || 'Belum Rekon',
-        pelurusan_material: item.pelurusan_material || 'Belum Lurus',
-        status_procurement: item.status_procurement || 'Antri Periv',
+        rekon_material: normalizeStatusText(item.rekon_material) || 'Belum Rekon',
+        pelurusan_material: normalizeStatusText(item.pelurusan_material) || 'Belum Lurus',
+        status_procurement: normalizeStatusText(item.status_procurement) || 'Antri Periv',
         estimasi_durasi_hari: item.estimasi_durasi_hari || 7,
         tanggal_mulai: item.tanggal_mulai || new Date().toISOString().split('T')[0],
         dibuat_pada: item.dibuat_pada,
-        prioritas: item.prioritas,
-        prioritas_label: item.prioritas_label,
-      })));
+        prioritas: item.prioritas ?? null,
+        prioritas_label: item.prioritas_label ?? null,
+      }));
+      
+      console.log('Fetched projects with prioritas:', mappedData.slice(0, 5).map(p => ({ pid: p.pid, prioritas: p.prioritas })));
+      setProjects(mappedData);
     } catch (error) {
       toast.error("Gagal memuat data proyek");
       console.error(error);
@@ -189,38 +370,14 @@ function ProjectsContent() {
   const getFilteredByCategory = (projectsToFilter: Project[]) => {
     switch (filterType) {
       case "completed":
-        // Selesai penuh: Status CT = Sudah CT, Status UT = Sudah UT, Status Procurement = OTW Reg atau Sekuler TTD
-        return projectsToFilter.filter((project) => {
-          const statusCt = project.status_ct?.toLowerCase().trim() || "";
-          const statusUt = project.status_ut?.toLowerCase().trim() || "";
-          const procurement = project.status_procurement?.toLowerCase().trim() || "";
-          return (
-            statusCt === "sudah ct" &&
-            statusUt === "sudah ut" &&
-            (procurement === "otw reg" || procurement === "sekuler ttd")
-          );
-        });
+        // Selesai penuh: SEMUA 6 status harus selesai (parity dengan backend card-statistics)
+        return projectsToFilter.filter(isCompletedProject);
 
       case "ongoing":
-        // Sedang berjalan: Bukan selesai penuh dan bukan tertunda
+        // Sedang berjalan: minimal 1 status belum selesai, DAN bukan tertunda
         return projectsToFilter.filter((project) => {
-          const ct = project.status_ct?.toLowerCase().trim() || "";
-          const ut = project.status_ut?.toLowerCase().trim() || "";
-          const rekon = project.rekon_material?.toLowerCase().trim() || "";
-          const alignment = project.pelurusan_material?.toLowerCase().trim() || "";
           const procurement = project.status_procurement?.toLowerCase().trim() || "";
-          
-          return (
-            ct === "belum ct" ||
-            ut === "belum ut" ||
-            rekon === "belum rekon" ||
-            alignment === "belum lurus" ||
-            procurement === "antri periv" ||
-            procurement === "proses periv" ||
-            procurement === "sekuler ttd" ||
-            procurement === "scan dokumen mitra" ||
-            procurement === "revisi mitra"
-          );
+          return procurement !== "revisi mitra" && !isCompletedProject(project);
         });
 
       case "delayed":
@@ -231,10 +388,10 @@ function ProjectsContent() {
         });
 
       case "not-recon":
-        // Belum Rekon: Rekon Material bukan "Sudah Rekon"
+        // Belum Rekon: Rekap BOQ = "Belum Rekap" (bisa overlap)
         return projectsToFilter.filter((project) => {
-          const rekonMaterial = project.rekon_material?.toLowerCase().trim() || "";
-          return rekonMaterial !== "sudah rekon";
+          const boq = project.rekap_boq?.toLowerCase().trim() || "";
+          return boq === "belum rekap";
         });
 
       case "all":
@@ -356,7 +513,7 @@ function ProjectsContent() {
     tanggalMulai: string
   ) => {
     try {
-      await penagihanService.update(parseInt(projectId), {
+      await penagihanService.update(projectId, {
         estimasi_durasi_hari: durasi,
         tanggal_mulai: tanggalMulai
       });
@@ -404,20 +561,30 @@ function ProjectsContent() {
 
       const backendField = fieldMapping[column] || column;
 
-      await penagihanService.update(parseInt(projectId), {
+      const updated = await penagihanService.update(projectId, {
         [backendField]: newValue
       });
 
       setProjects((prevProjects) =>
         prevProjects.map((p) =>
-          p.id === projectId ? { ...p, [column]: newValue } : p
+          p.id === projectId
+            ? {
+                ...p,
+                [column]: newValue,
+                // Sync procurement if backend auto-changed it (e.g., Revisi Mitra)
+                ...(updated?.status_procurement
+                  ? { status_procurement: normalizeStatusText(updated.status_procurement) }
+                  : {}),
+              }
+            : p
         )
       );
 
       toast.success("Status berhasil diperbarui");
     } catch (error) {
       console.error(error);
-      toast.error("Gagal memperbarui status");
+      const message = (error as any)?.response?.data?.message || "Gagal memperbarui status";
+      toast.error(message);
       throw error;
     }
   };
@@ -431,13 +598,21 @@ function ProjectsContent() {
     newValue: string
   ) => {
     try {
-      await penagihanService.update(parseInt(projectId), {
+      const updated = await penagihanService.update(projectId, {
         [column]: newValue
       });
 
       setProjects((prevProjects) =>
         prevProjects.map((p) =>
-          p.id === projectId ? { ...p, [column]: newValue } : p
+          p.id === projectId
+            ? {
+                ...p,
+                [column]: newValue,
+                ...(updated?.status_procurement
+                  ? { status_procurement: normalizeStatusText(updated.status_procurement) }
+                  : {}),
+              }
+            : p
         )
       );
 
@@ -450,17 +625,46 @@ function ProjectsContent() {
   };
 
   // =====================================
-  // FUNCTION: handleSetPriority (🎯 PRIORITY_SYSTEM)
+  // FUNCTION: handleSetPriority
   // =====================================
-  const handleSetPriority = async (projectId: string, prioritas: number | null) => {
+  const handleSetPriority = async (projectId: string, priorityValue: number | null) => {
     try {
-      await penagihanService.setPrioritize(Number(projectId), prioritas);
-      const priorityLabel = prioritas === 1 ? 'Prioritas 1 (Urgent)' : (prioritas === 2 ? 'Prioritas 2 (Important)' : '');
-      toast.success(prioritas ? `Proyek berhasil di-set sebagai ${priorityLabel}` : "Prioritas berhasil dihapus");
-      fetchProjects();
-    } catch (error) {
-      toast.error("Gagal mengatur prioritas");
-      console.error(error);
+      const project = projects.find(p => p.id === projectId);
+      const projectName = project?.nama_proyek || 'Proyek';
+
+      const updated = await penagihanService.setPrioritize(projectId, priorityValue);
+
+      // Update UI langsung (tanpa refresh manual)
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === projectId
+            ? {
+                ...p,
+                prioritas: updated?.prioritas ?? priorityValue,
+                prioritas_label: updated?.prioritas_label ?? (priorityValue ? `Prioritas ${priorityValue}` : null),
+              }
+            : p
+        )
+      );
+      
+      if (priorityValue === null) {
+        toast.success(`Prioritas ${projectName} berhasil dihapus`, {
+          position: 'bottom-center',
+          duration: 3000,
+        });
+      } else {
+        toast.success(`${projectName} menjadi Prioritas ${priorityValue}`, {
+          position: 'bottom-center',
+          duration: 3000,
+        });
+      }
+      
+      await fetchProjects();
+      // Sync data dari server
+    } catch (error: any) {
+      const message = error?.response?.data?.message || "Gagal mengatur prioritas";
+      toast.error(message);
+      console.error('Error setting priority:', error);
     }
   };
 
@@ -506,7 +710,7 @@ function ProjectsContent() {
     setIsDeleting(true);
     try {
       // ✅ Delete dari database
-      await penagihanService.delete(parseInt(deleteId));
+      await penagihanService.delete(deleteId);
 
       // ✅ Update local state
       setProjects((prevProjects) =>
@@ -574,16 +778,35 @@ function ProjectsContent() {
                 placeholder="Cari proyek..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-12 border-2 border-gray-300 rounded-lg pl-12 pr-4 text-base"
+                className="h-12 border-2 border-gray-300 rounded-lg pl-12 pr-12 text-base"
               />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
             </div>
 
             {/* Year Filter */}
             <select
               value={selectedYear}
               onChange={(e) => {
-                setSelectedYear(e.target.value);
+                const newYear = e.target.value;
+                setSelectedYear(newYear);
                 setSelectedMonth("all"); // Reset month when year changes
+                
+                // Update URL params
+                if (newYear === "all") {
+                  searchParams.delete("year");
+                  searchParams.delete("month");
+                } else {
+                  searchParams.set("year", newYear);
+                  searchParams.delete("month");
+                }
+                setSearchParams(searchParams);
               }}
               className="h-12 px-4 border-2 border-gray-300 rounded-lg bg-red-600 text-white font-bold cursor-pointer hover:bg-red-700 transition-all"
             >
@@ -597,7 +820,18 @@ function ProjectsContent() {
             {selectedYear !== "all" && availableMonths.length > 0 && (
               <select
                 value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
+                onChange={(e) => {
+                  const newMonth = e.target.value;
+                  setSelectedMonth(newMonth);
+                  
+                  // Update URL params
+                  if (newMonth === "all") {
+                    searchParams.delete("month");
+                  } else {
+                    searchParams.set("month", newMonth);
+                  }
+                  setSearchParams(searchParams);
+                }}
                 className="h-12 px-4 border-2 border-gray-300 rounded-lg bg-red-500 text-white font-bold cursor-pointer hover:bg-red-600 transition-all"
               >
                 <option value="all">Semua Bulan</option>
@@ -609,6 +843,24 @@ function ProjectsContent() {
               </select>
             )}
           </div>
+
+          {tableContextLabel && (
+            <div className="mb-3 flex items-center gap-3">
+              <div className="inline-flex items-center rounded-lg border-2 border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700">
+                {tableContextLabel}
+              </div>
+              {hasActiveFilter() && (
+                <Button
+                  onClick={handleResetFilter}
+                  variant="outline"
+                  className="inline-flex items-center gap-2 border-2 border-red-600 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Kembali ke Semua Data
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Projects Table */}
           <div className="flex-1 min-h-0 rounded-lg shadow-lg bg-white overflow-hidden">
@@ -638,15 +890,17 @@ function ProjectsContent() {
                 <tbody>
                   {filteredProjects.length === 0 ? (
                     <tr>
-                      <td colSpan={15} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={isReadOnly ? 14 : 15} className="px-4 py-8 text-center text-gray-500">
                         <p className="text-gray-600 font-medium mb-2">Tidak ada data proyek</p>
-                        <Button 
-                          variant="link" 
-                          onClick={() => navigate("/projects/add")}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          Tambah proyek pertama
-                        </Button>
+                        {!isReadOnly && (
+                          <Button 
+                            variant="link" 
+                            onClick={() => navigate("/projects/add")}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            Tambah proyek pertama
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ) : (
@@ -744,21 +998,17 @@ function ProjectsContent() {
                             onUpdate={handleStatusUpdate}
                             variant={getStatusVariant(project.status_procurement)}
                             options={procurementOptions}
+                            disabledOptions={
+                              isProcurementPrerequisitesDone(project)
+                                ? []
+                                : ["Sekuler TTD", "Scan Dokumen Mitra", "OTW Reg"]
+                            }
                             disabled={isReadOnly}
                           />
                         </td>
                         {!isReadOnly && (
                           <td className="px-4 py-3 text-center">
                             <div className="flex justify-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => navigate(`/projects/${project.id}`)}
-                                className="hover:bg-blue-100 p-2"
-                                title="Lihat detail"
-                              >
-                                <Eye className="h-4 w-4 text-blue-600" />
-                              </Button>
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -777,56 +1027,92 @@ function ProjectsContent() {
                               >
                                 <Trash2 className="h-4 w-4 text-red-600" />
                               </Button>
-                              {/* Tombol Priority dengan Dropdown */}
-                              <div className="relative">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => setPriorityDropdownOpen(priorityDropdownOpen === project.id ? null : project.id)}
-                                  className={`hover:bg-orange-100 p-2 ${
-                                    project.prioritas ? 'bg-orange-50' : ''
-                                  }`}
-                                  title="Set prioritas"
+                              {/* Tombol Priority dengan Dropdown Modern */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    onClick={(e) => e.stopPropagation()}
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                                      project.prioritas
+                                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700'
+                                        : 'bg-white text-gray-600 border border-gray-200 hover:border-orange-300 hover:text-orange-600'
+                                    }`}
+                                    title="Atur prioritas"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
+                                  </button>
+                                </DropdownMenuTrigger>
+
+                                <DropdownMenuContent
+                                  align="end"
+                                  sideOffset={8}
+                                  className="w-56 rounded-xl shadow-2xl border border-gray-100 overflow-hidden"
                                 >
-                                  <span className="text-orange-600 font-bold text-base">
-                                    {project.prioritas === 1 ? '🔥' : project.prioritas === 2 ? '⚠️' : '⭐'}
-                                  </span>
-                                </Button>
-                                {/* Dropdown Menu */}
-                                {priorityDropdownOpen === project.id && (
-                                  <div className="absolute right-0 mt-1 w-44 bg-white border-2 border-gray-200 rounded-lg shadow-xl z-50">
-                                    <button
-                                      onClick={() => {
-                                        handleSetPriority(project.id, 1);
-                                        setPriorityDropdownOpen(null);
-                                      }}
-                                      className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-sm font-semibold text-red-600 border-b border-gray-100 flex items-center gap-2"
-                                    >
-                                      <span className="text-base">🔥</span> Set P1 (Urgent)
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        handleSetPriority(project.id, 2);
-                                        setPriorityDropdownOpen(null);
-                                      }}
-                                      className="w-full text-left px-4 py-2.5 hover:bg-orange-50 text-sm font-semibold text-orange-600 border-b border-gray-100 flex items-center gap-2"
-                                    >
-                                      <span className="text-base">⚠️</span> Set P2 (Important)
-                                    </button>
-                                    {project.prioritas && (
-                                      <button
-                                        onClick={() => {
-                                          handleSetPriority(project.id, null);
-                                          setPriorityDropdownOpen(null);
-                                        }}
-                                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm text-gray-600 flex items-center gap-2"
-                                      >
-                                        <span className="text-base">❌</span> Clear Priority
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
+                                  <DropdownMenuItem
+                                    onSelect={() => handleSetPriority(project.id, 1)}
+                                    className="py-3 px-4 gap-3 cursor-pointer data-[highlighted]:bg-red-50 focus:bg-red-50"
+                                  >
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 text-red-600">
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold text-sm text-gray-900">Prioritas 1</div>
+                                      <div className="text-xs text-gray-500">Prioritas tertinggi</div>
+                                    </div>
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuItem
+                                    onSelect={() => handleSetPriority(project.id, 2)}
+                                    className="py-3 px-4 gap-3 cursor-pointer data-[highlighted]:bg-orange-50 focus:bg-orange-50"
+                                  >
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 text-orange-600">
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold text-sm text-gray-900">Prioritas 2</div>
+                                      <div className="text-xs text-gray-500">Prioritas menengah</div>
+                                    </div>
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuItem
+                                    onSelect={() => handleSetPriority(project.id, 3)}
+                                    className="py-3 px-4 gap-3 cursor-pointer data-[highlighted]:bg-yellow-50 focus:bg-yellow-50"
+                                  >
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-yellow-100 text-yellow-600">
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold text-sm text-gray-900">Prioritas 3</div>
+                                      <div className="text-xs text-gray-500">Prioritas rendah</div>
+                                    </div>
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuSeparator className="my-1" />
+
+                                  <DropdownMenuItem
+                                    onSelect={() => handleSetPriority(project.id, null)}
+                                    className="py-3 px-4 gap-3 cursor-pointer data-[highlighted]:bg-gray-50 focus:bg-gray-50"
+                                  >
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-600">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold text-sm text-gray-900">Hapus Prioritas</div>
+                                      <div className="text-xs text-gray-500">Batalkan prioritas</div>
+                                    </div>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </td>
                         )}

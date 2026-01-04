@@ -1,17 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { MainLayout } from "@/components/MainLayout";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/AppSidebar";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Lock, Eye, EyeOff } from "lucide-react";
+import { Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
-export default function ChangePassword() {
-  const { token } = useAuth();
+function ChangePasswordContent() {
+  const { token, user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -23,6 +25,18 @@ export default function ChangePassword() {
     password: "",
     password_confirmation: "",
   });
+
+  useEffect(() => {
+    if (user && user.role !== "super_admin") {
+      toast.error("Akses ditolak. Ganti password hanya untuk Super Admin.");
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
+
+  const isValidPassword = (password: string) => {
+    // Minimal 8, harus ada huruf kecil, huruf besar, angka, simbol
+    return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(password);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -40,8 +54,8 @@ export default function ChangePassword() {
       return;
     }
 
-    if (formData.password.length < 8) {
-      toast.error("Password minimal 8 karakter");
+    if (!isValidPassword(formData.password)) {
+      toast.error("Password minimal 8 karakter dan wajib mengandung huruf besar, huruf kecil, angka, dan simbol");
       return;
     }
 
@@ -82,8 +96,17 @@ export default function ChangePassword() {
   };
 
   return (
-    <MainLayout title="Ganti Password">
-      <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="flex flex-col h-svh w-full bg-gray-50 overflow-hidden">
+      <PageHeader title="Ganti Password" />
+      <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
+        <AppSidebar />
+        <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="w-full max-w-none">
+             {/* Back Button */}
+           <Button variant="outline" onClick={() => navigate("/profile")} className="mb-2 md:mb-4 text-xs md:text-sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Kembali
+            </Button>
 
             {/* Change Password Card */}
             <Card className="border-2 border-gray-200 shadow-lg overflow-hidden">
@@ -228,7 +251,17 @@ export default function ChangePassword() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+        </div>
       </div>
-    </MainLayout>
+    </div>
+  );
+}
+
+export default function ChangePassword() {
+  return (
+    <SidebarProvider defaultOpen={true}>
+      <ChangePasswordContent />
+    </SidebarProvider>
   );
 }

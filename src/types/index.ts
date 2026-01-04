@@ -76,6 +76,10 @@ export interface FilterParams {
   page?: number;
   per_page?: number;
   status?: 'pending' | 'dibayar' | 'terlambat' | 'batal';
+  // Backend supports these to filter list when user clicks dashboard cards
+  card_filter?: 'sudah_penuh' | 'sedang_berjalan' | 'tertunda' | 'belum_rekon';
+  // Backend uses this to return prioritized projects on dashboard
+  dashboard?: boolean;
 }
 
 // Penagihan Types
@@ -100,6 +104,9 @@ export interface Penagihan {
   tanggal_invoice?: string | null;
   tanggal_jatuh_tempo?: string | null;
   catatan?: string | null;
+  prioritas?: number | null;
+  prioritas_label?: string | null;
+  prioritas_updated_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }

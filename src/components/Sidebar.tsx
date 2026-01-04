@@ -6,6 +6,7 @@ import {
   User, 
   Users, 
   Activity, 
+  Bell,
   LogOut 
 } from "lucide-react";
 
@@ -19,8 +20,9 @@ export default function Sidebar() {
     { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard", roles: ["super_admin", "admin", "viewer"] },
     { label: "Project", icon: Folder, path: "/projects", roles: ["super_admin", "admin", "viewer"] },
     { label: "Profile", icon: User, path: "/profile", roles: ["super_admin", "admin", "viewer"] },
+    { label: "Notifikasi", icon: Bell, path: "/notifications", roles: ["super_admin", "admin"] },
     { label: "Man User", icon: Users, path: "/user-management", roles: ["super_admin"] }, // Hanya super_admin
-    { label: "Activity", icon: Activity, path: "/activity", roles: ["super_admin", "admin"] }, // Super Admin dan Admin
+    { label: "Activity", icon: Activity, path: "/activity", roles: ["super_admin"] }, // Hanya super_admin
   ];
 
   // Filter menu berdasarkan role user

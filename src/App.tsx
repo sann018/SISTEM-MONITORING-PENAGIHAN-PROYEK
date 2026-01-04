@@ -7,7 +7,6 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Auth from "./pages/Auth";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import AddProject from "./pages/AddProject";
@@ -15,11 +14,12 @@ import EditProject from "./pages/EditProject";
 import ProjectDetail from "./pages/ProjectDetail";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
 import ChangePassword from "./pages/ChangePassword";
 import UserManagement from "./pages/UserManagement";
 import Activity from "./pages/Activity";
+import Notifications from "./pages/Notifications";
+import LogAktivitas from "./pages/LogAktivitas";
+import DataCleanup from "./pages/DataCleanup";
 
 const queryClient = new QueryClient();
 
@@ -56,9 +56,6 @@ const AppRoutes = () => {
         <Route path="/" element={<Landing />} />
         <Route path="/auth" element={<Login />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-        <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route
           path="/dashboard"
           element={
@@ -128,6 +125,30 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <Activity />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/log-activity"
+          element={
+            <ProtectedRoute>
+              <LogAktivitas />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/data-cleanup"
+          element={
+            <ProtectedRoute>
+              <DataCleanup />
             </ProtectedRoute>
           }
         />

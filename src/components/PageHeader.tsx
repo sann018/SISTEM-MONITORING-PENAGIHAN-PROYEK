@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import NotificationBell from "@/components/NotificationBell";
 
 interface PageHeaderProps {
   title: string;
@@ -58,7 +59,10 @@ export function PageHeader({ title }: PageHeaderProps) {
         </div>
 
         {/* User Info - Right Aligned with proper spacing */}
-        <div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-full pl-3 pr-4 py-2.5 border border-white/30 shadow-lg ml-auto">
+        <div className="flex items-center gap-3 pl-3 pr-4 py-2.5">
+          {/* Notifications - Left of user info */}
+          <NotificationBell />
+
           {/* Profile Photo or Initials */}
           <div className="relative flex-shrink-0">
             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center border-2 border-white shadow-md overflow-hidden">
