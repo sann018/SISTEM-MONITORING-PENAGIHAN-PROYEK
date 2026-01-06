@@ -4,11 +4,48 @@ import { Button } from "@/components/ui/button";
 import { Upload, Download, X, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import penagihanService from "@/services/penagihanService";
+import ImportValidationModal from "@/components/ImportValidationModal";
 
 interface ExcelUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUploadSuccess?: () => void;
+}
+
+interface ValidationDetails {
+  total_rows_processed: number;
+  duplicate_pids?: Array<{
+    row: number;
+    pid: string;
+    nama_proyek: string;
+  }>;
+  detailed_errors?: Array<{
+    row: number;
+    error: string;
+    data: any;
+  }>;
+  has_valid_data: boolean;
+  expected_headers?: Record<string, string>;
+}
+
+interface ImportResponse {
+  success: boolean;
+  message: string;
+  success_count?: number;
+  failed_count?: number;
+  suggestions?: string[];
+  validation_details?: ValidationDetails;
+  duplicate_pids?: Array<{
+    row: number;
+    pid: string;
+    nama_proyek: string;
+  }>;
+  detailed_errors?: Array<{
+    row: number;
+    error: string;
+    data: any;
+  }>;
+  warnings?: string[];
 }
 
 export default function ExcelUploadDialog({
@@ -20,6 +57,10 @@ export default function ExcelUploadDialog({
   const [uploading, setUploading] = useState(false);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  
+  // Validation Modal State
+  const [validationModalOpen, setValidationModalOpen] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResponse | null>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -85,32 +126,36 @@ export default function ExcelUploadDialog({
 
       const result = await penagihanService.importExcel(selectedFile);
 
-      // Success
-      toast.success(`${result.success_count || 0} data berhasil diimport`);
+      // Store result for validation modal
+      setImportResult(result as ImportResponse);
+      
+      // Show validation modal with details
+      setValidationModalOpen(true);
 
+      // Close upload dialog
       setSelectedFile(null);
       onOpenChange(false);
       
-      if (onUploadSuccess) {
+      // Refresh data if successful
+      if (result.success && onUploadSuccess) {
         onUploadSuccess();
       }
 
     } catch (error: any) {
       console.error('Upload error:', error);
       
-      const errorMessage = error.response?.data?.message || error.message || "Gagal mengupload file";
-      const errors = error.response?.data?.errors;
-
-      setUploadError(errorMessage);
-
-      // Show detailed errors if available
-      if (errors && typeof errors === 'object') {
-        const errorDetails = Object.entries(errors)
-          .map(([key, messages]) => `${key}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
-          .join('\n');
-        
-        toast.error(`Import Gagal: ${errorDetails}`);
+      const errorData = error.response?.data;
+      
+      // If we have detailed validation info, show modal
+      if (errorData && (errorData.validation_details || errorData.suggestions)) {
+        setImportResult(errorData as ImportResponse);
+        setValidationModalOpen(true);
+        setSelectedFile(null);
+        onOpenChange(false);
       } else {
+        // Fallback to toast error
+        const errorMessage = errorData?.message || error.message || "Gagal mengupload file";
+        setUploadError(errorMessage);
         toast.error(errorMessage);
       }
     } finally {
@@ -260,6 +305,23 @@ export default function ExcelUploadDialog({
           </Button>
         </div>
       </DialogContent>
+      
+      {/* Validation Modal */}
+      {importResult && (
+        <ImportValidationModal
+          open={validationModalOpen}
+          onOpenChange={setValidationModalOpen}
+          success={importResult.success}
+          message={importResult.message}
+          successCount={importResult.success_count}
+          failedCount={importResult.failed_count}
+          suggestions={importResult.suggestions}
+          validationDetails={importResult.validation_details}
+          duplicatePids={importResult.duplicate_pids}
+          detailedErrors={importResult.detailed_errors}
+          warnings={importResult.warnings}
+        />
+      )}
     </Dialog>
   );
 }

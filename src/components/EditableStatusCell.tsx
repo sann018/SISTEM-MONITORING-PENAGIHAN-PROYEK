@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Check, X } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import {
@@ -18,11 +18,12 @@ interface EditableStatusCellProps {
   onUpdate: (projectId: string, column: string, newValue: string) => Promise<void>;
   variant: string;
   options?: string[];
-  disabledOptions?: string[]; // NEW: Disable specific options (e.g., procurement stages)
-  disabled?: boolean; // NEW: Support read-only mode
+  disabledOptions?: string[];
+  disabled?: boolean;
 }
 
-export function EditableStatusCell({
+// ✅ OPTIMIZED: Wrapped with React.memo to prevent unnecessary re-renders
+export const EditableStatusCell = memo(function EditableStatusCell({
   projectId,
   column,
   value,
@@ -151,4 +152,4 @@ export function EditableStatusCell({
       </button>
     </div>
   );
-}
+});

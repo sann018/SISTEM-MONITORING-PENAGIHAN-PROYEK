@@ -1,36 +1,40 @@
-import { useState } from "react";
+import { useEffect, useState, memo } from "react";
 import { Check, X } from "lucide-react";
 import { toast } from "sonner";
+import { formatRupiahNoDecimal, formatThousandsId } from "@/lib/currency";
 
 interface EditableNumberCellProps {
   projectId: string;
   column: string;
   value: string | number;
   onUpdate: (projectId: string, column: string, newValue: string) => Promise<void>;
-  disabled?: boolean; // NEW: Support read-only mode
+  disabled?: boolean;
 }
 
-export function EditableNumberCell({
+// ✅ OPTIMIZED: Wrapped with React.memo to prevent unnecessary re-renders
+export const EditableNumberCell = memo(function EditableNumberCell({
   projectId,
   column,
   value,
   onUpdate,
   disabled = false, // NEW: Default false
 }: EditableNumberCellProps) {
+  const formatThousands = (num: string | number): string => formatThousandsId(num);
+
   const [isEditing, setIsEditing] = useState(false);
-  const [newValue, setNewValue] = useState(String(value || ""));
+  const [newValue, setNewValue] = useState(() => formatThousands(value));
   const [isLoading, setIsLoading] = useState(false);
 
-  // Format angka dengan pemisah ribuan tanpa desimal (Rp 1.000.000)
-  const formatCurrency = (num: string | number): string => {
-    if (!num) return "Rp 0";
-    const numStr = String(num).replace(/\D/g, ""); // Hapus karakter non-digit
-    const formatted = numStr.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    return `Rp ${formatted}`;
-  };
+  useEffect(() => {
+    // Keep input value in sync when external value changes (e.g. after save)
+    if (!isEditing) {
+      setNewValue(formatThousands(value));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, isEditing]);
 
   const handleSave = async () => {
-    if (newValue === String(value)) {
+    if (newValue === formatThousands(value)) {
       setIsEditing(false);
       return;
     }
@@ -59,7 +63,7 @@ export function EditableNumberCell({
   };
 
   const handleCancel = () => {
-    setNewValue(String(value || ""));
+    setNewValue(formatThousands(value));
     setIsEditing(false);
   };
 
@@ -96,7 +100,7 @@ export function EditableNumberCell({
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             disabled={isLoading}
-            placeholder="Contoh: 1.000.000 atau 1.000.000,50"
+            placeholder="Contoh: 1.000.000"
             className="border border-gray-300 rounded px-2 py-1 text-xs md:text-sm w-[140px] md:w-[160px] font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
             autoFocus
           />
@@ -128,7 +132,7 @@ export function EditableNumberCell({
       }`}
       title={disabled ? 'Read-only mode' : 'Klik untuk mengedit'}
     >
-      {formatCurrency(value)}
+        {formatRupiahNoDecimal(value)}
     </div>
   );
-}
+});

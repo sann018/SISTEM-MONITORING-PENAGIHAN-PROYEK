@@ -49,14 +49,14 @@ export function AppSidebar() {
     <Sidebar className="w-56 rounded-1xl overflow-hidden bg-transparent" collapsible="none">
       <SidebarContent className="bg-gradient-to-b from-red-700 to-red-600 h-full flex flex-col rounded-2xl shadow-lg overflow-hidden">
         <div className="px-4 pt-5 pb-4">
-          <div className="text-white font-extrabold text-sm leading-snug">Pemantauan Penagihan Proyek</div>
-          <div className="text-white/80 font-semibold text-xs mt-1">Telkom Akses</div>
+          <div className="text-white font-extrabold text-xl leading-snug">Monitoring Penagihan Proyek</div>
+          <div className="text-white/80 font-semibold text-sm mt-1">Telkom Akses</div>
         </div>
 
         <div className="h-px bg-white/20 mx-4" />
 
         <div className="px-4 py-3">
-          <div className="text-white font-extrabold text-sm tracking-wide">Menu</div>
+          <div className="text-white font-extrabold text-xl tracking-wide">Menu</div>
         </div>
 
         <div className="h-px bg-white/20 mx-4" />
@@ -75,7 +75,7 @@ export function AppSidebar() {
                       }
                       w-full font-semibold py-3 px-4 rounded-2x2
                       transition-all duration-200 ease-in-out
-                      flex items-center justify-start gap-3 text-sm
+                      flex items-center justify-start gap-3 text-base
                     `}
                   >
                     <Link to={item.url} className="flex items-center gap-3 w-full">

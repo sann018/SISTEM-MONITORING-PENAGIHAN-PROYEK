@@ -63,6 +63,17 @@ function UserManagementContent() {
 
   const [showNewUserPassword, setShowNewUserPassword] = useState(false);
   const [showNewUserPasswordConfirmation, setShowNewUserPasswordConfirmation] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showResetPasswordConfirmation, setShowResetPasswordConfirmation] = useState(false);
+
+  // Error states untuk real-time validation
+  const [nameError, setNameError] = useState<string>("");
+  const [usernameError, setUsernameError] = useState<string>("");
+  const [emailError, setEmailError] = useState<string>("");
+  const [passwordError, setPasswordError] = useState<string>("");
+  const [passwordConfirmError, setPasswordConfirmError] = useState<string>("");
+  const [resetPasswordError, setResetPasswordError] = useState<string>("");
+  const [resetPasswordConfirmError, setResetPasswordConfirmError] = useState<string>("");
 
   const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{
@@ -87,6 +98,7 @@ function UserManagementContent() {
     name: "",
     username: "",
     email: "",
+    keterangan: "",
   });
   
   // Form states for Reset Password
@@ -243,13 +255,167 @@ function UserManagementContent() {
     }
   };
 
+  // ✅ Validasi Nama Lengkap: 3-100 karakter, huruf dan spasi
+  const isValidName = (name: string) => {
+    return /^[a-zA-Z\s]{3,100}$/.test(name.trim());
+  };
+
+  // ✅ Validasi Username: 4-30 karakter, alphanumeric + . _ -
   const isValidUsername = (username: string) => {
     return /^(?=.{4,30}$)(?![._-])(?!.*[._-]{2})[a-zA-Z0-9._-]+(?<![._-])$/.test(username);
   };
 
+  // ✅ Validasi Email Domain: Hanya @telkom.co.id atau @gmail.com
+  const isValidEmailDomain = (email: string) => {
+    const trimmedEmail = email.trim().toLowerCase();
+    return trimmedEmail.endsWith('@telkom.co.id') || trimmedEmail.endsWith('@gmail.com');
+  };
+
+  // ✅ Validasi Password: Min 8 karakter, huruf besar, kecil, angka, simbol
   const isValidPassword = (password: string) => {
-    // Minimal 8, harus ada huruf kecil, huruf besar, angka, simbol
-    return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(password);
+    return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,50}$/.test(password);
+  };
+
+  // ✅ Real-time validation untuk Nama
+  const validateName = (value: string) => {
+    if (!value) {
+      setNameError("");
+      return;
+    }
+
+    const trimmed = value.trim();
+    if (trimmed.length < 3) {
+      setNameError("⚠️ Nama minimal 3 karakter");
+      return;
+    }
+    if (trimmed.length > 100) {
+      setNameError("⚠️ Nama maksimal 100 karakter");
+      return;
+    }
+    if (!/^[a-zA-Z\s]+$/.test(trimmed)) {
+      setNameError("⚠️ Nama hanya boleh huruf dan spasi");
+      return;
+    }
+    setNameError("");
+  };
+
+  // ✅ Real-time validation untuk Username
+  const validateUsername = (value: string) => {
+    if (!value) {
+      setUsernameError("");
+      return;
+    }
+
+    const trimmed = value.trim();
+    if (trimmed.length < 4) {
+      setUsernameError("⚠️ Username minimal 4 karakter");
+      return;
+    }
+    if (trimmed.length > 30) {
+      setUsernameError("⚠️ Username maksimal 30 karakter");
+      return;
+    }
+    if (/^[._-]/.test(trimmed)) {
+      setUsernameError("⚠️ Username tidak boleh diawali dengan . _ atau -");
+      return;
+    }
+    if (/[._-]$/.test(trimmed)) {
+      setUsernameError("⚠️ Username tidak boleh diakhiri dengan . _ atau -");
+      return;
+    }
+    if (/[._-]{2}/.test(trimmed)) {
+      setUsernameError("⚠️ Username tidak boleh memiliki . _ - berurutan");
+      return;
+    }
+    if (!/^[a-zA-Z0-9._-]+$/.test(trimmed)) {
+      setUsernameError("⚠️ Username hanya boleh alphanumeric, . _ -");
+      return;
+    }
+    setUsernameError("");
+  };
+
+  // ✅ Real-time validation untuk Email
+  const validateEmail = (value: string) => {
+    if (!value) {
+      setEmailError("");
+      return;
+    }
+
+    const trimmed = value.trim();
+    
+    // Cek double @
+    if ((trimmed.match(/@/g) || []).length > 1) {
+      setEmailError("⚠️ Email tidak boleh memiliki lebih dari satu @");
+      return;
+    }
+
+    // Cek spasi
+    if (/\s/.test(trimmed)) {
+      setEmailError("⚠️ Email tidak boleh mengandung spasi");
+      return;
+    }
+
+    // Cek format email dasar
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setEmailError("⚠️ Format email tidak valid");
+      return;
+    }
+
+    // Cek domain
+    if (!isValidEmailDomain(trimmed)) {
+      setEmailError("⚠️ Email hanya @telkom.co.id atau @gmail.com");
+      return;
+    }
+
+    setEmailError("");
+  };
+
+  // ✅ Real-time validation untuk Password
+  const validatePasswordField = (value: string) => {
+    if (!value) {
+      setPasswordError("");
+      return;
+    }
+
+    if (value.length < 8) {
+      setPasswordError("⚠️ Password minimal 8 karakter");
+      return;
+    }
+    if (value.length > 50) {
+      setPasswordError("⚠️ Password maksimal 50 karakter");
+      return;
+    }
+    if (!/[a-z]/.test(value)) {
+      setPasswordError("⚠️ Password harus mengandung huruf kecil");
+      return;
+    }
+    if (!/[A-Z]/.test(value)) {
+      setPasswordError("⚠️ Password harus mengandung huruf besar");
+      return;
+    }
+    if (!/\d/.test(value)) {
+      setPasswordError("⚠️ Password harus mengandung angka");
+      return;
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
+      setPasswordError("⚠️ Password harus mengandung simbol");
+      return;
+    }
+    setPasswordError("");
+  };
+
+  // ✅ Real-time validation untuk Konfirmasi Password
+  const validatePasswordConfirm = (value: string, password: string) => {
+    if (!value) {
+      setPasswordConfirmError("");
+      return;
+    }
+
+    if (value !== password) {
+      setPasswordConfirmError("⚠️ Password tidak sama");
+      return;
+    }
+    setPasswordConfirmError("");
   };
 
   const copyToClipboard = async (text: string) => {
@@ -265,43 +431,75 @@ function UserManagementContent() {
   const handleAddUser = async () => {
     if (!token) return;
 
+    // ✅ Validasi Nama Lengkap
+    if (!newUserData.name.trim()) {
+      toast.error("Nama lengkap wajib diisi");
+      return;
+    }
+
+    if (!isValidName(newUserData.name)) {
+      toast.error("Nama lengkap tidak valid! Harus 3-100 karakter, hanya huruf dan spasi");
+      return;
+    }
+
+    // ✅ Validasi Username
     if (!newUserData.username.trim()) {
       toast.error("Username wajib diisi");
       return;
     }
 
     if (!isValidUsername(newUserData.username.trim())) {
-      toast.error("Username tidak valid (4-30 karakter, huruf/angka/._-, tidak diawali/diakhiri simbol, tidak ada simbol berurutan)");
+      toast.error("Username tidak valid! Harus 4-30 karakter, alphanumeric + . _ -, tidak diawali/diakhiri simbol, tidak ada simbol berurutan");
       return;
     }
 
+    // ✅ Validasi Email
     if (!newUserData.email.trim()) {
       toast.error("Email wajib diisi");
       return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUserData.email.trim())) {
-      toast.error("Format email tidak valid");
+      toast.error("Format email tidak valid!");
       return;
     }
 
+    // ✅ Validasi Domain Email (hanya @telkom.co.id atau @gmail.com)
+    if (!isValidEmailDomain(newUserData.email)) {
+      toast.error("Email hanya boleh menggunakan domain @telkom.co.id atau @gmail.com!", {
+        duration: 5000,
+        description: "Silakan gunakan email dengan domain yang diizinkan"
+      });
+      return;
+    }
+
+    // ✅ Validasi Password
     if (!newUserData.password) {
       toast.error("Password wajib diisi");
       return;
     }
 
+    if (newUserData.password.length < 8 || newUserData.password.length > 50) {
+      toast.error("Password harus 8-50 karakter!");
+      return;
+    }
+
+    if (!isValidPassword(newUserData.password)) {
+      toast.error("Password tidak valid!", {
+        duration: 5000,
+        description: "Harus mengandung: huruf besar (A-Z), huruf kecil (a-z), angka (0-9), dan simbol (!@#$%)"
+      });
+      return;
+    }
+
+    // ✅ Validasi Konfirmasi Password
     if (!newUserData.password_confirmation) {
       toast.error("Konfirmasi password wajib diisi");
       return;
     }
 
     if (newUserData.password !== newUserData.password_confirmation) {
-      toast.error("Password dan konfirmasi password tidak cocok");
-      return;
-    }
-
-    if (!isValidPassword(newUserData.password)) {
-      toast.error("Password minimal 8 karakter dan wajib mengandung huruf besar, huruf kecil, angka, dan simbol");
+      toast.error("Password dan konfirmasi password tidak cocok!");
       return;
     }
 
@@ -394,6 +592,7 @@ function UserManagementContent() {
       if (editUserData.name.trim()) payload.name = editUserData.name.trim();
       if (editUserData.username.trim()) payload.username = editUserData.username.trim().toLowerCase();
       if (editUserData.email.trim()) payload.email = editUserData.email.trim();
+      if (editUserData.keterangan.trim()) payload.keterangan = editUserData.keterangan.trim();
 
       const response = await fetch(`${API_BASE_URL}/users/${selectedUser.id}`, {
         method: 'PUT',
@@ -864,6 +1063,7 @@ function UserManagementContent() {
                                   name: user.name,
                                   username: user.username,
                                   email: user.email || "",
+                                  keterangan: user.jobdesk || "",
                                 });
                                 setEditUserDialog(true);
                               }}
@@ -930,26 +1130,49 @@ function UserManagementContent() {
                 <label className="block text-sm font-medium mb-2">Nama Lengkap</label>
                 <Input
                   value={newUserData.name}
-                  onChange={(e) => setNewUserData({...newUserData, name: e.target.value})}
-                  placeholder="John Doe"
+                  onChange={(e) => {
+                    setNewUserData({...newUserData, name: e.target.value});
+                    validateName(e.target.value);
+                  }}
+                  placeholder="Minimal 3 karakter, maksimal 100 karakter (hanya huruf dan spasi)"
+                  maxLength={100}
+                  className={nameError ? "border-red-500" : ""}
                 />
+                {nameError && (
+                  <p className="text-sm text-red-600 font-medium mt-1 animate-pulse">{nameError}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Username</label>
                 <Input
                   value={newUserData.username}
-                  onChange={(e) => setNewUserData({...newUserData, username: e.target.value})}
-                  placeholder="john.doe"
+                  onChange={(e) => {
+                    setNewUserData({...newUserData, username: e.target.value});
+                    validateUsername(e.target.value);
+                  }}
+                  placeholder="4-30 karakter (alphanumeric, . _ - saja). Contoh: john.doe"
+                  maxLength={30}
+                  className={usernameError ? "border-red-500" : ""}
                 />
+                {usernameError && (
+                  <p className="text-sm text-red-600 font-medium mt-1 animate-pulse">{usernameError}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Email</label>
                 <Input
                   type="email"
                   value={newUserData.email}
-                  onChange={(e) => setNewUserData({...newUserData, email: e.target.value})}
-                  placeholder="john@example.com"
+                  onChange={(e) => {
+                    setNewUserData({...newUserData, email: e.target.value});
+                    validateEmail(e.target.value);
+                  }}
+                  placeholder="Hanya email @telkom.co.id atau @gmail.com. Contoh: nama@telkom.co.id"
+                  className={emailError ? "border-red-500" : ""}
                 />
+                {emailError && (
+                  <p className="text-sm text-red-600 font-medium mt-1 animate-pulse">{emailError}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Role</label>
@@ -968,23 +1191,37 @@ function UserManagementContent() {
                   <Input
                     type={showNewUserPassword ? "text" : "password"}
                     value={newUserData.password}
-                    onChange={(e) => setNewUserData({...newUserData, password: e.target.value})}
-                    placeholder="Minimal 8 karakter"
-                    className="pr-10"
+                    onChange={(e) => {
+                      setNewUserData({...newUserData, password: e.target.value});
+                      validatePasswordField(e.target.value);
+                      if (newUserData.password_confirmation) {
+                        validatePasswordConfirm(newUserData.password_confirmation, e.target.value);
+                      }
+                    }}
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-form-type="other"
+                    placeholder="8-50 karakter: wajib huruf besar, kecil, angka, dan simbol"
+                    maxLength={50}
+                    className={`pr-12 ${passwordError ? "border-red-500" : ""}`}
+                    style={{ backgroundImage: 'none' } as React.CSSProperties}
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewUserPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    aria-label={showNewUserPassword ? "Sembunyikan password" : "Lihat password"}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 p-1"
+                    aria-label={showNewUserPassword ? "Sembunyikan password" : "Tampilkan password"}
                   >
                     {showNewUserPassword ? (
-                      <EyeOff className="w-4 h-4" />
+                      <EyeOff className="w-5 h-5" />
                     ) : (
-                      <Eye className="w-4 h-4" />
+                      <Eye className="w-5 h-5" />
                     )}
                   </button>
                 </div>
+                {passwordError && (
+                  <p className="text-sm text-red-600 font-medium mt-1 animate-pulse">{passwordError}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Konfirmasi Password</label>
@@ -992,23 +1229,34 @@ function UserManagementContent() {
                   <Input
                     type={showNewUserPasswordConfirmation ? "text" : "password"}
                     value={newUserData.password_confirmation}
-                    onChange={(e) => setNewUserData({...newUserData, password_confirmation: e.target.value})}
-                    placeholder="Ulangi password"
-                    className="pr-10"
+                    onChange={(e) => {
+                      setNewUserData({...newUserData, password_confirmation: e.target.value});
+                      validatePasswordConfirm(e.target.value, newUserData.password);
+                    }}
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-form-type="other"
+                    placeholder="Masukkan kembali password yang sama"
+                    maxLength={50}
+                    className={`pr-12 ${passwordConfirmError ? "border-red-500" : ""}`}
+                    style={{ backgroundImage: 'none' } as React.CSSProperties}
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewUserPasswordConfirmation((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    aria-label={showNewUserPasswordConfirmation ? "Sembunyikan konfirmasi password" : "Lihat konfirmasi password"}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 p-1"
+                    aria-label={showNewUserPasswordConfirmation ? "Sembunyikan konfirmasi password" : "Tampilkan konfirmasi password"}
                   >
                     {showNewUserPasswordConfirmation ? (
-                      <EyeOff className="w-4 h-4" />
+                      <EyeOff className="w-5 h-5" />
                     ) : (
-                      <Eye className="w-4 h-4" />
+                      <Eye className="w-5 h-5" />
                     )}
                   </button>
                 </div>
+                {passwordConfirmError && (
+                  <p className="text-sm text-red-600 font-medium mt-1 animate-pulse">{passwordConfirmError}</p>
+                )}
               </div>
             </div>
             <DialogFooter>
@@ -1140,6 +1388,22 @@ function UserManagementContent() {
                   placeholder="user@example.com"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Keterangan / Jobdesk
+                  <span className="text-xs text-gray-500 ml-2 font-normal">(Opsional)</span>
+                </label>
+                <textarea
+                  value={editUserData.keterangan}
+                  onChange={(e) => setEditUserData({...editUserData, keterangan: e.target.value})}
+                  className="w-full h-24 px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:ring-red-500 resize-none"
+                  placeholder="Contoh: Manager Proyek, Team Leader, Developer Backend, etc."
+                  maxLength={500}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {editUserData.keterangan.length}/500 karakter
+                </p>
+              </div>
             </div>
             <DialogFooter className="gap-2">
               <Button 
@@ -1175,23 +1439,106 @@ function UserManagementContent() {
             <div className="space-y-5 py-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Password Baru</label>
-                <Input
-                  type="password"
-                  value={resetPasswordData.password}
-                  onChange={(e) => setResetPasswordData({...resetPasswordData, password: e.target.value})}
-                  className="h-12 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500"
-                  placeholder="Minimal 8 karakter"
-                />
+                <div className="relative">
+                  <Input
+                    type={showResetPassword ? "text" : "password"}
+                    value={resetPasswordData.password}
+                    onChange={(e) => {
+                      setResetPasswordData({...resetPasswordData, password: e.target.value});
+                      // Real-time validation untuk reset password
+                      const value = e.target.value;
+                      if (!value) {
+                        setResetPasswordError("");
+                      } else if (value.length < 8) {
+                        setResetPasswordError("⚠️ Password minimal 8 karakter");
+                      } else if (value.length > 50) {
+                        setResetPasswordError("⚠️ Password maksimal 50 karakter");
+                      } else if (!/[a-z]/.test(value)) {
+                        setResetPasswordError("⚠️ Password harus mengandung huruf kecil");
+                      } else if (!/[A-Z]/.test(value)) {
+                        setResetPasswordError("⚠️ Password harus mengandung huruf besar");
+                      } else if (!/\d/.test(value)) {
+                        setResetPasswordError("⚠️ Password harus mengandung angka");
+                      } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
+                        setResetPasswordError("⚠️ Password harus mengandung simbol");
+                      } else {
+                        setResetPasswordError("");
+                      }
+                      // Cek konfirmasi password jika sudah diisi
+                      if (resetPasswordData.password_confirmation) {
+                        if (e.target.value !== resetPasswordData.password_confirmation) {
+                          setResetPasswordConfirmError("⚠️ Password tidak sama");
+                        } else {
+                          setResetPasswordConfirmError("");
+                        }
+                      }
+                    }}
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-form-type="other"
+                    className={`h-12 border-2 rounded-lg pr-12 focus:border-blue-500 focus:ring-blue-500 ${resetPasswordError ? "border-red-500" : "border-gray-300"}`}
+                    placeholder="8-50 karakter: huruf besar, kecil, angka, simbol"
+                    maxLength={50}
+                    style={{ backgroundImage: 'none' } as React.CSSProperties}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword((prev) => !prev)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 p-1"
+                    aria-label={showResetPassword ? "Sembunyikan password" : "Tampilkan password"}
+                  >
+                    {showResetPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+                {resetPasswordError && (
+                  <p className="text-sm text-red-600 font-medium mt-1 animate-pulse">{resetPasswordError}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Konfirmasi Password Baru</label>
-                <Input
-                  type="password"
-                  value={resetPasswordData.password_confirmation}
-                  onChange={(e) => setResetPasswordData({...resetPasswordData, password_confirmation: e.target.value})}
-                  className="h-12 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500"
-                  placeholder="Ulangi password baru"
-                />
+                <div className="relative">
+                  <Input
+                    type={showResetPasswordConfirmation ? "text" : "password"}
+                    value={resetPasswordData.password_confirmation}
+                    onChange={(e) => {
+                      setResetPasswordData({...resetPasswordData, password_confirmation: e.target.value});
+                      // Real-time validation untuk konfirmasi
+                      if (!e.target.value) {
+                        setResetPasswordConfirmError("");
+                      } else if (e.target.value !== resetPasswordData.password) {
+                        setResetPasswordConfirmError("⚠️ Password tidak sama");
+                      } else {
+                        setResetPasswordConfirmError("");
+                      }
+                    }}
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-form-type="other"
+                    className={`h-12 border-2 rounded-lg pr-12 focus:border-blue-500 focus:ring-blue-500 ${resetPasswordConfirmError ? "border-red-500" : "border-gray-300"}`}
+                    placeholder="Masukkan kembali password baru"
+                    maxLength={50}
+                    style={{ backgroundImage: 'none' } as React.CSSProperties}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPasswordConfirmation((prev) => !prev)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 p-1"
+                    aria-label={showResetPasswordConfirmation ? "Sembunyikan konfirmasi password" : "Tampilkan konfirmasi password"}
+                  >
+                    {showResetPasswordConfirmation ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+                {resetPasswordConfirmError && (
+                  <p className="text-sm text-red-600 font-medium mt-1 animate-pulse">{resetPasswordConfirmError}</p>
+                )}
               </div>
               <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
                 <p className="text-sm text-blue-800">

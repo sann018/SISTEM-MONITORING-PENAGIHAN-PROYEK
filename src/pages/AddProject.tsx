@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { formatThousandsId, normalizeToIntegerString } from "@/lib/currency";
 
 export default function AddProject() {
   const navigate = useNavigate();
@@ -44,10 +45,16 @@ export default function AddProject() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleRekonNilaiChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    const formatted = digits ? formatThousandsId(digits) : '';
+    setFormData(prev => ({ ...prev, rekon_nilai: formatted }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.nama_proyek || !formData.nama_mitra || !formData.pid || !formData.nomor_po || !formData.phase || !formData.rekon_nilai) {
+    if (!formData.nama_proyek || !formData.nama_mitra || !formData.pid || !formData.phase || !formData.rekon_nilai) {
       toast.error("Semua field yang bertanda * harus diisi");
       return;
     }
@@ -63,12 +70,12 @@ export default function AddProject() {
         nama_mitra: formData.nama_mitra,
         pid: formData.pid,
         jenis_po: formData.jenis_po,
-        nomor_po: formData.nomor_po,
+        nomor_po: formData.nomor_po?.trim() ? formData.nomor_po.trim() : null,
         phase: formData.phase,
         status_ct: formData.status_ct,
         status_ut: formData.status_ut,
         rekap_boq: formData.rekap_boq,
-        rekon_nilai: parseFloat(formData.rekon_nilai) || 0,
+        rekon_nilai: parseInt(normalizeToIntegerString(formData.rekon_nilai), 10) || 0,
         rekon_material: formData.rekon_material,
         pelurusan_material: formData.pelurusan_material,
         status_procurement: formData.status_procurement,
@@ -192,7 +199,7 @@ export default function AddProject() {
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
-                        Nomor PO <span className="text-red-600">*</span>
+                        Nomor PO
                       </label>
                       <Input
                         type="text"
@@ -201,7 +208,6 @@ export default function AddProject() {
                         value={formData.nomor_po}
                         onChange={handleInputChange}
                         className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white"
-                        required
                       />
                     </div>
                   </div>
@@ -281,11 +287,11 @@ export default function AddProject() {
                         Rekon Nilai <span className="text-red-600">*</span>
                       </label>
                       <Input
-                        type="number"
+                        type="text"
                         name="rekon_nilai"
-                        placeholder="2700000"
+                        placeholder="1.000.000"
                         value={formData.rekon_nilai}
-                        onChange={handleInputChange}
+                        onChange={handleRekonNilaiChange}
                         className="w-full h-11 px-4 border-2 border-blue-400 rounded-md focus:border-blue-600 bg-blue-50"
                         required
                       />

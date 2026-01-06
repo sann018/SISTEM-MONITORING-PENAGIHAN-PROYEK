@@ -12,6 +12,7 @@ import DurationPicker from "@/components/DurationPicker";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { normalizeStatusText } from "@/lib/status";
+import { formatThousandsId, normalizeToIntegerString } from "@/lib/currency";
 
 interface Project {
   id: string;
@@ -69,7 +70,7 @@ export default function EditProject() {
         status_ct: normalizeStatusText(data.status_ct) || 'Belum CT',
         status_ut: normalizeStatusText(data.status_ut) || 'Belum UT',
         rekap_boq: normalizeStatusText(data.rekap_boq) || 'Belum Rekap',
-        rekon_nilai: data.rekon_nilai?.toString() || '0',
+        rekon_nilai: formatThousandsId(data.rekon_nilai?.toString() || '0'),
         rekon_material: normalizeStatusText(data.rekon_material) || 'Belum Rekon',
         pelurusan_material: normalizeStatusText(data.pelurusan_material) || 'Belum Lurus',
         status_procurement: normalizeStatusText(data.status_procurement) || 'Antri Periv',
@@ -92,6 +93,14 @@ export default function EditProject() {
     }
   };
 
+  const handleRekonNilaiChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    const formatted = digits ? formatThousandsId(digits) : '';
+    if (formData) {
+      setFormData({ ...formData, rekon_nilai: formatted });
+    }
+  };
+
   const handleSelectChange = (name: string, value: string) => {
     if (formData) {
       setFormData({ ...formData, [name]: value });
@@ -101,7 +110,7 @@ export default function EditProject() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData?.nama_proyek || !formData?.nama_mitra || !formData?.pid || !formData?.nomor_po || !formData?.phase || !formData?.rekon_nilai) {
+    if (!formData?.nama_proyek || !formData?.nama_mitra || !formData?.pid || !formData?.phase || !formData?.rekon_nilai) {
       toast.error("Semua field yang bertanda * harus diisi");
       return;
     }
@@ -114,12 +123,12 @@ export default function EditProject() {
         nama_mitra: formData.nama_mitra,
         pid: formData.pid,
         jenis_po: formData.jenis_po,
-        nomor_po: formData.nomor_po,
+        nomor_po: formData.nomor_po?.trim() ? formData.nomor_po.trim() : null,
         phase: formData.phase,
         status_ct: formData.status_ct,
         status_ut: formData.status_ut,
         rekap_boq: formData.rekap_boq,
-        rekon_nilai: parseFloat(formData.rekon_nilai) || 0,
+        rekon_nilai: parseInt(normalizeToIntegerString(formData.rekon_nilai), 10) || 0,
         rekon_material: formData.rekon_material,
         pelurusan_material: formData.pelurusan_material,
         status_procurement: formData.status_procurement,
@@ -218,7 +227,7 @@ export default function EditProject() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-900">Nomor PO <span className="text-red-600">*</span></label>
+                      <label className="block text-sm font-bold text-gray-900">Nomor PO</label>
                       <Input
                         type="text"
                         name="nomor_po"
@@ -291,9 +300,9 @@ export default function EditProject() {
                       <Input
                         type="text"
                         name="rekon_nilai"
-                        placeholder="Rp. 0"
+                        placeholder="1.000.000"
                         value={formData.rekon_nilai}
-                        onChange={handleInputChange}
+                        onChange={handleRekonNilaiChange}
                         className="border-2 border-blue-400 focus:border-blue-600 rounded-lg h-10 px-3 py-2 text-base bg-blue-50 placeholder-gray-500"
                       />
                     </div>

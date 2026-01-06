@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Badge } from '@/components/ui/badge';
 
 type PriorityLevel = 'critical' | 'high' | 'medium' | 'low' | 'none';
@@ -38,7 +39,8 @@ const priorityConfigs = {
   },
 };
 
-export function PriorityBadge({ 
+// ✅ OPTIMIZED: Wrapped with React.memo to prevent unnecessary re-renders
+export const PriorityBadge = memo(function PriorityBadge({ 
   level, 
   icon, 
   label, 
@@ -52,7 +54,7 @@ export function PriorityBadge({
       {showIcon && (icon || config.icon)} {label || config.label}
     </Badge>
   );
-}
+});
 
 // Helper untuk source badge
 interface PrioritySourceBadgeProps {

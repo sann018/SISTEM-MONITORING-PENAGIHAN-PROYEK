@@ -1,4 +1,5 @@
 import api from './api';
+import { authStorage } from '@/lib/authStorage';
 import type { 
   LoginCredentials, 
   RegisterData, 
@@ -16,8 +17,8 @@ class AuthService {
     
     if (response.data.success && response.data.data) {
       const { token, user } = response.data.data;
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      authStorage.setToken(token);
+      authStorage.setUserRaw(JSON.stringify(user));
       return response.data.data;
     }
     
@@ -32,8 +33,8 @@ class AuthService {
     
     if (response.data.success && response.data.data) {
       const { token, user } = response.data.data;
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      authStorage.setToken(token);
+      authStorage.setUserRaw(JSON.stringify(user));
       return response.data.data;
     }
     
@@ -47,8 +48,7 @@ class AuthService {
     try {
       await api.post('/logout');
     } finally {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
+      authStorage.clear();
     }
   }
 
@@ -59,7 +59,7 @@ class AuthService {
     const response = await api.get<ApiResponse<User>>('/user');
     
     if (response.data.success && response.data.data) {
-      localStorage.setItem('user', JSON.stringify(response.data.data));
+      authStorage.setUserRaw(JSON.stringify(response.data.data));
       return response.data.data;
     }
     
@@ -70,14 +70,14 @@ class AuthService {
    * [🔐 AUTH_SYSTEM] Cek apakah user sudah ter-autentikasi
    */
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('auth_token');
+    return !!authStorage.getToken();
   }
 
   /**
    * [🔐 AUTH_SYSTEM] Ambil data user dari localStorage
    */
   getStoredUser(): User | null {
-    const userStr = localStorage.getItem('user');
+    const userStr = authStorage.getUserRaw();
     return userStr ? JSON.parse(userStr) : null;
   }
 
@@ -85,7 +85,7 @@ class AuthService {
    * Get stored token
    */
   getToken(): string | null {
-    return localStorage.getItem('auth_token');
+    return authStorage.getToken();
   }
 }
 

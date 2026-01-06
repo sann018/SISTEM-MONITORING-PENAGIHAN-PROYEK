@@ -47,11 +47,11 @@ export function PageHeader({ title }: PageHeaderProps) {
       <div className="relative z-10 flex h-full items-center justify-between px-6">
         {/* Page Title - Left Aligned with proper spacing */}
         <div className="flex items-center gap-3 flex-shrink-0">
-          <span className="text-white/90 font-semibold text-sm md:text-base whitespace-nowrap">
+          {/* <span className="text-white/90 font-semibold text-sm md:text-base whitespace-nowrap">
            <h1 className="text-xl md:text-2xl font-bold text-white drop-shadow-md truncate">
             Monitoring Proyek
           </h1>
-          </span>
+          </span> */}
           <div className="h-8 w-1.5 bg-white/90 rounded-full" />
           <h2 className="text-xl md:text-2xl font-bold text-white drop-shadow-md truncate">
             {title}

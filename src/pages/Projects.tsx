@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,46 @@ import { normalizeStatusText } from "@/lib/status";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+type ProjectTableColumnKey =
+  | 'timer'
+  | 'nama_proyek'
+  | 'nama_mitra'
+  | 'pid'
+  | 'jenis_po'
+  | 'nomor_po'
+  | 'phase'
+  | 'status_ct'
+  | 'status_ut'
+  | 'rekap_boq'
+  | 'rekon_nilai'
+  | 'rekon_material'
+  | 'pelurusan_material'
+  | 'status_procurement';
+
+const PROJECT_TABLE_COLUMNS: Array<{ key: ProjectTableColumnKey; label: string }> = [
+  { key: 'timer', label: 'Timer' },
+  { key: 'nama_proyek', label: 'Nama Proyek' },
+  { key: 'nama_mitra', label: 'Nama Mitra' },
+  { key: 'pid', label: 'PID' },
+  { key: 'jenis_po', label: 'Jenis PO' },
+  { key: 'nomor_po', label: 'Nomor PO' },
+  { key: 'phase', label: 'Phase' },
+  { key: 'status_ct', label: 'Status CT' },
+  { key: 'status_ut', label: 'Status UT' },
+  { key: 'rekap_boq', label: 'Rekap BOQ' },
+  { key: 'rekon_nilai', label: 'Rekon Nilai' },
+  { key: 'rekon_material', label: 'Rekon Material' },
+  { key: 'pelurusan_material', label: 'Pelurusan Material' },
+  { key: 'status_procurement', label: 'Status Procurement' },
+];
 
 interface Project {
   id: string;
@@ -86,46 +121,73 @@ function ProjectsContent() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   
-  // Extract available years and months from PID (format: PID-YYYY-MMM)
-  const availableYears = Array.from(new Set(
-    projects
-      .map(p => {
-        const match = p.pid?.match(/PID-(\d{4})-/);
-        return match ? match[1] : null;
-      })
-      .filter(Boolean)
-  )).sort((a, b) => b!.localeCompare(a!)) as string[];
+  // ✅ OPTIMIZED: Memoized available years calculation
+  const availableYears = useMemo(() => {
+    return Array.from(new Set(
+      projects
+        .map(p => {
+          const match = p.pid?.match(/PID-(\d{4})-/);
+          return match ? match[1] : null;
+        })
+        .filter(Boolean)
+    )).sort((a, b) => b!.localeCompare(a!)) as string[];
+  }, [projects]);
 
-  // Get available months for selected year
-  const availableMonths = selectedYear === "all" ? [] : Array.from(new Set(
-    projects
-      .filter(p => {
-        const yearMatch = p.pid?.match(/PID-(\d{4})-/);
-        return yearMatch && yearMatch[1] === selectedYear;
-      })
-      .map(p => {
-        const monthMatch = p.pid?.match(/PID-\d{4}-(\d{3})/);
-        if (monthMatch) {
-          const monthNum = parseInt(monthMatch[1], 10);
-          return monthNum > 0 && monthNum <= 12 ? monthNum.toString() : null;
-        }
-        return null;
-      })
-      .filter(Boolean)
-  )).sort((a, b) => parseInt(a!) - parseInt(b!)) as string[];
+  // ✅ OPTIMIZED: Memoized available months calculation
+  const availableMonths = useMemo(() => {
+    if (selectedYear === "all") return [];
+    
+    return Array.from(new Set(
+      projects
+        .filter(p => {
+          const yearMatch = p.pid?.match(/PID-(\d{4})-/);
+          return yearMatch && yearMatch[1] === selectedYear;
+        })
+        .map(p => {
+          const monthMatch = p.pid?.match(/PID-\d{4}-(\d{3})/);
+          if (monthMatch) {
+            const monthNum = parseInt(monthMatch[1], 10);
+            return monthNum > 0 && monthNum <= 12 ? monthNum.toString() : null;
+          }
+          return null;
+        })
+        .filter(Boolean)
+    )).sort((a, b) => parseInt(a!) - parseInt(b!)) as string[];
+  }, [projects, selectedYear]);
 
-  // Helper: Convert month number to name
-  const getMonthName = (month: string): string => {
+  // ✅ OPTIMIZED: Memoized helper function
+  const getMonthName = useCallback((month: string): string => {
     const monthNames = [
       "Januari", "Februari", "Maret", "April", "Mei", "Juni",
       "Juli", "Agustus", "September", "Oktober", "November", "Desember"
     ];
     const monthNum = parseInt(month, 10);
     return monthNum >= 1 && monthNum <= 12 ? monthNames[monthNum - 1] : month;
-  };
+  }, []);
   
   // Check if user is viewer (read-only)
   const isReadOnly = user?.role === 'viewer';
+
+  const [visibleColumns, setVisibleColumns] = useState<Record<ProjectTableColumnKey, boolean>>(() => {
+    return PROJECT_TABLE_COLUMNS.reduce((acc, col) => {
+      acc[col.key] = true;
+      return acc;
+    }, {} as Record<ProjectTableColumnKey, boolean>);
+  });
+
+  const visibleDataColumnsCount = useMemo(() => {
+    return Object.values(visibleColumns).filter(Boolean).length;
+  }, [visibleColumns]);
+
+  const allColumnsChecked = useMemo<boolean | 'indeterminate'>(() => {
+    const values = PROJECT_TABLE_COLUMNS.map((col) => Boolean(visibleColumns[col.key]));
+    const checkedCount = values.filter(Boolean).length;
+    if (checkedCount === 0) return false;
+    if (checkedCount === values.length) return true;
+    return 'indeterminate';
+  }, [visibleColumns]);
+
+  const totalTableColumns = visibleDataColumnsCount + (isReadOnly ? 0 : 1);
   
   // =====================================
   // LETAKKAN STATE INI DI SINI
@@ -140,9 +202,9 @@ function ProjectsContent() {
   const procurementOptions = ["Antri Periv", "Proses Periv", "Revisi Mitra", "Sekuler TTD", "Scan Dokumen Mitra", "OTW Reg"];
 
   // =====================================
-  // Helpers: dashboard card filter parity
+  // ✅ OPTIMIZED: Memoized Helpers for dashboard card filter parity
   // =====================================
-  const isCompletedProject = (project: Project): boolean => {
+  const isCompletedProject = useCallback((project: Project): boolean => {
     const ct = project.status_ct?.toLowerCase().trim() || "";
     const ut = project.status_ut?.toLowerCase().trim() || "";
     const boq = project.rekap_boq?.toLowerCase().trim() || "";
@@ -158,9 +220,9 @@ function ProjectsContent() {
       alignment === "sudah lurus" &&
       procurement === "otw reg"
     );
-  };
+  }, []);
 
-  const isProcurementPrerequisitesDone = (project: Project): boolean => {
+  const isProcurementPrerequisitesDone = useCallback((project: Project): boolean => {
     const ct = project.status_ct?.toLowerCase().trim() || "";
     const ut = project.status_ut?.toLowerCase().trim() || "";
     const boq = project.rekap_boq?.toLowerCase().trim() || "";
@@ -174,7 +236,7 @@ function ProjectsContent() {
       rekon === "sudah rekon" &&
       alignment === "sudah lurus"
     );
-  };
+  }, []);
 
   // =====================================
   // useEffect untuk handle filter dari URL params dan navigation state
@@ -270,9 +332,9 @@ function ProjectsContent() {
   }, [location.state, searchParams, setSearchParams]);
 
   // =====================================
-  // Function: Reset semua filter
+  // ✅ OPTIMIZED: Function: Reset semua filter
   // =====================================
-  const handleResetFilter = () => {
+  const handleResetFilter = useCallback(() => {
     setFilterType('all');
     setSelectedYear('all');
     setSelectedMonth('all');
@@ -286,12 +348,12 @@ function ProjectsContent() {
     navigate('/projects', { replace: true, state: null });
     
     toast.success("Filter direset, menampilkan semua data");
-  };
+  }, [navigate, setSearchParams]);
 
   // =====================================
-  // Function: Check if any filter is active
+  // ✅ OPTIMIZED: Function: Check if any filter is active
   // =====================================
-  const hasActiveFilter = (): boolean => {
+  const hasActiveFilter = useCallback((): boolean => {
     return (
       searchTerm.trim() !== '' ||
       filterType !== 'all' ||
@@ -299,7 +361,7 @@ function ProjectsContent() {
       selectedMonth !== 'all' ||
       tableContextLabel !== null
     );
-  };
+  }, [searchTerm, filterType, selectedYear, selectedMonth, tableContextLabel]);
 
   // =====================================
   // useEffect untuk fetch projects
@@ -365,30 +427,26 @@ function ProjectsContent() {
   };
 
   // =====================================
-  // FUNCTION: filtered projects
+  // ✅ OPTIMIZED: Memoized filter pipeline
   // =====================================
-  const getFilteredByCategory = (projectsToFilter: Project[]) => {
+  const getFilteredByCategory = useCallback((projectsToFilter: Project[]) => {
     switch (filterType) {
       case "completed":
-        // Selesai penuh: SEMUA 6 status harus selesai (parity dengan backend card-statistics)
         return projectsToFilter.filter(isCompletedProject);
 
       case "ongoing":
-        // Sedang berjalan: minimal 1 status belum selesai, DAN bukan tertunda
         return projectsToFilter.filter((project) => {
           const procurement = project.status_procurement?.toLowerCase().trim() || "";
           return procurement !== "revisi mitra" && !isCompletedProject(project);
         });
 
       case "delayed":
-        // Tertunda: Status Procurement = Revisi Mitra
         return projectsToFilter.filter((project) => {
           const procurement = project.status_procurement?.toLowerCase().trim() || "";
           return procurement === "revisi mitra";
         });
 
       case "not-recon":
-        // Belum Rekon: Rekap BOQ = "Belum Rekap" (bisa overlap)
         return projectsToFilter.filter((project) => {
           const boq = project.rekap_boq?.toLowerCase().trim() || "";
           return boq === "belum rekap";
@@ -398,60 +456,62 @@ function ProjectsContent() {
       default:
         return projectsToFilter;
     }
-  };
+  }, [filterType, isCompletedProject]);
 
-  // Filter by search terms (support comma or semicolon separated)
-  const searchFilteredProjects = projects.filter((project) => {
-    if (!searchTerm.trim()) return true;
+  // ✅ OPTIMIZED: Memoized search filter
+  const searchFilteredProjects = useMemo(() => {
+    if (!searchTerm.trim()) return projects;
     
-    // Split by comma or semicolon, trim whitespace
     const searchTerms = searchTerm
-      .split(/[,;]/) // Split by comma or semicolon
+      .split(/[,;]/)
       .map(term => term.trim().toLowerCase())
       .filter(term => term.length > 0);
     
-    // Check if any search term matches any field
-    return searchTerms.some(term =>
-      project.nama_proyek.toLowerCase().includes(term) ||
-      project.nama_mitra.toLowerCase().includes(term) ||
-      project.pid.toLowerCase().includes(term) ||
-      project.nomor_po.toLowerCase().includes(term) ||
-      project.phase.toLowerCase().includes(term)
+    return projects.filter((project) =>
+      searchTerms.some(term =>
+        project.nama_proyek.toLowerCase().includes(term) ||
+        project.nama_mitra.toLowerCase().includes(term) ||
+        project.pid.toLowerCase().includes(term) ||
+        project.nomor_po.toLowerCase().includes(term) ||
+        project.phase.toLowerCase().includes(term)
+      )
     );
-  });
+  }, [projects, searchTerm]);
   
-  // Filter by year and month from PID (format: PID-YYYY-MMM)
-  const yearMonthFilteredProjects = searchFilteredProjects.filter(project => {
-    const pidMatch = project.pid?.match(/PID-(\d{4})-(\d{3})/);
-    if (!pidMatch) return selectedYear === "all" && selectedMonth === "all";
-    
-    const projectYear = pidMatch[1];
-    const projectMonthNum = parseInt(pidMatch[2], 10);
-    
-    // Validate month number
-    if (projectMonthNum < 1 || projectMonthNum > 12) {
-      return selectedYear === "all" && selectedMonth === "all";
-    }
-    
-    // Check year filter
-    if (selectedYear !== "all" && projectYear !== selectedYear) {
-      return false;
-    }
-    
-    // Check month filter
-    if (selectedMonth !== "all" && projectMonthNum.toString() !== selectedMonth) {
-      return false;
-    }
-    
-    return true;
-  });
+  // ✅ OPTIMIZED: Memoized year/month filter
+  const yearMonthFilteredProjects = useMemo(() => {
+    return searchFilteredProjects.filter(project => {
+      const pidMatch = project.pid?.match(/PID-(\d{4})-(\d{3})/);
+      if (!pidMatch) return selectedYear === "all" && selectedMonth === "all";
+      
+      const projectYear = pidMatch[1];
+      const projectMonthNum = parseInt(pidMatch[2], 10);
+      
+      if (projectMonthNum < 1 || projectMonthNum > 12) {
+        return selectedYear === "all" && selectedMonth === "all";
+      }
+      
+      if (selectedYear !== "all" && projectYear !== selectedYear) {
+        return false;
+      }
+      
+      if (selectedMonth !== "all" && projectMonthNum.toString() !== selectedMonth) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [searchFilteredProjects, selectedYear, selectedMonth]);
   
-  const filteredProjects = getFilteredByCategory(yearMonthFilteredProjects);
+  // ✅ OPTIMIZED: Final filtered projects
+  const filteredProjects = useMemo(() => {
+    return getFilteredByCategory(yearMonthFilteredProjects);
+  }, [yearMonthFilteredProjects, getFilteredByCategory]);
 
   // =====================================
-  // FUNCTION: handleDurationUpdate
+  // ✅ OPTIMIZED: Handle Excel Download
   // =====================================
-  const handleDownloadExcel = async () => {
+  const handleDownloadExcel = useCallback(async () => {
     try {
       toast.info("Mengunduh data Excel...");
       const response = await penagihanService.exportToExcel();
@@ -505,9 +565,10 @@ function ProjectsContent() {
       const errorMessage = error.response?.data?.message || error.message || "Gagal mengunduh data Excel";
       toast.error(errorMessage);
     }
-  };
+  }, []);
 
-  const handleDurationUpdate = async (
+  // ✅ OPTIMIZED: Handle Duration Update
+  const handleDurationUpdate = useCallback(async (
     projectId: string,
     durasi: number,
     tanggalMulai: string
@@ -536,11 +597,12 @@ function ProjectsContent() {
       toast.error("Gagal memperbarui durasi proyek");
       throw error;
     }
-  };
+  }, []);
 
-  // FUNCTION: handleStatusUpdate
   // =====================================
-  const handleStatusUpdate = async (
+  // ✅ OPTIMIZED: Handle Status Update
+  // =====================================
+  const handleStatusUpdate = useCallback(async (
     projectId: string,
     column: string,
     newValue: string
@@ -549,7 +611,6 @@ function ProjectsContent() {
       const projectToUpdate = projects.find(p => p.id === projectId);
       if (!projectToUpdate) throw new Error('Project not found');
 
-      // Map frontend columns to backend field names
       const fieldMapping: Record<string, string> = {
         'status_ct': 'status_ct',
         'status_ut': 'status_ut',
@@ -571,7 +632,6 @@ function ProjectsContent() {
             ? {
                 ...p,
                 [column]: newValue,
-                // Sync procurement if backend auto-changed it (e.g., Revisi Mitra)
                 ...(updated?.status_procurement
                   ? { status_procurement: normalizeStatusText(updated.status_procurement) }
                   : {}),
@@ -587,12 +647,12 @@ function ProjectsContent() {
       toast.error(message);
       throw error;
     }
-  };
+  }, [projects]);
 
   // =====================================
-  // FUNCTION: handleNumberUpdate (untuk Rekon Nilai)
+  // ✅ OPTIMIZED: Handle Number Update
   // =====================================
-  const handleNumberUpdate = async (
+  const handleNumberUpdate = useCallback(async (
     projectId: string,
     column: string,
     newValue: string
@@ -622,19 +682,18 @@ function ProjectsContent() {
       toast.error("Gagal memperbarui nilai");
       throw error;
     }
-  };
+  }, []);
 
   // =====================================
-  // FUNCTION: handleSetPriority
+  // ✅ OPTIMIZED: Handle Set Priority
   // =====================================
-  const handleSetPriority = async (projectId: string, priorityValue: number | null) => {
+  const handleSetPriority = useCallback(async (projectId: string, priorityValue: number | null) => {
     try {
       const project = projects.find(p => p.id === projectId);
       const projectName = project?.nama_proyek || 'Proyek';
 
       const updated = await penagihanService.setPrioritize(projectId, priorityValue);
 
-      // Update UI langsung (tanpa refresh manual)
       setProjects((prev) =>
         prev.map((p) =>
           p.id === projectId
@@ -660,18 +719,17 @@ function ProjectsContent() {
       }
       
       await fetchProjects();
-      // Sync data dari server
     } catch (error: any) {
       const message = error?.response?.data?.message || "Gagal mengatur prioritas";
       toast.error(message);
       console.error('Error setting priority:', error);
     }
-  };
+  }, [projects, fetchProjects]);
 
   // =====================================
-  // FUNCTION: getStatusVariant
+  // ✅ OPTIMIZED: Get Status Variant
   // =====================================
-  const getStatusVariant = (status: string): string => {
+  const getStatusVariant = useCallback((status: string): string => {
     if (!status) return "default";
     
     const statusLower = status.toLowerCase().trim();
@@ -699,35 +757,31 @@ function ProjectsContent() {
     if (statusLower === "revisi mitra") return "revisi-mitra";
 
     return "default";
-  };
+  }, []);
 
   // =====================================
-  // LETAKKAN FUNCTION handleDelete DI SINI
+  // ✅ OPTIMIZED: Handle Delete
   // =====================================
-  const handleDelete = async () => {
-    if (!deleteId) return;  // ← Validate ID
+  const handleDelete = useCallback(async () => {
+    if (!deleteId) return;
 
     setIsDeleting(true);
     try {
-      // ✅ Delete dari database
       await penagihanService.delete(deleteId);
 
-      // ✅ Update local state
       setProjects((prevProjects) =>
         prevProjects.filter((p) => p.id !== deleteId)
       );
 
-      // ✅ Show success message
       toast.success("Proyek berhasil dihapus");
       setDeleteId(null);
     } catch (error) {
-      // ✅ Handle error
       console.error(error);
       toast.error("Gagal menghapus proyek");
     } finally {
       setIsDeleting(false);
     }
-  };
+  }, [deleteId]);
 
   // =====================================
   // JSX RETURN
@@ -775,7 +829,7 @@ function ProjectsContent() {
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <Input
-                placeholder="Cari proyek..."
+                placeholder="Cari proyek... (pisahkan dengan koma untuk multiple pencarian)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="h-12 border-2 border-gray-300 rounded-lg pl-12 pr-12 text-base"
@@ -789,6 +843,60 @@ function ProjectsContent() {
                 </button>
               )}
             </div>
+
+            {/* Filter Kolom */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12 px-4 border-2 border-gray-300 rounded-lg font-bold"
+                >
+                  Filter Kolom
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Kolom</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+
+                <DropdownMenuCheckboxItem
+                  checked={allColumnsChecked as any}
+                  onSelect={(e) => e.preventDefault()}
+                  onCheckedChange={() => {
+                    setVisibleColumns((prev) => {
+                      return PROJECT_TABLE_COLUMNS.reduce((acc, col) => {
+                        acc[col.key] = true;
+                        return acc;
+                      }, { ...prev } as Record<ProjectTableColumnKey, boolean>);
+                    });
+                  }}
+                >
+                  All
+                </DropdownMenuCheckboxItem>
+
+                <DropdownMenuSeparator />
+
+                {PROJECT_TABLE_COLUMNS.map((col) => {
+                  const isOnlyOneVisible = visibleDataColumnsCount === 1 && visibleColumns[col.key];
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={col.key}
+                      checked={visibleColumns[col.key]}
+                      disabled={isOnlyOneVisible}
+                      onSelect={(e) => e.preventDefault()}
+                      onCheckedChange={(checked) =>
+                        setVisibleColumns((prev) => ({
+                          ...prev,
+                          [col.key]: Boolean(checked),
+                        }))
+                      }
+                    >
+                      {col.label}
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Year Filter */}
             <select
@@ -868,20 +976,48 @@ function ProjectsContent() {
               <table className="w-full text-sm" style={{ minWidth: '1800px' }}>
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-red-600 text-white">
-                    <th className="px-4 py-3 text-center font-bold" style={{ minWidth: '150px' }}>Timer</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '150px' }}>Nama Proyek</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '150px' }}>Nama Mitra</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>PID</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>Jenis PO</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '120px' }}>Nomor PO</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>Phase</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>Status CT</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>Status UT</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '120px' }}>Rekap BOQ</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '130px' }}>Rekon Nilai</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '140px' }}>Rekon Material</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '160px' }}>Pelurusan Material</th>
-                    <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '180px' }}>Status Procurement</th>
+                    {visibleColumns.timer && (
+                      <th className="px-4 py-3 text-center font-bold" style={{ minWidth: '150px' }}>Timer</th>
+                    )}
+                    {visibleColumns.nama_proyek && (
+                      <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '150px' }}>Nama Proyek</th>
+                    )}
+                    {visibleColumns.nama_mitra && (
+                      <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '150px' }}>Nama Mitra</th>
+                    )}
+                    {visibleColumns.pid && (
+                      <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>PID</th>
+                    )}
+                    {visibleColumns.jenis_po && (
+                      <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>Jenis PO</th>
+                    )}
+                    {visibleColumns.nomor_po && (
+                      <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '120px' }}>Nomor PO</th>
+                    )}
+                    {visibleColumns.phase && (
+                      <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>Phase</th>
+                    )}
+                    {visibleColumns.status_ct && (
+                      <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>Status CT</th>
+                    )}
+                    {visibleColumns.status_ut && (
+                      <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '100px' }}>Status UT</th>
+                    )}
+                    {visibleColumns.rekap_boq && (
+                      <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '120px' }}>Rekap BOQ</th>
+                    )}
+                    {visibleColumns.rekon_nilai && (
+                      <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '130px' }}>Rekon Nilai</th>
+                    )}
+                    {visibleColumns.rekon_material && (
+                      <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '140px' }}>Rekon Material</th>
+                    )}
+                    {visibleColumns.pelurusan_material && (
+                      <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '160px' }}>Pelurusan Material</th>
+                    )}
+                    {visibleColumns.status_procurement && (
+                      <th className="px-4 py-3 text-left font-bold" style={{ minWidth: '180px' }}>Status Procurement</th>
+                    )}
                     {!isReadOnly && (
                       <th className="px-4 py-3 text-center font-bold" style={{ minWidth: '120px' }}>Aksi</th>
                     )}
@@ -890,7 +1026,7 @@ function ProjectsContent() {
                 <tbody>
                   {filteredProjects.length === 0 ? (
                     <tr>
-                      <td colSpan={isReadOnly ? 14 : 15} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={totalTableColumns} className="px-4 py-8 text-center text-gray-500">
                         <p className="text-gray-600 font-medium mb-2">Tidak ada data proyek</p>
                         {!isReadOnly && (
                           <Button 
@@ -906,106 +1042,134 @@ function ProjectsContent() {
                   ) : (
                     filteredProjects.map((project) => (
                       <tr key={project.id} className="border-b hover:bg-gray-50">
-                        <td className="px-4 py-3 text-center" style={{ minWidth: '150px' }}>
-                          <ProjectTimer
-                            key={`timer-${project.id}-${project.estimasi_durasi_hari}-${project.tanggal_mulai}`}
-                            projectId={project.id}
-                            projectName={project.nama_proyek}
-                            estimasiDurasi={Number(project.estimasi_durasi_hari) || 7}
-                            tanggalMulai={project.tanggal_mulai || new Date().toISOString().split('T')[0]}
-                            statusProcurement={project.status_procurement}
-                            onUpdateDuration={handleDurationUpdate}
-                            disabled={isReadOnly}
-                          />
-                        </td>
-                        <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '180px' }}>
-                          {project.nama_proyek}
-                        </td>
-                        <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '150px' }}>{project.nama_mitra}</td>
-                        <td className="px-4 py-3 font-mono whitespace-nowrap" style={{ minWidth: '100px' }}>{project.pid}</td>
-                        <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '120px' }}>{project.jenis_po}</td>
-                        <td className="px-4 py-3 whitespace-nowrap" style={{ minWidth: '120px' }}>{project.nomor_po}</td>
-                        <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '100px' }}>{project.phase}</td>
-                        <td className="px-4 py-3">
-                          <EditableStatusCell
-                            projectId={project.id}
-                            column="status_ct"
-                            value={project.status_ct}
-                            onUpdate={handleStatusUpdate}
-                            variant={getStatusVariant(project.status_ct)}
-                            options={statusCtOptions}
-                            disabled={isReadOnly}
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <EditableStatusCell
-                            projectId={project.id}
-                            column="status_ut"
-                            value={project.status_ut}
-                            onUpdate={handleStatusUpdate}
-                            variant={getStatusVariant(project.status_ut)}
-                            options={statusUtOptions}
-                            disabled={isReadOnly}
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <EditableStatusCell
-                            projectId={project.id}
-                            column="rekap_boq"
-                            value={project.rekap_boq}
-                            onUpdate={handleStatusUpdate}
-                            variant={getStatusVariant(project.rekap_boq)}
-                            options={rekapBoqOptions}
-                            disabled={isReadOnly}
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <EditableNumberCell
-                            projectId={project.id}
-                            column="rekon_nilai"
-                            value={project.rekon_nilai}
-                            onUpdate={handleNumberUpdate}
-                            disabled={isReadOnly}
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <EditableStatusCell
-                            projectId={project.id}
-                            column="rekon_material"
-                            value={project.rekon_material}
-                            onUpdate={handleStatusUpdate}
-                            variant={getStatusVariant(project.rekon_material)}
-                            options={rekonMaterialOptions}
-                            disabled={isReadOnly}
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <EditableStatusCell
-                            projectId={project.id}
-                            column="pelurusan_material"
-                            value={project.pelurusan_material}
-                            onUpdate={handleStatusUpdate}
-                            variant={getStatusVariant(project.pelurusan_material)}
-                            options={materialAlignmentOptions}
-                            disabled={isReadOnly}
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <EditableStatusCell
-                            projectId={project.id}
-                            column="status_procurement"
-                            value={project.status_procurement}
-                            onUpdate={handleStatusUpdate}
-                            variant={getStatusVariant(project.status_procurement)}
-                            options={procurementOptions}
-                            disabledOptions={
-                              isProcurementPrerequisitesDone(project)
-                                ? []
-                                : ["Sekuler TTD", "Scan Dokumen Mitra", "OTW Reg"]
-                            }
-                            disabled={isReadOnly}
-                          />
-                        </td>
+                        {visibleColumns.timer && (
+                          <td className="px-4 py-3 text-center" style={{ minWidth: '150px' }}>
+                            <ProjectTimer
+                              key={`timer-${project.id}-${project.estimasi_durasi_hari}-${project.tanggal_mulai}`}
+                              projectId={project.id}
+                              projectName={project.nama_proyek}
+                              estimasiDurasi={Number(project.estimasi_durasi_hari) || 7}
+                              tanggalMulai={project.tanggal_mulai || new Date().toISOString().split('T')[0]}
+                              statusProcurement={project.status_procurement}
+                              onUpdateDuration={handleDurationUpdate}
+                              disabled={isReadOnly}
+                            />
+                          </td>
+                        )}
+                        {visibleColumns.nama_proyek && (
+                          <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '180px' }}>
+                            {project.nama_proyek}
+                          </td>
+                        )}
+                        {visibleColumns.nama_mitra && (
+                          <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '150px' }}>{project.nama_mitra}</td>
+                        )}
+                        {visibleColumns.pid && (
+                          <td className="px-4 py-3 font-mono whitespace-nowrap" style={{ minWidth: '100px' }}>{project.pid}</td>
+                        )}
+                        {visibleColumns.jenis_po && (
+                          <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '120px' }}>{project.jenis_po}</td>
+                        )}
+                        {visibleColumns.nomor_po && (
+                          <td className="px-4 py-3 whitespace-nowrap" style={{ minWidth: '120px' }}>{project.nomor_po}</td>
+                        )}
+                        {visibleColumns.phase && (
+                          <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '100px' }}>{project.phase}</td>
+                        )}
+                        {visibleColumns.status_ct && (
+                          <td className="px-4 py-3">
+                            <EditableStatusCell
+                              projectId={project.id}
+                              column="status_ct"
+                              value={project.status_ct}
+                              onUpdate={handleStatusUpdate}
+                              variant={getStatusVariant(project.status_ct)}
+                              options={statusCtOptions}
+                              disabled={isReadOnly}
+                            />
+                          </td>
+                        )}
+                        {visibleColumns.status_ut && (
+                          <td className="px-4 py-3">
+                            <EditableStatusCell
+                              projectId={project.id}
+                              column="status_ut"
+                              value={project.status_ut}
+                              onUpdate={handleStatusUpdate}
+                              variant={getStatusVariant(project.status_ut)}
+                              options={statusUtOptions}
+                              disabled={isReadOnly}
+                            />
+                          </td>
+                        )}
+                        {visibleColumns.rekap_boq && (
+                          <td className="px-4 py-3">
+                            <EditableStatusCell
+                              projectId={project.id}
+                              column="rekap_boq"
+                              value={project.rekap_boq}
+                              onUpdate={handleStatusUpdate}
+                              variant={getStatusVariant(project.rekap_boq)}
+                              options={rekapBoqOptions}
+                              disabled={isReadOnly}
+                            />
+                          </td>
+                        )}
+                        {visibleColumns.rekon_nilai && (
+                          <td className="px-4 py-3">
+                            <EditableNumberCell
+                              projectId={project.id}
+                              column="rekon_nilai"
+                              value={project.rekon_nilai}
+                              onUpdate={handleNumberUpdate}
+                              disabled={isReadOnly}
+                            />
+                          </td>
+                        )}
+                        {visibleColumns.rekon_material && (
+                          <td className="px-4 py-3">
+                            <EditableStatusCell
+                              projectId={project.id}
+                              column="rekon_material"
+                              value={project.rekon_material}
+                              onUpdate={handleStatusUpdate}
+                              variant={getStatusVariant(project.rekon_material)}
+                              options={rekonMaterialOptions}
+                              disabled={isReadOnly}
+                            />
+                          </td>
+                        )}
+                        {visibleColumns.pelurusan_material && (
+                          <td className="px-4 py-3">
+                            <EditableStatusCell
+                              projectId={project.id}
+                              column="pelurusan_material"
+                              value={project.pelurusan_material}
+                              onUpdate={handleStatusUpdate}
+                              variant={getStatusVariant(project.pelurusan_material)}
+                              options={materialAlignmentOptions}
+                              disabled={isReadOnly}
+                            />
+                          </td>
+                        )}
+                        {visibleColumns.status_procurement && (
+                          <td className="px-4 py-3">
+                            <EditableStatusCell
+                              projectId={project.id}
+                              column="status_procurement"
+                              value={project.status_procurement}
+                              onUpdate={handleStatusUpdate}
+                              variant={getStatusVariant(project.status_procurement)}
+                              options={procurementOptions}
+                              disabledOptions={
+                                isProcurementPrerequisitesDone(project)
+                                  ? []
+                                  : ["Sekuler TTD", "Scan Dokumen Mitra", "OTW Reg"]
+                              }
+                              disabled={isReadOnly}
+                            />
+                          </td>
+                        )}
                         {!isReadOnly && (
                           <td className="px-4 py-3 text-center">
                             <div className="flex justify-center gap-2">
@@ -1133,8 +1297,35 @@ function ProjectsContent() {
                 Konfirmasi Hapus Proyek
               </AlertDialogTitle>
               <AlertDialogDescription className="text-gray-700">
-                Apakah Anda yakin ingin menghapus proyek ini? Tindakan ini tidak dapat 
-                dibatalkan dan semua data yang terkait akan dihapus permanen.
+                {deleteId && (() => {
+                  const projectToDelete = projects.find(p => p.id === deleteId);
+                  return projectToDelete ? (
+                    <div className="space-y-3">
+                      <p className="font-semibold">Apakah Anda yakin ingin menghapus proyek ini?</p>
+                      <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                        <div className="space-y-2">
+                          <div>
+                            <span className="font-semibold text-red-800">PID:</span>
+                            <span className="ml-2 font-mono text-red-900">{projectToDelete.pid}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-red-800">Nama Proyek:</span>
+                            <span className="ml-2 text-red-900">{projectToDelete.nama_proyek}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-red-800">Mitra:</span>
+                            <span className="ml-2 text-red-900">{projectToDelete.nama_mitra}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-sm font-medium text-red-600">
+                        ⚠️ Tindakan ini tidak dapat dibatalkan dan semua data yang terkait akan dihapus permanen.
+                      </p>
+                    </div>
+                  ) : (
+                    <p>Apakah Anda yakin ingin menghapus proyek ini? Tindakan ini tidak dapat dibatalkan dan semua data yang terkait akan dihapus permanen.</p>
+                  );
+                })()}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

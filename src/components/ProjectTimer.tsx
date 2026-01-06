@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { Clock, Edit2, Check, X } from "lucide-react";
 import DurationPicker from "@/components/DurationPicker";
 import { toast } from "sonner";
@@ -8,11 +8,11 @@ import "./ProjectTimer.css";
 interface ProjectTimerProps {
   projectId: string;
   projectName: string;
-  estimasiDurasi?: number | string; // Durasi estimasi dalam hari
-  tanggalMulai?: string; // Tanggal mulai (YYYY-MM-DD)
-  statusProcurement?: string; // Status untuk mengecek apakah selesai
+  estimasiDurasi?: number | string;
+  tanggalMulai?: string;
+  statusProcurement?: string;
   onUpdateDuration?: (projectId: string, durasi: number, tanggalMulai: string) => Promise<void>;
-  disabled?: boolean; // Read-only mode for viewer
+  disabled?: boolean;
 }
 
 interface TimeRemaining {
@@ -23,7 +23,8 @@ interface TimeRemaining {
   isExpired: boolean;
 }
 
-export function ProjectTimer({
+// ✅ OPTIMIZED: Wrapped with React.memo to prevent unnecessary re-renders
+export const ProjectTimer = memo(function ProjectTimer({
   projectId,
   projectName,
   estimasiDurasi = 0,
@@ -273,4 +274,4 @@ export function ProjectTimer({
       </PopoverContent>
     </Popover>
   );
-}
+});

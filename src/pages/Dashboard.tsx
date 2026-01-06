@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
 import { FolderKanban, CheckCircle2, Clock, AlertTriangle, SlidersHorizontal, Search, Menu } from "lucide-react";
 import { toast } from "sonner";
+import { formatRupiahNoDecimal } from "@/lib/currency";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { PageHeader } from "@/components/PageHeader";
@@ -120,14 +121,14 @@ function DashboardContent() {
     }
   };
 
-  const handleSetPriority = async (projectId: string, priorityValue: number | null) => {
+  // ✅ OPTIMIZED: Memoized handler
+  const handleSetPriority = useCallback(async (projectId: string, priorityValue: number | null) => {
     try {
       const project = projects.find(p => p.id === projectId);
       const projectName = project?.nama_proyek || 'Proyek';
 
       await penagihanService.setPrioritize(projectId, priorityValue);
 
-      // Update UI langsung (tanpa refresh manual)
       setProjects((prev) =>
         prev.map((p) =>
           p.id === projectId
@@ -158,24 +159,20 @@ function DashboardContent() {
           duration: 3000,
         });
       }
-      // Sync data dari server (sorting/filter tetap konsisten)
       await Promise.all([fetchProjects(), fetchCardStatistics()]);
     } catch (error: any) {
       const message = error?.response?.data?.message || "Gagal mengatur prioritas";
       toast.error(message);
       console.error('Error setting priority:', error);
     }
-  };
+  }, [projects, fetchProjects, fetchCardStatistics]);
 
   // =====================================
-  // Helpers: match Projects style (read-only)
+  // ✅ OPTIMIZED: Memoized helpers
   // =====================================
-  const formatCurrency = (num: string | number | null | undefined): string => {
-    if (!num) return "Rp 0";
-    const numStr = String(num).replace(/\D/g, "");
-    const formatted = numStr.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    return `Rp ${formatted}`;
-  };
+  const formatCurrency = useCallback((num: string | number | null | undefined): string => {
+    return formatRupiahNoDecimal(num);
+  }, []);
 
   // =====================================
   // STATISTICS FROM BACKEND (ALL DATA)
@@ -187,35 +184,36 @@ function DashboardContent() {
   const notReconProjects = cardStats.belum_rekon;
 
   // =====================================
-  // NAVIGATION HANDLERS
+  // ✅ OPTIMIZED: Navigation handlers
   // =====================================
-  const handleNavigateToProjects = (filter: "all" | "completed" | "ongoing" | "delayed") => {
+  const handleNavigateToProjects = useCallback((filter: "all" | "completed" | "ongoing" | "delayed") => {
     navigate("/projects", { state: { filter } });
-  };
+  }, [navigate]);
 
   // =====================================
-  // SEARCH FILTER (Support Multiple Keywords)
+  // ✅ OPTIMIZED: Memoized search filter
   // =====================================
-  const filteredProjects = projects.filter((project) => {
-    if (!searchTerm.trim()) return true;
+  const filteredProjects = useMemo(() => {
+    if (!searchTerm.trim()) return projects;
     
-    // Split by comma, trim whitespace
     const searchTerms = searchTerm
-      .split(/,/) // Split by comma
+      .split(/[,;]/)
       .map(term => term.trim().toLowerCase())
       .filter(term => term.length > 0);
     
-    // Check if any search term matches any field
-    return searchTerms.some(term =>
-      project.nama_proyek.toLowerCase().includes(term) ||
-      project.nama_mitra.toLowerCase().includes(term) ||
-      project.pid.toLowerCase().includes(term) ||
-      project.nomor_po.toLowerCase().includes(term) ||
-      project.phase.toLowerCase().includes(term)
+    return projects.filter((project) =>
+      searchTerms.some(term =>
+        project.nama_proyek.toLowerCase().includes(term) ||
+        project.nama_mitra.toLowerCase().includes(term) ||
+        project.pid.toLowerCase().includes(term) ||
+        (project.prioritas_label?.toLowerCase() || '').includes(term)
+      )
     );
-  });
+  }, [projects, searchTerm]);
 
-  const getStatusVariant = (status: string): string => {
+  // =====================================
+  // \u2705 OPTIMIZED: Memoized helper\n  // =====================================
+  const getStatusVariant = useCallback((status: string): string => {
     if (!status) return "default";
     const statusLower = status.toLowerCase().trim();
 
@@ -239,7 +237,7 @@ function DashboardContent() {
     if (statusLower === "revisi mitra") return "revisi-mitra";
 
     return "default";
-  };
+  }, []);
 
   if (loading) {
     return (

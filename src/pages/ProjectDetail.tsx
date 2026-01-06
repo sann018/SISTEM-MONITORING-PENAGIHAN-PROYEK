@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { normalizeStatusText } from "@/lib/status";
+import { formatRupiahNoDecimal } from "@/lib/currency";
 
 interface Project {
   id: string;
@@ -204,7 +205,7 @@ export default function ProjectDetail() {
                       <div>
                         <p className="text-[10px] sm:text-xs font-semibold text-gray-600 mb-1">Nomor PO</p>
                         <p className="font-medium border-2 border-gray-300 rounded-lg p-2 md:p-3 bg-white text-xs md:text-sm">
-                          {project.nomor_po}
+                          {project.nomor_po || '-'}
                         </p>
                       </div>
                       <div>
@@ -235,7 +236,7 @@ export default function ProjectDetail() {
                       <div>
                         <p className="text-[10px] sm:text-xs font-semibold text-gray-600 mb-2">Rekon Nilai</p>
                         <div className="border-2 border-blue-400 rounded px-2 md:px-3 py-1.5 md:py-2 bg-blue-50 text-blue-900 font-semibold inline-block text-xs md:text-sm">
-                          {project.rekon_nilai}
+                          {formatRupiahNoDecimal(project.rekon_nilai)}
                         </div>
                       </div>
                     </div>

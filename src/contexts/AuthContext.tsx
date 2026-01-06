@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { authStorage } from "@/lib/authStorage";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
 
@@ -72,10 +74,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Load user from localStorage on mount
+  const clearAuthState = (redirectToLogin: boolean) => {
+    authStorage.clear();
+    setToken(null);
+    setUser(null);
+    if (redirectToLogin) {
+      navigate("/login", { replace: true });
+    }
+  };
+
+  // Load user from storage on mount (migrate localStorage -> sessionStorage)
   useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
+    authStorage.migrateLegacyToSession();
+
+    const storedToken = authStorage.getToken();
+    const storedUser = authStorage.getUserRaw();
 
     if (storedToken && storedUser) {
       setToken(storedToken);
@@ -88,9 +101,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, []);
 
+  // Auto logout when connection lost
+  useEffect(() => {
+    const onOffline = () => {
+      const existingToken = authStorage.getToken();
+      if (!existingToken) return;
+
+      clearAuthState(true);
+      toast.error("Koneksi terputus. Anda otomatis logout.");
+    };
+
+    window.addEventListener('offline', onOffline);
+    return () => window.removeEventListener('offline', onOffline);
+  }, [navigate]);
+
   // Refresh user data from API
   const refreshUser = async () => {
-    const storedToken = localStorage.getItem("token");
+    const storedToken = authStorage.getToken();
     if (!storedToken) return;
 
     try {
@@ -106,16 +133,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const refreshedUser: User = normalizeAuthUser(data?.data);
 
         setUser(refreshedUser);
-        localStorage.setItem("user", JSON.stringify(refreshedUser));
+        authStorage.setUserRaw(JSON.stringify(refreshedUser));
       } else {
         // Token invalid, clear auth
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        setToken(null);
-        setUser(null);
+        clearAuthState(true);
       }
     } catch (error) {
       console.error("Error refreshing user:", error);
+      // Jika offline, auto logout
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        clearAuthState(true);
+        toast.error("Koneksi terputus. Anda otomatis logout.");
+      }
     }
   };
 
@@ -145,13 +174,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Step 1: Save token to localStorage FIRST
       const receivedToken = data.data.token;
-      localStorage.setItem("token", receivedToken);
-      console.log("[AUTH] Token saved to localStorage");
+      authStorage.setToken(receivedToken);
+      console.log("[AUTH] Token saved to sessionStorage");
 
       // Step 2: Normalize and save user data
       const normalizedUser = normalizeAuthUser(data.data.user);
-      localStorage.setItem("user", JSON.stringify(normalizedUser));
-      console.log("[AUTH] User saved to localStorage:", normalizedUser);
+      authStorage.setUserRaw(JSON.stringify(normalizedUser));
+      console.log("[AUTH] User saved to sessionStorage:", normalizedUser);
 
       // Step 3: Update state (this triggers React re-render)
       setToken(receivedToken);
@@ -177,7 +206,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           // Update with fresh data
           setUser(refreshedUser);
-          localStorage.setItem("user", JSON.stringify(refreshedUser));
+          authStorage.setUserRaw(JSON.stringify(refreshedUser));
           console.log("[AUTH] Profile refreshed successfully");
         } else {
           console.warn("[AUTH] Profile refresh failed, using initial user data");
@@ -232,13 +261,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Step 1: Save token to localStorage FIRST
       const receivedToken = data.data.token;
-      localStorage.setItem("token", receivedToken);
-      console.log("[AUTH] Token saved to localStorage");
+      authStorage.setToken(receivedToken);
+      console.log("[AUTH] Token saved to sessionStorage");
 
       // Step 2: Normalize and save user data
       const normalizedUser = normalizeAuthUser(data.data.user);
-      localStorage.setItem("user", JSON.stringify(normalizedUser));
-      console.log("[AUTH] User saved to localStorage:", normalizedUser);
+      authStorage.setUserRaw(JSON.stringify(normalizedUser));
+      console.log("[AUTH] User saved to sessionStorage:", normalizedUser);
 
       // Step 3: Update state IMMEDIATELY
       setToken(receivedToken);
@@ -262,7 +291,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const profileData = await profileResponse.json();
           const refreshedUser = normalizeAuthUser(profileData?.data);
           setUser(refreshedUser);
-          localStorage.setItem("user", JSON.stringify(refreshedUser));
+          authStorage.setUserRaw(JSON.stringify(refreshedUser));
           console.log("[AUTH] Profile refreshed successfully");
         }
       } catch (profileError) {
@@ -298,12 +327,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
-      // Clear localStorage and state
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      setToken(null);
-      setUser(null);
-      navigate("/auth");
+      // Clear storage and state
+      clearAuthState(true);
     }
   };
 

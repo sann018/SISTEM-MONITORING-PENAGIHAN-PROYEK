@@ -17,6 +17,7 @@ interface ActivityLog {
   aksi: string;
   tabel_target: string | null;
   id_target: string | null;
+  nama_target?: string | null;
   detail_perubahan: {
     sebelum?: Record<string, any>;
     sesudah?: Record<string, any>;
@@ -61,14 +62,10 @@ function ActivityContent() {
 
   // Helper: Generate photo URL dari backend
   const getPhotoUrl = (foto_profile: string | undefined | null): string | null => {
-    if (!foto_profile) {
-      console.log('[Activity] No foto_profile provided');
-      return null;
-    }
+    if (!foto_profile) return null;
     
     // Jika sudah URL lengkap (http/https), gunakan langsung
     if (/^https?:\/\//i.test(foto_profile)) {
-      console.log('[Activity] Using full URL:', foto_profile);
       return foto_profile;
     }
     
@@ -77,13 +74,11 @@ function ActivityContent() {
     // Jika dimulai dengan '/', langsung append ke base URL
     if (foto_profile.startsWith('/')) {
       const fullUrl = `${backendBaseUrl}${foto_profile}`;
-      console.log('[Activity] Constructed URL from path:', fullUrl);
       return fullUrl;
     }
     
     // Jika hanya nama file, tambahkan '/' dan append
     const fullUrl = `${backendBaseUrl}/${foto_profile}`;
-    console.log('[Activity] Constructed URL from filename:', fullUrl);
     return fullUrl;
   };
 
@@ -120,6 +115,20 @@ function ActivityContent() {
     }
   };
 
+  const getActivityBorderColor = (aksi: string) => {
+    const type = getActivityType(aksi);
+    switch (type) {
+      case 'create':
+        return 'border-green-300';
+      case 'edit':
+        return 'border-yellow-300';
+      case 'delete':
+        return 'border-red-300';
+      default:
+        return 'border-gray-300';
+    }
+  };
+
   const getActivityIcon = (aksi: string) => {
     const type = getActivityType(aksi);
     switch (type) {
@@ -138,8 +147,20 @@ function ActivityContent() {
     const date = new Date(timestamp);
     return {
       date: date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+      dayName: date.toLocaleDateString('id-ID', { weekday: 'long' }),
       time: date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
     };
+  };
+
+  const getTableLabel = (tabel: string | null) => {
+    if (!tabel) return '';
+
+    const map: Record<string, string> = {
+      data_proyek: 'Data Proyek',
+      pengguna: 'Pengguna',
+    };
+
+    return map[tabel] || tabel.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
   const fetchActivities = async (
@@ -186,9 +207,6 @@ function ActivityContent() {
         throw new Error(data.message || 'Gagal memuat aktivitas');
       }
 
-      console.log('[Activity] Received activities:', data.data);
-      console.log('[Activity] First activity foto_profile:', data.data[0]?.foto_profile);
-      
       setActivities(data.data || []);
       setPagination(data.pagination);
     } catch (error: any) {
@@ -312,17 +330,17 @@ function ActivityContent() {
             {!loading && activities.length > 0 && (
               <div className="space-y-4 mt-8">
                 {activities.map((activity) => {
-                  const { date, time } = formatDateTime(activity.waktu_kejadian);
+                  const { date, dayName, time } = formatDateTime(activity.waktu_kejadian);
                   const isExpanded = expandedId === activity.id_aktivitas;
                   const hasChanges = activity.detail_perubahan?.perubahan && activity.detail_perubahan.perubahan.length > 0;
                   
                   return (
                     <div
                       key={activity.id_aktivitas}
-                      className={`rounded-lg border-2 overflow-hidden transition-all ${getActivityColor(activity.aksi)}`}
+                      className={`rounded-2xl border-2 border-l-8 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow ${getActivityBorderColor(activity.aksi)}`}
                     >
                       {/* Main Activity Card */}
-                      <div className="p-4 hover:shadow-md transition-all">
+                      <div className="p-5">
                         <div className="flex gap-4">
                           {/* Profile Photo */}
                           <div className="flex-shrink-0 relative">
@@ -336,10 +354,8 @@ function ActivityContent() {
                                     <img 
                                       src={photoUrl} 
                                       alt={activity.nama_pengguna}
-                                      className="w-12 h-12 rounded-full object-cover border-2 border-current"
+                                      className="w-12 h-12 rounded-full object-cover ring-2 ring-gray-200"
                                       onError={(e) => {
-                                        console.error('[Activity] Image load failed for:', photoUrl);
-                                        console.error('[Activity] User:', activity.nama_pengguna);
                                         // Hide image, show initials
                                         const target = e.target as HTMLImageElement;
                                         target.style.display = 'none';
@@ -348,13 +364,10 @@ function ActivityContent() {
                                           initialsDiv.classList.remove('hidden');
                                         }
                                       }}
-                                      onLoad={() => {
-                                        console.log('[Activity] Image loaded successfully:', photoUrl);
-                                      }}
                                     />
                                   )}
                                   <div 
-                                    className={`w-12 h-12 rounded-full flex items-center justify-center ${getActivityColor(activity.aksi)} border-2 font-bold text-lg ${hasPhoto ? 'hidden' : ''}`}
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center ${getActivityColor(activity.aksi)} border font-bold text-lg ${hasPhoto ? 'hidden' : ''}`}
                                     title={activity.nama_pengguna}
                                   >
                                     {getInitials(activity.nama_pengguna)}
@@ -366,27 +379,51 @@ function ActivityContent() {
 
                           {/* Content */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex flex-col sm:flex-row items-start sm:items-start sm:justify-between gap-2 sm:gap-0 mb-2">
-                              <div className="min-w-0">
-                                <h3 className="font-bold text-lg capitalize">
+                            <div className="flex flex-col lg:flex-row items-start lg:items-start lg:justify-between gap-3 mb-2">
+                              {/* Kiri: Judul + actor */}
+                              <div className="min-w-0 flex-1">
+                                <h3 className="font-bold text-2xl capitalize leading-tight text-gray-900">
                                   {activity.aksi.replace(/_/g, ' ')}
                                 </h3>
-                                <p className="text-sm font-semibold opacity-80">oleh {activity.nama_pengguna}</p>
+                                <p className="text-base font-semibold text-gray-600">oleh {activity.nama_pengguna}</p>
+                              </div>
+
+                              {/* Tengah: Info target (pill) */}
+                              <div className="w-full lg:flex-1 flex flex-col items-center gap-2">
                                 {activity.tabel_target && (
-                                  <p className="text-xs opacity-60 mt-1">
-                                    Tabel: {activity.tabel_target}
-                                    {activity.id_target && ` (ID: ${activity.id_target})`}
-                                  </p>
+                                  <div className="w-full max-w-2xl rounded-xl bg-green-100 border border-green-300 px-5 py-3 text-center shadow-sm">
+                                    <div
+                                      className="font-semibold text-base sm:text-lg text-green-900 leading-snug truncate"
+                                      title={`Tabel ${getTableLabel(activity.tabel_target)}${activity.id_target ? ` : ${activity.id_target}` : ''}`}
+                                    >
+                                      Tabel {getTableLabel(activity.tabel_target)}
+                                      {activity.id_target ? ` : ${activity.id_target}` : ''}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {activity.nama_target && (activity.tabel_target === 'data_proyek' || activity.tabel_target === 'pengguna') && (
+                                  <div className="w-full max-w-2xl rounded-xl bg-red-100 border border-red-300 px-5 py-3 text-center shadow-sm">
+                                    <div
+                                      className="font-semibold text-base sm:text-lg text-red-900 leading-snug truncate"
+                                      title={`${activity.tabel_target === 'data_proyek' ? 'Proyek' : 'Pengguna'} : ${activity.nama_target}`}
+                                    >
+                                      {activity.tabel_target === 'data_proyek' ? 'Proyek' : 'Pengguna'} : {activity.nama_target}
+                                    </div>
+                                  </div>
                                 )}
                               </div>
-                              <div className="text-right flex-shrink-0">
-                                <div className="flex items-center gap-1 text-sm font-semibold whitespace-nowrap">
+
+                              {/* Kanan: waktu */}
+                              <div className="text-right flex-shrink-0 w-full lg:w-auto">
+                                <div className="flex items-center justify-end gap-1 text-base font-semibold whitespace-nowrap">
                                   <Clock className="w-4 h-4" />
                                   {time}
                                 </div>
-                                <p className="text-xs opacity-70 mt-1 whitespace-nowrap">{date}</p>
+                                <p className="text-sm text-gray-600 mt-1 whitespace-nowrap">{date}</p>
+                                <p className="text-sm font-semibold text-gray-700 whitespace-nowrap">{dayName}</p>
                                 {activity.alamat_ip && (
-                                  <p className="text-xs opacity-60 mt-1">IP: {activity.alamat_ip}</p>
+                                  <p className="text-sm text-gray-600 mt-1 whitespace-nowrap">IP: {activity.alamat_ip}</p>
                                 )}
                               </div>
                             </div>
@@ -395,7 +432,7 @@ function ActivityContent() {
                             {hasChanges && (
                               <button
                                 onClick={() => setExpandedId(isExpanded ? null : activity.id_aktivitas)}
-                                className="flex items-center gap-2 text-xs font-semibold opacity-70 hover:opacity-100 transition-all"
+                                className="flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-gray-900 hover:underline transition-colors"
                               >
                                 {isExpanded ? (
                                   <>
@@ -416,15 +453,15 @@ function ActivityContent() {
 
                       {/* Expanded Details Section */}
                       {isExpanded && hasChanges && activity.detail_perubahan?.perubahan && (
-                        <div className="border-t-2 bg-black bg-opacity-5 p-4 space-y-3">
-                          <h4 className="font-bold text-sm mb-3 opacity-80">Detail Perubahan:</h4>
+                        <div className="border-t bg-gray-50 p-5 space-y-3">
+                          <h4 className="font-bold text-sm mb-3 text-gray-700">Detail Perubahan:</h4>
                           {activity.detail_perubahan.perubahan.map((change, idx) => (
-                            <div key={idx} className="bg-white bg-opacity-40 rounded-lg p-3 space-y-2">
-                              <p className="font-semibold text-sm">{change.label || change.field}</p>
+                            <div key={idx} className="bg-white rounded-xl p-4 space-y-2 border border-gray-100">
+                              <p className="font-semibold text-sm text-gray-800">{change.label || change.field}</p>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-1">
-                                  <p className="text-xs opacity-70 font-semibold">Nilai Lama:</p>
-                                  <div className="bg-red-100 bg-opacity-50 p-2 rounded text-sm break-words">
+                                  <p className="text-xs text-gray-600 font-semibold">Nilai Lama:</p>
+                                  <div className="bg-red-50 p-3 rounded-lg text-sm break-words border border-red-100">
                                     {change.nilai_lama != null ? (
                                       <span className="font-mono">{String(change.nilai_lama)}</span>
                                     ) : (
@@ -433,8 +470,8 @@ function ActivityContent() {
                                   </div>
                                 </div>
                                 <div className="space-y-1">
-                                  <p className="text-xs opacity-70 font-semibold">Nilai Baru:</p>
-                                  <div className="bg-green-100 bg-opacity-50 p-2 rounded text-sm break-words">
+                                  <p className="text-xs text-gray-600 font-semibold">Nilai Baru:</p>
+                                  <div className="bg-green-50 p-3 rounded-lg text-sm break-words border border-green-100">
                                     {change.nilai_baru != null ? (
                                       <span className="font-mono font-bold">{String(change.nilai_baru)}</span>
                                     ) : (
