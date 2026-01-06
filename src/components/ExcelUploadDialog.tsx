@@ -18,19 +18,32 @@ interface ValidationDetails {
     row: number;
     pid: string;
     nama_proyek: string;
+    existing_project?: string;
   }>;
   detailed_errors?: Array<{
     row: number;
     error: string;
-    data: any;
+    message?: string;
+    suggestions?: string[];
+    details?: string[];
+    data?: any;
+    data_preview?: any;
   }>;
   has_valid_data: boolean;
-  expected_headers?: Record<string, string>;
+  invalid_headers?: string[];
+  expected_headers?: Array<{
+    kolom: string;
+    wajib: boolean;
+    format: string;
+    contoh: string;
+    alternatif: string[];
+    catatan?: string;
+  }>;
 }
 
 interface ImportResponse {
-  success: boolean;
-  message: string;
+  success?: boolean;
+  message?: string;
   success_count?: number;
   failed_count?: number;
   suggestions?: string[];
@@ -124,10 +137,10 @@ export default function ExcelUploadDialog({
       setUploading(true);
       setUploadError(null);
 
-      const result = await penagihanService.importExcel(selectedFile);
+      const result = await penagihanService.importExcel(selectedFile) as ImportResponse;
 
       // Store result for validation modal
-      setImportResult(result as ImportResponse);
+      setImportResult(result);
       
       // Show validation modal with details
       setValidationModalOpen(true);
@@ -137,7 +150,7 @@ export default function ExcelUploadDialog({
       onOpenChange(false);
       
       // Refresh data if successful
-      if (result.success && onUploadSuccess) {
+      if (result.success === true && onUploadSuccess) {
         onUploadSuccess();
       }
 
@@ -268,7 +281,7 @@ export default function ExcelUploadDialog({
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="font-medium text-red-900 mb-1">Import Failed</p>
+                    <p className="font-medium text-red-900 mb-1">Import Gagal</p>
                     <p className="text-sm text-red-700 whitespace-pre-wrap">{uploadError}</p>
                   </div>
                 </div>

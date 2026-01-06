@@ -25,7 +25,7 @@ class PenagihanService {
       return response.data.data;
     }
 
-    throw new Error(response.data.message || 'Failed to fetch penagihan');
+    throw new Error(response.data.message || 'Gagal memuat data proyek');
   }
 
   /**
@@ -41,7 +41,7 @@ class PenagihanService {
       return response.data.data;
     }
 
-    throw new Error(response.data.message || 'Failed to fetch penagihan');
+    throw new Error(response.data.message || 'Gagal memuat data proyek');
   }
 
   /**
@@ -57,7 +57,7 @@ class PenagihanService {
       return response.data.data;
     }
 
-    throw new Error(response.data.message || 'Failed to create penagihan');
+    throw new Error(response.data.message || 'Gagal membuat data proyek');
   }
 
   /**
@@ -74,7 +74,7 @@ class PenagihanService {
       return response.data.data;
     }
 
-    throw new Error(response.data.message || 'Failed to update penagihan');
+    throw new Error(response.data.message || 'Gagal memperbarui data proyek');
   }
 
   /**
@@ -87,7 +87,7 @@ class PenagihanService {
     );
 
     if (!response.data.success) {
-      throw new Error(response.data.message || 'Failed to delete penagihan');
+      throw new Error(response.data.message || 'Gagal menghapus data proyek');
     }
   }
 
@@ -109,7 +109,7 @@ class PenagihanService {
       return response.data.data;
     }
 
-    throw new Error(response.data.message || 'Failed to delete all projects');
+    throw new Error(response.data.message || 'Gagal menghapus semua proyek');
   }
 
   /**
@@ -127,7 +127,7 @@ class PenagihanService {
       return response.data.data;
     }
 
-    throw new Error(response.data.message || 'Failed to delete selected projects');
+    throw new Error(response.data.message || 'Gagal menghapus proyek terpilih');
   }
 
   /**
@@ -142,7 +142,7 @@ class PenagihanService {
       return response.data.data;
     }
 
-    throw new Error(response.data.message || 'Failed to fetch statistics');
+    throw new Error(response.data.message || 'Gagal memuat statistik');
   }
 
   /**
@@ -158,7 +158,7 @@ class PenagihanService {
       return response.data.data;
     }
 
-    throw new Error(response.data.message || 'Failed to fetch card statistics');
+    throw new Error(response.data.message || 'Gagal memuat statistik kartu');
   }
 
   /**
@@ -170,13 +170,37 @@ class PenagihanService {
     formData.append('file', file);
 
     // ✅ CRITICAL: Harus POST, bukan GET!
-    const response = await api.post<{ success_count: number; failed_count: number; errors: any }>(
-      '/penagihan/import',  // ✅ Endpoint
-      formData,             // ✅ Data (FormData)
+    const response = await api.post<{
+      success: boolean;
+      message: string;
+      success_count: number;
+      failed_count: number;
+      // legacy / fallback
+      errors?: any;
+      // detail untuk modal validasi
+      validation_details?: {
+        invalid_headers?: string[];
+        expected_headers?: Array<{
+          kolom: string;
+          wajib: boolean;
+          format: string;
+          contoh: string;
+          alternatif: string[];
+          catatan?: string;
+        }>;
+        duplicate_pids?: Array<{ pid: string; existing_project?: string | null }>;
+        suggestions?: string[];
+      };
+      detailed_errors?: Array<{
+        row: number;
+        errors: string[];
+        values?: Record<string, any>;
+      }>;
+    }>(
+      '/penagihan/import',
+      formData,
       {
-        headers: {
-          'Content-Type': 'multipart/form-data',  // ✅ Header untuk upload file
-        },
+        headers: { 'Content-Type': 'multipart/form-data' },
       }
     );
     return response.data;
@@ -231,10 +255,10 @@ class PenagihanService {
         try {
           const errorData = JSON.parse(text);
           console.error('[📤 EXCEL_OPERATIONS] Download template error (parsed):', errorData);
-          throw new Error(errorData.message || 'Download template failed');
+          throw new Error(errorData.message || 'Gagal mengunduh template');
         } catch (parseError) {
           console.error('[📤 EXCEL_OPERATIONS] Download template error (raw):', text);
-          throw new Error('Download template failed: ' + text);
+          throw new Error('Gagal mengunduh template: ' + text);
         }
       }
       
@@ -267,7 +291,7 @@ class PenagihanService {
       return response.data.data;
     }
 
-    throw new Error(response.data.message || 'Failed to set priority');
+    throw new Error(response.data.message || 'Gagal mengatur prioritas');
   }
 
   /**
@@ -283,7 +307,7 @@ class PenagihanService {
       return response.data.data;
     }
 
-    throw new Error(response.data.message || 'Failed to auto-prioritize');
+    throw new Error(response.data.message || 'Gagal menjalankan auto-prioritize');
   }
 
   /**
@@ -299,7 +323,7 @@ class PenagihanService {
       return response.data.data;
     }
 
-    throw new Error(response.data.message || 'Failed to fetch prioritized projects');
+    throw new Error(response.data.message || 'Gagal memuat proyek prioritas');
   }
 }
 

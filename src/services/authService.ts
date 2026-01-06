@@ -22,7 +22,7 @@ class AuthService {
       return response.data.data;
     }
     
-    throw new Error(response.data.message || 'Login failed');
+    throw new Error(response.data.message || 'Login gagal');
   }
 
   /**
@@ -38,7 +38,7 @@ class AuthService {
       return response.data.data;
     }
     
-    throw new Error(response.data.message || 'Registration failed');
+    throw new Error(response.data.message || 'Registrasi gagal');
   }
 
   /**
@@ -63,7 +63,7 @@ class AuthService {
       return response.data.data;
     }
     
-    throw new Error('Failed to get user data');
+    throw new Error('Gagal mengambil data user');
   }
 
   /**

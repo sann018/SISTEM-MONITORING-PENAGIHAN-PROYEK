@@ -187,7 +187,7 @@ function LogAktivitasContent() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch activity logs');
+        throw new Error('Gagal memuat log aktivitas');
       }
 
       const data = await response.json();

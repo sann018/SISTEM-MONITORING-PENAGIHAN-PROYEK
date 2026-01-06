@@ -158,7 +158,7 @@ export default function Login() {
       
       if (error) {
         console.error("[LOGIN] Sign in error:", error);
-        toast.error(typeof error === "string" ? error : error.message || "Login failed");
+        toast.error(typeof error === "string" ? error : error.message || "Login gagal");
         setLoading(false);
       } else {
         console.log("[LOGIN] Sign in successful, navigating...");

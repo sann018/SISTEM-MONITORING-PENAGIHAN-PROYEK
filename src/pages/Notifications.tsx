@@ -200,7 +200,7 @@ function NotificationsContent() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch notifications');
+        throw new Error('Gagal memuat notifikasi');
       }
 
       const data = await response.json();
@@ -225,7 +225,7 @@ function NotificationsContent() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to mark as read');
+        throw new Error('Gagal menandai notifikasi sebagai dibaca');
       }
 
       // Update local state
@@ -256,7 +256,7 @@ function NotificationsContent() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete notification');
+        throw new Error('Gagal menghapus notifikasi');
       }
 
       setNotifications(prev => prev.filter(n => n.id_notifikasi !== id));

@@ -168,8 +168,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("[AUTH] Login response data:", data);
 
       if (!response.ok) {
-        console.error("[AUTH] Login error:", data.message || "Login failed");
-        return { error: data.message || "Login failed" };
+        console.error("[AUTH] Login error:", data.message || "Login gagal");
+        return { error: data.message || "Login gagal" };
       }
 
       // Step 1: Save token to localStorage FIRST
@@ -226,7 +226,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: null };
     } catch (error) {
       console.error("[AUTH] Network error:", error);
-      return { error: "Network error. Please try again." };
+      return { error: "Terjadi gangguan jaringan. Silakan coba lagi." };
     } finally {
       setLoading(false);
     }
@@ -256,7 +256,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (!response.ok) {
         console.error("[AUTH] Registration error:", data.message);
-        return { error: data.message || "Registration failed" };
+        return { error: data.message || "Registrasi gagal" };
       }
 
       // Step 1: Save token to localStorage FIRST
@@ -308,7 +308,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: null };
     } catch (error) {
       console.error("[AUTH] Network error:", error);
-      return { error: "Network error. Please try again." };
+      return { error: "Terjadi gangguan jaringan. Silakan coba lagi." };
     } finally {
       setLoading(false);
     }
@@ -342,7 +342,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error("useAuth harus digunakan di dalam AuthProvider");
   }
   return context;
 };
