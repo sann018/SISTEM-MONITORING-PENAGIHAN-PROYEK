@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Eye, Pencil, Trash2, Plus, Upload, Search, Calendar } from "lucide-react";
+import { Eye, Pencil, Trash2, Plus, Upload, Search, Calendar, AlertCircle, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { normalizeStatusText } from "@/lib/status";
 import { useAuth } from "@/contexts/AuthContext";
@@ -116,6 +116,17 @@ function ProjectsContent() {
   const [selectedYear, setSelectedYear] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [tableContextLabel, setTableContextLabel] = useState<string | null>(null);
+  
+  // State untuk Hapus Semua Data
+  const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [deleteAllConfirmation, setDeleteAllConfirmation] = useState("");
+  const [excludePrioritized, setExcludePrioritized] = useState(true); // Default: lindungi data prioritas
+  
+  // State untuk Checkbox Selection
+  const [selectedPids, setSelectedPids] = useState<Set<string>>(new Set());
+  const [isDeleteSelectedDialogOpen, setIsDeleteSelectedDialogOpen] = useState(false);
+  const [isDeletingSelected, setIsDeletingSelected] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -784,6 +795,109 @@ function ProjectsContent() {
   }, [deleteId]);
 
   // =====================================
+  // ✅ Handle Delete All Projects
+  // =====================================
+  const handleDeleteAll = useCallback(async () => {
+    if (deleteAllConfirmation !== "DELETE_ALL_PROJECTS") {
+      toast.error("Konfirmasi tidak valid. Ketik 'DELETE_ALL_PROJECTS' dengan benar.");
+      return;
+    }
+
+    setIsDeletingAll(true);
+    try {
+      const result = await penagihanService.deleteAll(deleteAllConfirmation, excludePrioritized);
+      
+      // Refresh projects list from server
+      await fetchProjects();
+      
+      const message = result.kept_count && result.kept_count > 0
+        ? `Berhasil menghapus ${result.total_deleted} data proyek. ${result.kept_count} data prioritas tidak dihapus.`
+        : `Berhasil menghapus ${result.total_deleted} data proyek`;
+      
+      toast.success(message);
+      
+      // Close dialog and reset
+      setIsDeleteAllDialogOpen(false);
+      setDeleteAllConfirmation("");
+      setExcludePrioritized(true);
+      
+    } catch (error: any) {
+      console.error(error);
+      const errorMessage = error.response?.data?.message || error.message || "Gagal menghapus semua data";
+      toast.error(errorMessage);
+    } finally {
+      setIsDeletingAll(false);
+    }
+  }, [deleteAllConfirmation, excludePrioritized]);
+
+  // =====================================
+  // ✅ Handle Checkbox Selection
+  // =====================================
+  const handleSelectAll = useCallback((checked: boolean) => {
+    if (checked) {
+      // Select all visible PIDs
+      const allPids = new Set(filteredProjects.map(p => p.pid));
+      setSelectedPids(allPids);
+    } else {
+      // Deselect all
+      setSelectedPids(new Set());
+    }
+  }, [filteredProjects]);
+
+  const handleSelectOne = useCallback((pid: string, checked: boolean) => {
+    setSelectedPids(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(pid);
+      } else {
+        newSet.delete(pid);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const isAllSelected = useMemo(() => {
+    if (filteredProjects.length === 0) return false;
+    return filteredProjects.every(p => selectedPids.has(p.pid));
+  }, [filteredProjects, selectedPids]);
+
+  const isSomeSelected = useMemo(() => {
+    return selectedPids.size > 0 && !isAllSelected;
+  }, [selectedPids, isAllSelected]);
+
+  // =====================================
+  // ✅ Handle Delete Selected Projects
+  // =====================================
+  const handleDeleteSelected = useCallback(async () => {
+    if (selectedPids.size === 0) {
+      toast.error("Tidak ada data yang dipilih");
+      return;
+    }
+
+    setIsDeletingSelected(true);
+    try {
+      const pidsArray = Array.from(selectedPids);
+      const result = await penagihanService.deleteSelected(pidsArray);
+      
+      // Remove deleted items from list
+      setProjects(prev => prev.filter(p => !selectedPids.has(p.pid)));
+      
+      toast.success(`Berhasil menghapus ${result.total_deleted} data proyek`);
+      
+      // Reset selection and close dialog
+      setSelectedPids(new Set());
+      setIsDeleteSelectedDialogOpen(false);
+      
+    } catch (error: any) {
+      console.error(error);
+      const errorMessage = error.response?.data?.message || error.message || "Gagal menghapus data terpilih";
+      toast.error(errorMessage);
+    } finally {
+      setIsDeletingSelected(false);
+    }
+  }, [selectedPids]);
+
+  // =====================================
   // JSX RETURN
   // =====================================
   return (
@@ -819,6 +933,35 @@ function ProjectsContent() {
                   <Upload className="w-5 h-5" />
                   Unduh Excel
                 </Button>
+                
+                {/* Buttons untuk Super Admin */}
+                {user?.role === 'super_admin' && (
+                  <div className="ml-auto flex gap-3">
+                    {/* Tombol Hapus Terpilih - muncul jika ada yang dipilih */}
+                    {selectedPids.size > 0 && (
+                      <Button
+                        onClick={() => setIsDeleteSelectedDialogOpen(true)}
+                        variant="outline"
+                        className="border-2 border-orange-600 text-orange-600 hover:bg-orange-50 hover:text-orange-700 font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        Hapus Terpilih ({selectedPids.size})
+                      </Button>
+                    )}
+                    
+                    {/* Tombol Hapus Semua */}
+                    {projects.length > 0 && (
+                      <Button
+                        onClick={() => setIsDeleteAllDialogOpen(true)}
+                        variant="outline"
+                        className="border-2 border-red-600 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        Hapus Semua Data
+                      </Button>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -976,6 +1119,23 @@ function ProjectsContent() {
               <table className="w-full text-sm" style={{ minWidth: '1800px' }}>
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-red-600 text-white">
+                    {/* Checkbox Column - Super Admin Only */}
+                    {user?.role === 'super_admin' && !isReadOnly && (
+                      <th className="px-4 py-3 text-center font-bold" style={{ minWidth: '60px' }}>
+                        <input
+                          type="checkbox"
+                          checked={isAllSelected}
+                          ref={(input) => {
+                            if (input) {
+                              input.indeterminate = isSomeSelected;
+                            }
+                          }}
+                          onChange={(e) => handleSelectAll(e.target.checked)}
+                          className="w-4 h-4 cursor-pointer accent-white"
+                          title={isAllSelected ? "Hapus semua pilihan" : "Pilih semua"}
+                        />
+                      </th>
+                    )}
                     {visibleColumns.timer && (
                       <th className="px-4 py-3 text-center font-bold" style={{ minWidth: '150px' }}>Timer</th>
                     )}
@@ -1042,6 +1202,18 @@ function ProjectsContent() {
                   ) : (
                     filteredProjects.map((project) => (
                       <tr key={project.id} className="border-b hover:bg-gray-50">
+                        {/* Checkbox Column - Super Admin Only */}
+                        {user?.role === 'super_admin' && !isReadOnly && (
+                          <td className="px-4 py-3 text-center" style={{ minWidth: '60px' }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedPids.has(project.pid)}
+                              onChange={(e) => handleSelectOne(project.pid, e.target.checked)}
+                              className="w-4 h-4 cursor-pointer accent-red-600"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </td>
+                        )}
                         {visibleColumns.timer && (
                           <td className="px-4 py-3 text-center" style={{ minWidth: '150px' }}>
                             <ProjectTimer
@@ -1352,6 +1524,156 @@ function ProjectsContent() {
           onOpenChange={setIsUploadDialogOpen}
           onUploadSuccess={fetchProjects}
         />
+
+        {/* Delete All Confirmation Dialog */}
+        <AlertDialog open={isDeleteAllDialogOpen} onOpenChange={setIsDeleteAllDialogOpen}>
+          <AlertDialogContent className="max-w-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-2xl font-bold text-red-600 flex items-center gap-2">
+                <AlertCircle className="w-7 h-7" />
+                ⚠️ PERINGATAN: Hapus SEMUA Data Proyek
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-4 text-left">
+                <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                  <p className="text-red-900 font-semibold mb-2">
+                    Anda akan menghapus <span className="text-red-600 font-bold text-lg">{projects.length} data proyek</span> secara PERMANEN!
+                  </p>
+                  <p className="text-red-800 text-sm">
+                    • Semua data proyek akan dihapus dari database<br />
+                    • Tindakan ini TIDAK DAPAT dibatalkan<br />
+                    • Backup data tidak akan tersedia setelah penghapusan<br />
+                    • Activity log akan mencatat tindakan ini
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-gray-900">
+                    Untuk konfirmasi, ketik: <code className="bg-gray-100 px-2 py-1 rounded text-red-600 font-mono">DELETE_ALL_PROJECTS</code>
+                  </label>
+                  <Input
+                    value={deleteAllConfirmation}
+                    onChange={(e) => setDeleteAllConfirmation(e.target.value)}
+                    placeholder="Ketik: DELETE_ALL_PROJECTS"
+                    className="border-2 border-red-300 focus:border-red-500 font-mono"
+                    disabled={isDeletingAll}
+                  />
+                  {deleteAllConfirmation && deleteAllConfirmation !== "DELETE_ALL_PROJECTS" && (
+                    <p className="text-xs text-red-600 mt-1">
+                      ⚠️ Konfirmasi tidak sesuai. Harus persis: DELETE_ALL_PROJECTS
+                    </p>
+                  )}
+                </div>
+
+                {/* Checkbox untuk Exclude Data Prioritas */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={excludePrioritized}
+                      onChange={(e) => setExcludePrioritized(e.target.checked)}
+                      className="mt-1 w-4 h-4 accent-blue-600"
+                      disabled={isDeletingAll}
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-semibold text-blue-900">
+                        🛡️ Lindungi data prioritas (Direkomendasikan)
+                      </span>
+                      <p className="text-xs text-blue-700 mt-1">
+                        Data dengan prioritas tidak akan dihapus. Hanya data tanpa prioritas yang akan dihapus.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-sm text-yellow-800 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>
+                      <strong>Catatan:</strong> Fitur ini hanya tersedia untuk Super Admin. 
+                      Pastikan Anda sudah membuat backup sebelum menghapus semua data.
+                    </span>
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel 
+                disabled={isDeletingAll}
+                onClick={() => {
+                  setDeleteAllConfirmation("");
+                  setIsDeleteAllDialogOpen(false);
+                }}
+                className="border-gray-300 hover:bg-gray-100"
+              >
+                Batal
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDeleteAll}
+                disabled={isDeletingAll || deleteAllConfirmation !== "DELETE_ALL_PROJECTS"}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold"
+              >
+                {isDeletingAll ? "Menghapus Semua..." : "Hapus Semua Data"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Selected Confirmation Dialog */}
+        <AlertDialog open={isDeleteSelectedDialogOpen} onOpenChange={setIsDeleteSelectedDialogOpen}>
+          <AlertDialogContent className="max-w-xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-2xl font-bold text-orange-600 flex items-center gap-2">
+                <AlertCircle className="w-7 h-7" />
+                Hapus Data Terpilih
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-4 text-left">
+                <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-4">
+                  <p className="text-orange-900 font-semibold mb-2">
+                    Anda akan menghapus <span className="text-orange-600 font-bold text-lg">{selectedPids.size} data proyek</span> yang dipilih
+                  </p>
+                  <p className="text-orange-800 text-sm">
+                    • Tindakan ini TIDAK DAPAT dibatalkan<br />
+                    • Semua data yang dipilih akan dihapus permanen<br />
+                    • Activity log akan mencatat tindakan ini
+                  </p>
+                </div>
+
+                {selectedPids.size <= 10 && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Data yang akan dihapus:</p>
+                    <ul className="text-xs text-gray-600 space-y-1 max-h-40 overflow-y-auto">
+                      {Array.from(selectedPids).map(pid => {
+                        const project = projects.find(p => p.pid === pid);
+                        return (
+                          <li key={pid} className="flex items-center gap-2">
+                            <span className="font-mono font-semibold">{pid}</span>
+                            {project && <span className="text-gray-500">- {project.nama_proyek}</span>}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel 
+                disabled={isDeletingSelected}
+                onClick={() => setIsDeleteSelectedDialogOpen(false)}
+                className="border-gray-300 hover:bg-gray-100"
+              >
+                Batal
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDeleteSelected}
+                disabled={isDeletingSelected}
+                className="bg-orange-600 hover:bg-orange-700 text-white font-bold"
+              >
+                {isDeletingSelected ? "Menghapus..." : `Hapus ${selectedPids.size} Data`}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

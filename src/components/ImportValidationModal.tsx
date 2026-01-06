@@ -24,12 +24,27 @@ interface DuplicatePid {
   row: number;
   pid: string;
   nama_proyek: string;
+  reason?: string;
+  existing_project?: string;
 }
 
 interface DetailedError {
   row: number;
   error: string;
-  data: any;
+  message?: string;
+  details?: string[];
+  suggestions?: string[];
+  data?: any;
+  data_preview?: any;
+}
+
+interface ExpectedHeader {
+  kolom: string;
+  wajib: boolean;
+  format: string;
+  contoh: string;
+  alternatif: string[];
+  catatan?: string;
 }
 
 interface ValidationDetails {
@@ -37,7 +52,8 @@ interface ValidationDetails {
   duplicate_pids?: DuplicatePid[];
   detailed_errors?: DetailedError[];
   has_valid_data: boolean;
-  expected_headers?: Record<string, string>;
+  invalid_headers?: string[];
+  expected_headers?: ExpectedHeader[];
 }
 
 interface ImportValidationModalProps {
@@ -85,7 +101,10 @@ export default function ImportValidationModal({
   const copyHeaders = () => {
     if (!validationDetails?.expected_headers) return;
 
-    const headerText = Object.keys(validationDetails.expected_headers).join('\t');
+    // Copy dengan format yang lebih friendly
+    const headerText = validationDetails.expected_headers
+      .map(h => h.alternatif[0])
+      .join('\t');
     navigator.clipboard.writeText(headerText);
     setCopiedHeaders(true);
     toast.success("Header berhasil disalin ke clipboard");
@@ -193,18 +212,47 @@ export default function ImportValidationModal({
                     PID Duplikat ({allDuplicates.length})
                   </h3>
                   <p className="text-sm text-orange-800 mb-3">
-                    Data berikut tidak diimport karena PID sudah ada di database:
+                    ⚠️ Data berikut tidak diimport karena PID sudah terdaftar di database:
                   </p>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
                     {allDuplicates.map((dup, index) => (
-                      <div key={index} className="text-sm bg-white rounded p-2 border border-orange-200">
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono text-orange-900 font-semibold">{dup.pid}</span>
-                          <Badge variant="outline" className="text-xs">Baris {dup.row}</Badge>
+                      <div key={index} className="text-sm bg-white rounded p-3 border border-orange-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-orange-900 font-bold bg-orange-100 px-2 py-1 rounded">
+                              {dup.pid}
+                            </span>
+                            <Badge variant="outline" className="text-xs bg-white">Baris {dup.row}</Badge>
+                          </div>
                         </div>
-                        <div className="text-gray-600 text-xs mt-1">{dup.nama_proyek}</div>
+                        
+                        <div className="space-y-1 text-xs">
+                          <div className="flex items-start gap-2">
+                            <span className="text-gray-500 font-semibold min-w-[80px]">Di Excel:</span>
+                            <span className="text-gray-700">{dup.nama_proyek}</span>
+                          </div>
+                          
+                          {dup.existing_project && (
+                            <div className="flex items-start gap-2 pt-1 border-t border-orange-100">
+                              <span className="text-orange-600 font-semibold min-w-[80px]">Di Database:</span>
+                              <span className="text-orange-800">{dup.existing_project}</span>
+                            </div>
+                          )}
+                          
+                          {dup.reason && (
+                            <div className="flex items-start gap-2 mt-1 pt-1 border-t border-orange-100">
+                              <span className="text-orange-500 flex-shrink-0">💡</span>
+                              <span className="text-orange-700 italic">{dup.reason}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
+                  </div>
+                  <div className="mt-3 p-2 bg-orange-100 rounded border border-orange-300">
+                    <p className="text-xs text-orange-800 font-semibold">
+                      🔑 Solusi: Ubah PID di file Excel Anda agar tidak bentrok dengan data yang sudah ada
+                    </p>
                   </div>
                 </div>
               </div>
@@ -220,13 +268,43 @@ export default function ImportValidationModal({
                   <h3 className="font-semibold text-red-900 mb-2">
                     Error Detail ({allErrors.length})
                   </h3>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
                     {allErrors.map((err, index) => (
-                      <div key={index} className="text-sm bg-white rounded p-2 border border-red-200">
-                        <div className="flex items-center justify-between mb-1">
-                          <Badge variant="outline" className="text-xs">Baris {err.row}</Badge>
+                      <div key={index} className="text-sm bg-white rounded p-3 border border-red-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <Badge variant="outline" className="text-xs bg-red-100">Baris {err.row}</Badge>
+                          <span className="text-red-800 font-semibold text-xs">{err.error}</span>
                         </div>
-                        <div className="text-red-700 text-xs">{err.error}</div>
+                        
+                        {err.details && err.details.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {err.details.map((detail, idx) => (
+                              <div key={idx} className="text-xs text-red-700 flex items-start gap-1">
+                                <span className="text-red-500 flex-shrink-0">•</span>
+                                <span>{detail}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {err.data_preview && (
+                          <div className="mt-2 pt-2 border-t border-red-100">
+                            <div className="text-xs text-gray-600 space-y-0.5">
+                              {Object.entries(err.data_preview).map(([key, value]) => (
+                                <div key={key} className="flex gap-2">
+                                  <span className="font-semibold text-gray-700">{key}:</span>
+                                  <span className="font-mono text-gray-600">{String(value) || '-'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {err.message && (
+                          <div className="mt-2 text-xs text-gray-600 italic">
+                            {err.message}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -241,7 +319,7 @@ export default function ImportValidationModal({
               <div className="flex items-start gap-3">
                 <FileSpreadsheet className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold text-purple-900">Format Header yang Benar</h3>
                     <Button
                       size="sm"
@@ -262,16 +340,83 @@ export default function ImportValidationModal({
                       )}
                     </Button>
                   </div>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {Object.entries(validationDetails.expected_headers).map(([key, desc]) => (
-                      <div key={key} className="text-xs bg-white rounded px-2 py-1.5 border border-purple-200 flex items-center justify-between">
-                        <code className="font-mono text-purple-900 font-semibold">{key}</code>
-                        <span className="text-gray-600 text-xs ml-2">{desc}</span>
+                  
+                  <div className="space-y-2 max-h-80 overflow-y-auto">
+                    {validationDetails.expected_headers.map((header, index) => (
+                      <div key={index} className="text-xs bg-white rounded p-3 border border-purple-200">
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="flex items-center gap-2">
+                            <code className="font-mono text-purple-900 font-bold bg-purple-100 px-2 py-1 rounded">
+                              {header.kolom}
+                            </code>
+                            {header.wajib && (
+                              <Badge variant="destructive" className="text-[10px] h-5">WAJIB</Badge>
+                            )}
+                          </div>
+                          <span className="text-gray-600 text-xs">{header.format}</span>
+                        </div>
+                        
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex items-start gap-2">
+                            <span className="text-gray-500 font-semibold min-w-[60px]">Contoh:</span>
+                            <code className="text-gray-700 font-mono bg-gray-50 px-1.5 py-0.5 rounded">
+                              {header.contoh}
+                            </code>
+                          </div>
+                          
+                          <div className="flex items-start gap-2">
+                            <span className="text-gray-500 font-semibold min-w-[60px]">Header:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {header.alternatif.map((alt, idx) => (
+                                <code key={idx} className="text-gray-600 font-mono bg-gray-50 px-1.5 py-0.5 rounded text-[10px]">
+                                  {alt}
+                                </code>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          {header.catatan && (
+                            <div className="flex items-start gap-2 mt-1 pt-1 border-t border-purple-100">
+                              <span className="text-purple-600 flex-shrink-0">💡</span>
+                              <span className="text-purple-700">{header.catatan}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs text-purple-700 mt-3">
-                    💡 Pastikan header Excel Anda sama persis dengan format di atas (case-sensitive)
+                  
+                  <div className="mt-3 p-2 bg-purple-100 rounded border border-purple-300">
+                    <p className="text-xs text-purple-800 font-semibold">
+                      ✨ Header Excel fleksibel - gunakan salah satu format yang tercantum
+                    </p>
+                    <p className="text-xs text-purple-700 mt-1">
+                      💡 Case-insensitive: "Nama Proyek", "nama_proyek", atau "NAMA PROYEK" semua diterima
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Invalid Headers Warning */}
+          {validationDetails?.invalid_headers && validationDetails.invalid_headers.length > 0 && (
+            <div className="border-2 border-yellow-200 rounded-lg p-4 bg-yellow-50">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-yellow-900 mb-2">
+                    Header Tidak Dikenali
+                  </h3>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {validationDetails.invalid_headers.map((header, index) => (
+                      <Badge key={index} variant="outline" className="bg-white text-yellow-800 border-yellow-300">
+                        {header}
+                      </Badge>
+                    ))}
+                  </div>
+                  <p className="text-xs text-yellow-700">
+                    Header di atas tidak sesuai dengan format yang diharapkan dan akan diabaikan saat import.
                   </p>
                 </div>
               </div>

@@ -92,6 +92,45 @@ class PenagihanService {
   }
 
   /**
+   * [💡 API_SERVICE] [🗑️ BULK_DELETE] Hapus SEMUA data proyek
+   * Membutuhkan konfirmasi "DELETE_ALL_PROJECTS" untuk keamanan
+   * HANYA SUPER ADMIN yang bisa mengakses
+   */
+  async deleteAll(
+    confirmation: string, 
+    excludePrioritized: boolean = false
+  ): Promise<{ total_deleted: number; kept_count?: number }> {
+    const response = await api.delete<ApiResponse<{ total_deleted: number; kept_count?: number }>>(
+      `${this.baseUrl}/delete-all`,
+      { data: { confirmation, exclude_prioritized: excludePrioritized } }
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.message || 'Failed to delete all projects');
+  }
+
+  /**
+   * [💡 API_SERVICE] [🗑️ BULK_DELETE] Hapus data proyek terpilih (selected)
+   * Menghapus multiple data berdasarkan array PID
+   * HANYA SUPER ADMIN yang bisa mengakses
+   */
+  async deleteSelected(pids: string[]): Promise<{ total_deleted: number }> {
+    const response = await api.delete<ApiResponse<{ total_deleted: number }>>(
+      `${this.baseUrl}/delete-selected`,
+      { data: { pids } }
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.message || 'Failed to delete selected projects');
+  }
+
+  /**
    * [💡 API_SERVICE] [📄 PROJECT_MANAGEMENT] Hitung statistik dashboard penagihan
    */
   async getStatistics(): Promise<PenagihanStatistics> {
