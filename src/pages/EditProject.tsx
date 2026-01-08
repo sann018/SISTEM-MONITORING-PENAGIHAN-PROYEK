@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -13,6 +13,7 @@ import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { normalizeStatusText } from "@/lib/status";
 import { formatThousandsId, normalizeToIntegerString } from "@/lib/currency";
+import { getErrorMessage } from "@/utils/errors";
 
 interface Project {
   id: string;
@@ -46,14 +47,9 @@ export default function EditProject() {
   const rekonMaterialOptions = ["Sudah Rekon", "Belum Rekon"];
   const materialAlignmentOptions = ["Sudah Lurus", "Belum Lurus"];
   const procurementOptions = ["Antri Periv", "Proses Periv", "Revisi Mitra", "Sekuler TTD", "Scan Dokumen Mitra", "OTW Reg"];
-  const phaseOptions = ["Instalasi", "Konstruksi", "Optimasi", "Perencanaan", "Implementasi", "Aktivasi", "Maintenance", "Penyelesaian"];
-  const jenisPoOptions = ["Baru", "Perpanjangan", "Perubahan", "Addendum"];
 
-  useEffect(() => {
-    fetchProject();
-  }, [id]);
-
-  const fetchProject = async () => {
+  const fetchProject = useCallback(async () => {
+    if (!id) return;
     try {
       // NOTE: parameter route sekarang memakai PID (string), bukan numeric ID
       const data = await penagihanService.getById(id!);
@@ -84,7 +80,11 @@ export default function EditProject() {
       toast.error("Gagal memuat proyek");
       navigate("/projects");
     }
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    fetchProject();
+  }, [fetchProject]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -115,32 +115,46 @@ export default function EditProject() {
       return;
     }
 
+    const buildPayload = (data: Project) => {
+      const nomorPoTrimmed = data.nomor_po?.trim() ? data.nomor_po.trim() : null;
+      return {
+        nama_proyek: data.nama_proyek,
+        nama_mitra: data.nama_mitra,
+        pid: data.pid,
+        jenis_po: data.jenis_po,
+        nomor_po: nomorPoTrimmed,
+        phase: data.phase,
+        status_ct: data.status_ct,
+        status_ut: data.status_ut,
+        rekap_boq: data.rekap_boq,
+        rekon_nilai: parseInt(normalizeToIntegerString(data.rekon_nilai), 10) || 0,
+        rekon_material: data.rekon_material,
+        pelurusan_material: data.pelurusan_material,
+        status_procurement: data.status_procurement,
+        estimasi_durasi_hari: parseInt(String(data.estimasi_durasi_hari)) || 7,
+        tanggal_mulai: data.tanggal_mulai,
+      };
+    };
+
+    // If user didn't change anything, treat it as success (friendly UX)
+    if (project) {
+      const before = buildPayload(project);
+      const after = buildPayload(formData);
+      if (JSON.stringify(before) === JSON.stringify(after)) {
+        toast.success("Tidak ada perubahan. Data tetap tersimpan.");
+        navigate("/projects");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
-      // Map data form ke format API backend
-      const mappedData = {
-        nama_proyek: formData.nama_proyek,
-        nama_mitra: formData.nama_mitra,
-        pid: formData.pid,
-        jenis_po: formData.jenis_po,
-        nomor_po: formData.nomor_po?.trim() ? formData.nomor_po.trim() : null,
-        phase: formData.phase,
-        status_ct: formData.status_ct,
-        status_ut: formData.status_ut,
-        rekap_boq: formData.rekap_boq,
-        rekon_nilai: parseInt(normalizeToIntegerString(formData.rekon_nilai), 10) || 0,
-        rekon_material: formData.rekon_material,
-        pelurusan_material: formData.pelurusan_material,
-        status_procurement: formData.status_procurement,
-        estimasi_durasi_hari: parseInt(String(formData.estimasi_durasi_hari)) || 7,
-        tanggal_mulai: formData.tanggal_mulai,
-      };
-
+      const mappedData = buildPayload(formData);
       await penagihanService.update(id!, mappedData);
       toast.success("Proyek berhasil diperbarui");
       navigate("/projects");
-    } catch (error) {
-      toast.error("Gagal memperbarui proyek");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Gagal memperbarui proyek"));
       console.error(error);
     } finally {
       setLoading(false);
@@ -215,16 +229,14 @@ export default function EditProject() {
                     </div>
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-900">Jenis PO</label>
-                      <Select value={formData.jenis_po} onValueChange={(value) => handleSelectChange("jenis_po", value)}>
-                        <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white">
-                          <SelectValue placeholder="Pilih Jenis PO" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {jenisPoOptions.map((option) => (
-                            <SelectItem key={option} value={option}>{option}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Input
+                        type="text"
+                        name="jenis_po"
+                        placeholder="Isi Jenis PO (contoh: Batch 1)"
+                        value={formData.jenis_po}
+                        onChange={handleInputChange}
+                        className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white placeholder-gray-500"
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-900">Nomor PO</label>
@@ -242,16 +254,15 @@ export default function EditProject() {
                   {/* Row 3: Phase */}
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-900">Phase <span className="text-red-600">*</span></label>
-                    <Select value={formData.phase} onValueChange={(value) => handleSelectChange("phase", value)}>
-                      <SelectTrigger className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white">
-                        <SelectValue placeholder="Pilih phase" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {phaseOptions.map((option) => (
-                          <SelectItem key={option} value={option}>{option}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      type="text"
+                      name="phase"
+                      placeholder="Isi Phase (contoh: Phase 1)"
+                      value={formData.phase}
+                      onChange={handleInputChange}
+                      className="border-2 border-gray-400 focus:border-red-500 rounded-lg h-10 px-3 py-2 text-base bg-white placeholder-gray-500"
+                      required
+                    />
                   </div>
 
                   {/* Row 4: Status CT, Status UT, Rekap BOQ, Rekon Nilai */}

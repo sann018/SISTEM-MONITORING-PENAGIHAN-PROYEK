@@ -27,14 +27,14 @@ export interface AuthResponse {
 }
 
 // API Response Types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   message?: string;
   data?: T;
   errors?: Record<string, string[]>;
 }
 
-export interface PaginatedResponse<T = any> {
+export interface PaginatedResponse<T = unknown> {
   data: T[];
   current_page: number;
   last_page: number;
@@ -80,6 +80,13 @@ export interface FilterParams {
   card_filter?: 'sudah_penuh' | 'sedang_berjalan' | 'tertunda' | 'belum_rekon';
   // Backend uses this to return prioritized projects on dashboard
   dashboard?: boolean;
+
+  // Admin/Super Admin filters
+  mitra?: string;
+  jenis_po?: string;
+  phase?: string;
+  // Filter tahun berdasarkan awalan PID (contoh: "25" => 2025)
+  tahun?: string | number;
 }
 
 // Penagihan Types

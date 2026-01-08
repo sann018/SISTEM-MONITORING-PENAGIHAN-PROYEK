@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Activity as ActivityIcon, Clock, User, FileText, ChevronLeft, ChevronRight, Menu, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/utils/errors";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -19,13 +20,13 @@ interface ActivityLog {
   id_target: string | null;
   nama_target?: string | null;
   detail_perubahan: {
-    sebelum?: Record<string, any>;
-    sesudah?: Record<string, any>;
+    sebelum?: Record<string, unknown>;
+    sesudah?: Record<string, unknown>;
     perubahan?: Array<{
       field: string;
       label: string;
-      nilai_lama: any;
-      nilai_baru: any;
+      nilai_lama: unknown;
+      nilai_baru: unknown;
     }>;
   } | null;
   alamat_ip: string | null;
@@ -163,7 +164,7 @@ function ActivityContent() {
     return map[tabel] || tabel.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
-  const fetchActivities = async (
+  const fetchActivities = useCallback(async (
     page: number = 1,
     overrides?: {
       filterType?: string;
@@ -209,13 +210,13 @@ function ActivityContent() {
 
       setActivities(data.data || []);
       setPagination(data.pagination);
-    } catch (error: any) {
-      toast.error(error.message || "Gagal memuat aktivitas");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Gagal memuat aktivitas"));
       console.error(error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, user?.role, navigate, filterType, searchTerm]);
 
   useEffect(() => {
     // Check permission first - allow super_admin and admin
@@ -225,7 +226,7 @@ function ActivityContent() {
     }
     
     fetchActivities(1);
-  }, [user, token, navigate]);
+  }, [user?.role, navigate, fetchActivities]);
 
   const handleFilterChange = (type: string) => {
     setFilterType(type);

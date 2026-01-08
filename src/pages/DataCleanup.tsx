@@ -19,8 +19,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+import { getErrorMessage } from "@/utils/errors";
+import api from "@/services/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface CleanupStats {
   aktivitas_sistem: number;
@@ -28,6 +38,19 @@ interface CleanupStats {
   notifikasi: number;
   total: number;
   cutoff_date: string;
+  mode?: 'day' | 'week' | 'month' | 'year';
+  date_range?: string;
+  range_start?: string;
+  range_end?: string;
+}
+
+type CleanupMode = 'day' | 'week' | 'month' | 'year';
+
+function getLocalDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function DataCleanupContent() {
@@ -35,12 +58,16 @@ function DataCleanupContent() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<CleanupStats | null>(null);
+  const [mode, setMode] = useState<CleanupMode>('month');
+  const [date, setDate] = useState<string>(() => getLocalDateInputValue(new Date()));
   const [bulan, setBulan] = useState<number>(new Date().getMonth() + 1);
   const [tahun, setTahun] = useState<number>(new Date().getFullYear());
   const [availableYears, setAvailableYears] = useState<number[] | null>(null);
   const [loadingYears, setLoadingYears] = useState(false);
   const [loadingStats, setLoadingStats] = useState(false);
   const [cleaningType, setCleaningType] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingType, setPendingType] = useState<'aktivitas-sistem' | 'log-aktivitas' | 'notifikasi' | 'all' | null>(null);
 
   const isSuperAdmin = user?.role === 'super_admin';
 
@@ -63,22 +90,12 @@ function DataCleanupContent() {
 
       try {
         setLoadingYears(true);
-        const response = await fetch(`${API_BASE_URL}/cleanup/available-years`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({}));
-          throw new Error(error.message || 'Gagal mengambil daftar tahun');
-        }
-
-        const payload = await response.json();
+        const res = await api.get('/cleanup/available-years');
+        const payload = res?.data;
         const years = Array.isArray(payload?.data?.years)
-          ? payload.data.years.map((y: any) => parseInt(String(y), 10)).filter((y: number) => Number.isFinite(y))
+          ? payload.data.years
+              .map((y: unknown) => parseInt(String(y), 10))
+              .filter((y: number) => Number.isFinite(y))
           : [];
 
         const uniqueSortedYears = Array.from(new Set<number>(years)).sort((a, b) => b - a);
@@ -88,7 +105,7 @@ function DataCleanupContent() {
         if (uniqueSortedYears.length > 0 && !uniqueSortedYears.includes(tahun)) {
           setTahun(uniqueSortedYears[0]);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error fetching available years:', error);
         // Fallback: biarkan dropdown menggunakan list statis.
         setAvailableYears(null);
@@ -104,68 +121,77 @@ function DataCleanupContent() {
   const fetchStats = async () => {
     try {
       setLoadingStats(true);
-      
-      const response = await fetch(`${API_BASE_URL}/cleanup/stats`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ bulan, tahun }),
-      });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Gagal mengambil statistik');
-      }
+      const payload =
+        mode === 'day' || mode === 'week'
+          ? { mode, date }
+          : mode === 'year'
+            ? { mode, tahun }
+            : { mode, bulan, tahun };
 
-      const data = await response.json();
-      setStats(data.data);
-    } catch (error: any) {
+      const res = await api.post('/cleanup/stats', payload);
+      setStats(res?.data?.data ?? null);
+    } catch (error: unknown) {
       console.error('Error fetching stats:', error);
-      toast.error(error.message || 'Gagal mengambil statistik');
+      toast.error(getErrorMessage(error, 'Gagal mengambil statistik'));
     } finally {
       setLoadingStats(false);
     }
   };
 
-  const handleCleanup = async (type: 'aktivitas-sistem' | 'log-aktivitas' | 'notifikasi' | 'all') => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus data ${type === 'all' ? 'SEMUA' : type}?\n\nData yang dihapus TIDAK DAPAT dikembalikan!`)) {
-      return;
-    }
-
+  const requestCleanup = async (type: 'aktivitas-sistem' | 'log-aktivitas' | 'notifikasi' | 'all') => {
     try {
       setLoading(true);
       setCleaningType(type);
 
-      const response = await fetch(`${API_BASE_URL}/cleanup/${type}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ bulan, tahun }),
+      const payload =
+        mode === 'day' || mode === 'week'
+          ? { mode, date }
+          : mode === 'year'
+            ? { mode, tahun }
+            : { mode, bulan, tahun };
+
+      const res = await api.delete(`/cleanup/${type}`, {
+        data: payload,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Gagal menghapus data');
-      }
-
-      const data = await response.json();
-      toast.success(data.message);
+      toast.success(res?.data?.message ?? 'Berhasil menghapus data');
 
       // Refresh stats
       await fetchStats();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error cleanup:', error);
-      toast.error(error.message || 'Gagal menghapus data');
+      toast.error(getErrorMessage(error, 'Gagal menghapus data'));
     } finally {
       setLoading(false);
       setCleaningType(null);
     }
+  };
+
+  const getCountForType = (type: 'aktivitas-sistem' | 'log-aktivitas' | 'notifikasi' | 'all'): number => {
+    if (!stats) return 0;
+    switch (type) {
+      case 'aktivitas-sistem':
+        return stats.aktivitas_sistem;
+      case 'log-aktivitas':
+        return stats.log_aktivitas;
+      case 'notifikasi':
+        return stats.notifikasi;
+      case 'all':
+        return stats.total;
+    }
+  };
+
+  const openConfirm = (type: 'aktivitas-sistem' | 'log-aktivitas' | 'notifikasi' | 'all') => {
+    setPendingType(type);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmCleanup = async () => {
+    if (!pendingType) return;
+    setConfirmOpen(false);
+    await requestCleanup(pendingType);
+    setPendingType(null);
   };
 
   if (!user || !isSuperAdmin) return null;
@@ -188,6 +214,26 @@ function DataCleanupContent() {
   const currentYear = new Date().getFullYear();
   const fallbackTahunOptions = Array.from({ length: 10 }, (_, i) => currentYear - i);
   const tahunOptions = (availableYears && availableYears.length > 0) ? availableYears : fallbackTahunOptions;
+
+  const modeOptions: Array<{ value: CleanupMode; label: string; description: string }> = [
+    { value: 'day', label: 'Per Hari', description: 'Hapus data pada 1 hari yang dipilih' },
+    { value: 'week', label: 'Per Minggu', description: 'Hapus data pada minggu dari tanggal yang dipilih' },
+    { value: 'month', label: 'Per Bulan', description: 'Hapus data pada bulan & tahun yang dipilih' },
+    { value: 'year', label: 'Per Tahun', description: 'Hapus data pada 1 tahun yang dipilih' },
+  ];
+
+  const handleModeChange = (nextMode: CleanupMode) => {
+    setMode(nextMode);
+    setStats(null);
+  };
+
+  const periodLabel = stats?.date_range
+    ? stats.date_range
+    : mode === 'year'
+      ? `${tahun}`
+      : mode === 'month'
+        ? `${bulanOptions.find((b) => b.value === bulan)?.label} ${tahun}`
+        : date;
 
   return (
     <div className="flex flex-col h-svh w-full bg-gray-50 overflow-hidden">
@@ -219,7 +265,7 @@ function DataCleanupContent() {
                   <div>
                     <h3 className="font-semibold text-yellow-800">Peringatan Penting!</h3>
                     <p className="text-sm text-yellow-700 mt-1">
-                      Sistem akan menghapus data <strong>HANYA pada bulan dan tahun yang dipilih</strong>.
+                      Sistem akan menghapus data <strong>HANYA pada periode yang dipilih</strong>.
                       Data yang dihapus <strong>TIDAK DAPAT</strong> dikembalikan. Pastikan Anda telah membackup data penting sebelum melakukan pembersihan.
                     </p>
                   </div>
@@ -232,51 +278,93 @@ function DataCleanupContent() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Calendar className="h-5 w-5 text-red-600" />
-                      Pilih Bulan & Tahun
+                      Pilih Periode
                     </CardTitle>
                     <CardDescription>
-                      Pilih bulan dan tahun spesifik untuk menghapus data pada periode tersebut
+                      Pilih mode periode untuk menghapus data secara aman dan terkontrol
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Bulan
-                        </label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Mode</label>
                         <select
-                          value={bulan}
-                          onChange={(e) => setBulan(parseInt(e.target.value))}
+                          value={mode}
+                          onChange={(e) => handleModeChange(e.target.value as CleanupMode)}
                           className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none"
                         >
-                          {bulanOptions.map((option) => (
+                          {modeOptions.map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
                             </option>
                           ))}
                         </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {modeOptions.find((o) => o.value === mode)?.description}
+                        </p>
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Tahun
-                        </label>
-                        <select
-                          value={tahun}
-                          onChange={(e) => setTahun(parseInt(e.target.value))}
-                          disabled={loadingYears}
-                          className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none"
-                        >
-                          {tahunOptions.map((year) => (
-                            <option key={year} value={year}>
-                              {year}
-                            </option>
-                          ))}
-                        </select>
-                        {loadingYears && (
-                          <p className="text-xs text-gray-500 mt-1">Memuat daftar tahun...</p>
-                        )}
-                      </div>
+                      {(mode === 'day' || mode === 'week') && (
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Tanggal</label>
+                          <input
+                            type="date"
+                            value={date}
+                            onChange={(e) => {
+                              setDate(e.target.value);
+                              setStats(null);
+                            }}
+                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            {mode === 'week' ? 'Pilih tanggal, sistem akan mengambil minggu-nya' : 'Pilih tanggal yang akan dibersihkan'}
+                          </p>
+                        </div>
+                      )}
+
+                      {mode === 'month' && (
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Bulan</label>
+                          <select
+                            value={bulan}
+                            onChange={(e) => {
+                              setBulan(parseInt(e.target.value));
+                              setStats(null);
+                            }}
+                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none"
+                          >
+                            {bulanOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {(mode === 'month' || mode === 'year') && (
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Tahun</label>
+                          <select
+                            value={tahun}
+                            onChange={(e) => {
+                              setTahun(parseInt(e.target.value));
+                              setStats(null);
+                            }}
+                            disabled={loadingYears}
+                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none"
+                          >
+                            {tahunOptions.map((year) => (
+                              <option key={year} value={year}>
+                                {year}
+                              </option>
+                            ))}
+                          </select>
+                          {loadingYears && (
+                            <p className="text-xs text-gray-500 mt-1">Memuat daftar tahun...</p>
+                          )}
+                        </div>
+                      )}
 
                       <div className="flex items-end">
                         <Button
@@ -307,64 +395,97 @@ function DataCleanupContent() {
                     <CardHeader>
                       <CardTitle>Statistik Data yang Akan Dihapus</CardTitle>
                       <CardDescription>
-                        Data sampai dengan: <strong>{new Date(stats.cutoff_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                        <span>
+                          Periode: <strong>{stats.date_range ?? periodLabel}</strong> • Data sampai dengan:{' '}
+                          <strong>
+                            {new Date(stats.cutoff_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          </strong>
+                        </span>
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {/* Aktivitas Sistem */}
                         <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <Activity className="h-8 w-8 text-blue-600" />
-                            <Badge variant="secondary" className="text-blue-700">
-                              {stats.aktivitas_sistem.toLocaleString('id-ID')}
-                            </Badge>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <Activity className="h-6 w-6 text-blue-700" />
+                                <h3 className="font-semibold text-gray-900">Aktivitas Sistem</h3>
+                              </div>
+                              <p className="text-sm text-gray-600">Data perubahan CRUD</p>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-gray-600">Jumlah</div>
+                              <div className="text-3xl font-extrabold text-blue-700 leading-none">
+                                {stats.aktivitas_sistem.toLocaleString('id-ID')}
+                              </div>
+                            </div>
                           </div>
-                          <h3 className="font-semibold text-gray-900">Aktivitas Sistem</h3>
-                          <p className="text-sm text-gray-600">Data perubahan CRUD</p>
                         </div>
 
                         {/* Log Aktivitas */}
                         <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <History className="h-8 w-8 text-green-600" />
-                            <Badge variant="secondary" className="text-green-700">
-                              {stats.log_aktivitas.toLocaleString('id-ID')}
-                            </Badge>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <History className="h-6 w-6 text-green-700" />
+                                <h3 className="font-semibold text-gray-900">Log Aktivitas</h3>
+                              </div>
+                              <p className="text-sm text-gray-600">Data akses pengguna</p>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-gray-600">Jumlah</div>
+                              <div className="text-3xl font-extrabold text-green-700 leading-none">
+                                {stats.log_aktivitas.toLocaleString('id-ID')}
+                              </div>
+                            </div>
                           </div>
-                          <h3 className="font-semibold text-gray-900">Log Aktivitas</h3>
-                          <p className="text-sm text-gray-600">Data akses pengguna</p>
                         </div>
 
                         {/* Notifikasi */}
                         <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <Bell className="h-8 w-8 text-yellow-600" />
-                            <Badge variant="secondary" className="text-yellow-700">
-                              {stats.notifikasi.toLocaleString('id-ID')}
-                            </Badge>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <Bell className="h-6 w-6 text-yellow-700" />
+                                <h3 className="font-semibold text-gray-900">Notifikasi</h3>
+                              </div>
+                              <p className="text-sm text-gray-600">Data notifikasi lama</p>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-gray-600">Jumlah</div>
+                              <div className="text-3xl font-extrabold text-yellow-800 leading-none">
+                                {stats.notifikasi.toLocaleString('id-ID')}
+                              </div>
+                            </div>
                           </div>
-                          <h3 className="font-semibold text-gray-900">Notifikasi</h3>
-                          <p className="text-sm text-gray-600">Data notifikasi lama</p>
                         </div>
 
                         {/* Total */}
                         <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <Database className="h-8 w-8 text-red-600" />
-                            <Badge variant="destructive">
-                              {stats.total.toLocaleString('id-ID')}
-                            </Badge>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <Database className="h-6 w-6 text-red-700" />
+                                <h3 className="font-semibold text-gray-900">Total Data</h3>
+                              </div>
+                              <p className="text-sm text-gray-600">Semua data akan dihapus</p>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-gray-600">Jumlah</div>
+                              <div className="text-3xl font-extrabold text-red-700 leading-none">
+                                {stats.total.toLocaleString('id-ID')}
+                              </div>
+                            </div>
                           </div>
-                          <h3 className="font-semibold text-gray-900">Total Data</h3>
-                          <p className="text-sm text-gray-600">Semua data akan dihapus</p>
                         </div>
                       </div>
 
                       {/* Action Buttons */}
                       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                         <Button
-                          onClick={() => handleCleanup('aktivitas-sistem')}
+                          onClick={() => openConfirm('aktivitas-sistem')}
                           disabled={loading || stats.aktivitas_sistem === 0}
                           variant="outline"
                           className="border-blue-600 text-blue-600 hover:bg-blue-50"
@@ -378,7 +499,7 @@ function DataCleanupContent() {
                         </Button>
 
                         <Button
-                          onClick={() => handleCleanup('log-aktivitas')}
+                          onClick={() => openConfirm('log-aktivitas')}
                           disabled={loading || stats.log_aktivitas === 0}
                           variant="outline"
                           className="border-green-600 text-green-600 hover:bg-green-50"
@@ -392,7 +513,7 @@ function DataCleanupContent() {
                         </Button>
 
                         <Button
-                          onClick={() => handleCleanup('notifikasi')}
+                          onClick={() => openConfirm('notifikasi')}
                           disabled={loading || stats.notifikasi === 0}
                           variant="outline"
                           className="border-yellow-600 text-yellow-600 hover:bg-yellow-50"
@@ -406,7 +527,7 @@ function DataCleanupContent() {
                         </Button>
 
                         <Button
-                          onClick={() => handleCleanup('all')}
+                          onClick={() => openConfirm('all')}
                           disabled={loading || stats.total === 0}
                           variant="destructive"
                           className="bg-red-600 hover:bg-red-700"
@@ -419,6 +540,46 @@ function DataCleanupContent() {
                           Hapus Semua
                         </Button>
                       </div>
+
+                      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Konfirmasi Penghapusan Data</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              <div className="space-y-2">
+                                <div>
+                                    Anda akan menghapus data untuk periode <strong>{periodLabel}</strong>.
+                                </div>
+                                <div>
+                                  Jumlah data yang akan dihapus:{' '}
+                                  <strong className="text-red-700">
+                                    {pendingType ? getCountForType(pendingType).toLocaleString('id-ID') : '0'}
+                                  </strong>
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  Data yang dihapus tidak dapat dikembalikan.
+                                </div>
+                              </div>
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel disabled={loading}>Batal</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={(e) => {
+                                e.preventDefault();
+                                void handleConfirmCleanup();
+                              }}
+                              disabled={
+                                loading ||
+                                !pendingType ||
+                                (pendingType ? getCountForType(pendingType) === 0 : true)
+                              }
+                            >
+                              {pendingType === 'all' ? 'Hapus Semua' : 'Hapus'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </CardContent>
                   </Card>
                 )}
@@ -432,7 +593,6 @@ function DataCleanupContent() {
                     <p>• <strong>Aktivitas Sistem:</strong> Berisi log perubahan data (CRUD operations). Disarankan menyimpan minimal 6 bulan terakhir.</p>
                     <p>• <strong>Log Aktivitas:</strong> Berisi log akses dan navigasi pengguna. Disarankan menyimpan minimal 3 bulan terakhir.</p>
                     <p>• <strong>Notifikasi:</strong> Berisi notifikasi kepada pengguna. Disarankan menyimpan minimal 1 bulan terakhir.</p>
-                    <p>• Lakukan backup database secara berkala sebelum melakukan pembersihan.</p>
                     <p>• Pertimbangkan untuk melakukan pembersihan secara rutin setiap bulan untuk menjaga performa optimal.</p>
                   </CardContent>
                 </Card>

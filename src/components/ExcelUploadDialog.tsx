@@ -26,8 +26,8 @@ interface ValidationDetails {
     message?: string;
     suggestions?: string[];
     details?: string[];
-    data?: any;
-    data_preview?: any;
+    data?: unknown;
+    data_preview?: unknown;
   }>;
   has_valid_data: boolean;
   invalid_headers?: string[];
@@ -56,7 +56,7 @@ interface ImportResponse {
   detailed_errors?: Array<{
     row: number;
     error: string;
-    data: any;
+    data: unknown;
   }>;
   warnings?: string[];
 }
@@ -75,24 +75,42 @@ export default function ExcelUploadDialog({
   const [validationModalOpen, setValidationModalOpen] = useState(false);
   const [importResult, setImportResult] = useState<ImportResponse | null>(null);
 
+  const getErrorMessage = (error: unknown, fallback: string) => {
+    const err = error as {
+      message?: string;
+      response?: { status?: number; statusText?: string; data?: unknown };
+    };
+
+    if (typeof err?.message === 'string' && err.message && err.message !== 'Network Error') {
+      return err.message;
+    }
+
+    const status = err?.response?.status;
+    if (status === 403) return 'Akses ditolak. Anda tidak memiliki permission.';
+    if (status === 401) return 'Sesi Anda telah berakhir. Silakan login kembali.';
+    if (status === 500) return 'Terjadi kesalahan server. Silakan coba lagi.';
+
+    return fallback;
+  };
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      // Validate file type
-      const validTypes = [
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'text/csv'
-      ];
-      
-      if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/i)) {
-        toast.error("File harus berformat Excel (.xlsx, .xls) atau CSV");
-        return;
-      }
+    if (!file) return;
 
-      setSelectedFile(file);
-      setUploadError(null);
+    // Validate file type
+    const validTypes = [
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv',
+    ];
+
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/i)) {
+      toast.error('File harus berformat Excel (.xlsx, .xls) atau CSV');
+      return;
     }
+
+    setSelectedFile(file);
+    setUploadError(null);
   };
 
   const handleDownloadTemplate = async () => {
@@ -100,28 +118,20 @@ export default function ExcelUploadDialog({
       setDownloadingTemplate(true);
       await penagihanService.downloadTemplate();
       toast.success("Template berhasil diunduh");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as {
+        message?: string;
+        response?: { status?: number; statusText?: string; data?: unknown };
+      };
+
       console.error('Download template error:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        message: error.message,
-        data: error.response?.data
+        status: err?.response?.status,
+        statusText: err?.response?.statusText,
+        message: err?.message,
+        data: err?.response?.data,
       });
-      
-      // Try to extract meaningful error message
-      let errorMessage = "Gagal mengunduh template";
-      
-      if (error.message && error.message !== 'Network Error') {
-        errorMessage = error.message;
-      } else if (error.response?.status === 403) {
-        errorMessage = "Akses ditolak. Anda tidak memiliki permission untuk download template.";
-      } else if (error.response?.status === 401) {
-        errorMessage = "Sesi Anda telah berakhir. Silakan login kembali.";
-      } else if (error.response?.status === 500) {
-        errorMessage = "Terjadi kesalahan di server. Silakan hubungi administrator.";
-      }
-      
-      toast.error(errorMessage);
+
+      toast.error(getErrorMessage(error, 'Gagal mengunduh template'));
     } finally {
       setDownloadingTemplate(false);
     }
@@ -154,20 +164,33 @@ export default function ExcelUploadDialog({
         onUploadSuccess();
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Upload error:', error);
-      
-      const errorData = error.response?.data;
-      
+
+      const err = error as {
+        message?: string;
+        response?: { data?: unknown };
+      };
+
+      const errorData = err?.response?.data;
+      const payload =
+        typeof errorData === 'object' && errorData !== null
+          ? (errorData as Record<string, unknown>)
+          : null;
+
       // If we have detailed validation info, show modal
-      if (errorData && (errorData.validation_details || errorData.suggestions)) {
-        setImportResult(errorData as ImportResponse);
+      if (payload && ('validation_details' in payload || 'suggestions' in payload)) {
+        setImportResult(payload as unknown as ImportResponse);
         setValidationModalOpen(true);
         setSelectedFile(null);
         onOpenChange(false);
       } else {
         // Fallback to toast error
-        const errorMessage = errorData?.message || error.message || "Gagal mengupload file";
+        const errorMessage =
+          (payload && typeof payload.message === 'string' ? payload.message : undefined) ||
+          (typeof err?.message === 'string' ? err.message : undefined) ||
+          'Gagal mengupload file';
+
         setUploadError(errorMessage);
         toast.error(errorMessage);
       }

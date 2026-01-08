@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { Clock, Edit2, Check, X } from "lucide-react";
 import DurationPicker from "@/components/DurationPicker";
 import { toast } from "sonner";
@@ -54,7 +54,7 @@ export const ProjectTimer = memo(function ProjectTimer({
   }, [estimasiDurasi, tanggalMulai, open]);
 
   // Hitung sisa waktu
-  const calculateTimeRemaining = () => {
+  const calculateTimeRemaining = useCallback(() => {
     const durasi = parseInt(String(estimasiDurasi)) || 0;
     
     if (durasi === 0 || !tanggalMulai) {
@@ -105,14 +105,14 @@ export const ProjectTimer = memo(function ProjectTimer({
         isExpired: false,
       });
     }
-  };
+  }, [estimasiDurasi, tanggalMulai]);
 
   // Update timer setiap detik
   useEffect(() => {
     calculateTimeRemaining();
     const interval = setInterval(calculateTimeRemaining, 1000);
     return () => clearInterval(interval);
-  }, [estimasiDurasi, tanggalMulai]);
+  }, [calculateTimeRemaining]);
 
   const handleSave = async () => {
     if (!editDurasi || isNaN(parseInt(editDurasi))) {

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { authStorage } from "@/lib/authStorage";
@@ -18,15 +18,18 @@ interface User {
   photo?: string | null;
 }
 
-const normalizeUserId = (rawUser: any): number => {
+const normalizeUserId = (rawUser: unknown): number => {
+  if (typeof rawUser !== 'object' || rawUser === null) return 0;
+  const obj = rawUser as Record<string, unknown>;
+
   // Try all possible ID field names (backend inconsistency)
-  const rawId = rawUser?.id ?? 
-               rawUser?.id_pengguna ?? 
-               rawUser?.idPengguna ?? 
-               rawUser?.user_id ?? 
-               rawUser?.userId ?? 
-               rawUser?.id_user ?? 
-               rawUser?.idUser;
+  const rawId = obj['id'] ??
+               obj['id_pengguna'] ??
+               obj['idPengguna'] ??
+               obj['user_id'] ??
+               obj['userId'] ??
+               obj['id_user'] ??
+               obj['idUser'];
   
   // Parse to number
   const parsed = typeof rawId === "string" ? parseInt(rawId, 10) : Number(rawId);
@@ -40,27 +43,34 @@ const normalizeUserId = (rawUser: any): number => {
   return 0;
 };
 
-const normalizeAuthUser = (rawUser: any): User => {
-  const id = normalizeUserId(rawUser);
+const normalizeAuthUser = (rawUser: unknown): User => {
+  const obj: Record<string, unknown> = typeof rawUser === 'object' && rawUser !== null ? (rawUser as Record<string, unknown>) : {};
+  const id = normalizeUserId(obj);
+
+  const jobdeskRaw = obj['jobdesk'] ?? obj['jabatan'];
+  const mitraRaw = obj['mitra'] ?? obj['nama_mitra'];
+  const nomorHpRaw = obj['nomor_hp'] ?? obj['no_hp'] ?? obj['phone'];
+  const photoRaw = obj['photo'];
+
   return {
     id,
-    name: String(rawUser?.name ?? rawUser?.nama ?? ""),
-    username: String(rawUser?.username ?? ""),
-    email: String(rawUser?.email ?? ""),
-    role: String(rawUser?.role ?? rawUser?.peran ?? ""),
-    created_at: String(rawUser?.created_at ?? rawUser?.dibuat_pada ?? ""),
-    jobdesk: rawUser?.jobdesk ?? rawUser?.jabatan ?? null,
-    mitra: rawUser?.mitra ?? rawUser?.nama_mitra ?? null,
-    nomor_hp: rawUser?.nomor_hp ?? rawUser?.no_hp ?? rawUser?.phone ?? null,
-    photo: rawUser?.photo ?? null,
+    name: String(obj['name'] ?? obj['nama'] ?? ""),
+    username: String(obj['username'] ?? ""),
+    email: String(obj['email'] ?? ""),
+    role: String(obj['role'] ?? obj['peran'] ?? ""),
+    created_at: String(obj['created_at'] ?? obj['dibuat_pada'] ?? ""),
+    jobdesk: typeof jobdeskRaw === 'string' ? jobdeskRaw : null,
+    mitra: typeof mitraRaw === 'string' ? mitraRaw : null,
+    nomor_hp: typeof nomorHpRaw === 'string' ? nomorHpRaw : null,
+    photo: typeof photoRaw === 'string' ? photoRaw : null,
   };
 };
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  signIn: (identifier: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, name: string, username: string) => Promise<{ error: any }>;
+  signIn: (identifier: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, name: string, username: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   loading: boolean;
   refreshUser: () => Promise<void>;
@@ -74,14 +84,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const clearAuthState = (redirectToLogin: boolean) => {
+  const clearAuthState = useCallback((redirectToLogin: boolean) => {
     authStorage.clear();
     setToken(null);
     setUser(null);
     if (redirectToLogin) {
       navigate("/login", { replace: true });
     }
-  };
+  }, [navigate]);
 
   // Load user from storage on mount (migrate localStorage -> sessionStorage)
   useEffect(() => {
@@ -113,7 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     window.addEventListener('offline', onOffline);
     return () => window.removeEventListener('offline', onOffline);
-  }, [navigate]);
+  }, [clearAuthState]);
 
   // Refresh user data from API
   const refreshUser = async () => {

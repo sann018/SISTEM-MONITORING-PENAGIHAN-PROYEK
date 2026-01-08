@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ComponentProps } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
 import { Badge } from "@/components/Badge";
@@ -67,13 +67,8 @@ export default function ProjectDetail() {
     return "default";
   };
 
-  useEffect(() => {
-    if (id) {
-      fetchProject();
-    }
-  }, [id]);
-
-  const fetchProject = async () => {
+  const fetchProject = useCallback(async () => {
+    if (!id) return;
     try {
       setLoading(true);
       const data = await penagihanService.getById(id!);
@@ -107,7 +102,11 @@ export default function ProjectDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    fetchProject();
+  }, [fetchProject]);
 
   if (loading) {
     return (
@@ -223,13 +222,13 @@ export default function ProjectDetail() {
                     <div className="space-y-3 md:space-y-4">
                       <div>
                         <p className="text-[10px] sm:text-xs font-semibold text-gray-600 mb-2">Status CT</p>
-                        <Badge variant={getStatusVariant(project.status_ct) as any} className="text-[10px] md:text-xs">
+                        <Badge variant={getStatusVariant(project.status_ct) as ComponentProps<typeof Badge>['variant']} className="text-[10px] md:text-xs">
                           {project.status_ct}
                         </Badge>
                       </div>
                       <div>
                         <p className="text-[10px] sm:text-xs font-semibold text-gray-600 mb-2">Status UT</p>
-                        <Badge variant={getStatusVariant(project.status_ut) as any} className="text-[10px] md:text-xs">
+                        <Badge variant={getStatusVariant(project.status_ut) as ComponentProps<typeof Badge>['variant']} className="text-[10px] md:text-xs">
                           {project.status_ut}
                         </Badge>
                       </div>
@@ -250,7 +249,7 @@ export default function ProjectDetail() {
                     <div>
                       <p className="text-[10px] sm:text-xs font-semibold text-gray-600 mb-2">Rekon Material</p>
                       <Badge 
-                        variant={getStatusVariant(project.rekon_material) as any} 
+                        variant={getStatusVariant(project.rekon_material) as ComponentProps<typeof Badge>['variant']} 
                         className="text-[10px] md:text-xs"
                       >
                         {project.rekon_material}
@@ -259,7 +258,7 @@ export default function ProjectDetail() {
                     <div>
                       <p className="text-[10px] sm:text-xs font-semibold text-gray-600 mb-2">Pelurusan Material</p>
                       <Badge 
-                        variant={getStatusVariant(project.pelurusan_material) as any} 
+                        variant={getStatusVariant(project.pelurusan_material) as ComponentProps<typeof Badge>['variant']} 
                         className="text-[10px] md:text-xs"
                       >
                         {project.pelurusan_material}
@@ -268,7 +267,7 @@ export default function ProjectDetail() {
                     <div>
                       <p className="text-[10px] sm:text-xs font-semibold text-gray-600 mb-2">Status Procurement</p>
                       <Badge 
-                        variant={getStatusVariant(project.status_procurement) as any} 
+                        variant={getStatusVariant(project.status_procurement) as ComponentProps<typeof Badge>['variant']} 
                         className="text-[10px] md:text-xs"
                       >
                         {project.status_procurement}

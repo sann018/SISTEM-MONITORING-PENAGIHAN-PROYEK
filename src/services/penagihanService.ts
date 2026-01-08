@@ -94,7 +94,7 @@ class PenagihanService {
   /**
    * [💡 API_SERVICE] [🗑️ BULK_DELETE] Hapus SEMUA data proyek
    * Membutuhkan konfirmasi "DELETE_ALL_PROJECTS" untuk keamanan
-   * HANYA SUPER ADMIN yang bisa mengakses
+    * SUPER ADMIN dan ADMIN yang bisa mengakses
    */
   async deleteAll(
     confirmation: string, 
@@ -115,7 +115,7 @@ class PenagihanService {
   /**
    * [💡 API_SERVICE] [🗑️ BULK_DELETE] Hapus data proyek terpilih (selected)
    * Menghapus multiple data berdasarkan array PID
-   * HANYA SUPER ADMIN yang bisa mengakses
+    * SUPER ADMIN dan ADMIN yang bisa mengakses
    */
   async deleteSelected(pids: string[]): Promise<{ total_deleted: number }> {
     const response = await api.delete<ApiResponse<{ total_deleted: number }>>(
@@ -149,8 +149,22 @@ class PenagihanService {
    * [💡 API_SERVICE] [📊 CARD_STATISTICS] Hitung statistik untuk card di dashboard
    * Menghitung dari SEMUA data proyek (bukan hanya prioritas)
    */
-  async getCardStatistics(): Promise<any> {
-    const response = await api.get<ApiResponse<any>>(
+  async getCardStatistics(): Promise<{
+    total_proyek: number;
+    sudah_penuh: number;
+    sedang_berjalan: number;
+    tertunda: number;
+    belum_rekon: number;
+  }> {
+    const response = await api.get<
+      ApiResponse<{
+        total_proyek: number;
+        sudah_penuh: number;
+        sedang_berjalan: number;
+        tertunda: number;
+        belum_rekon: number;
+      }>
+    >(
       `${this.baseUrl}/card-statistics`
     );
 
@@ -165,7 +179,7 @@ class PenagihanService {
    * [💡 API_SERVICE] [📑 EXCEL_OPERATIONS] Import data penagihan dari file Excel
    * Upload file ke server dan kembalikan hasil import (success/failed count)
    */
-  async importExcel(file: File): Promise<{ success_count: number; failed_count: number; errors: any }> {
+  async importExcel(file: File): Promise<{ success_count: number; failed_count: number; errors: unknown }> {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -176,7 +190,7 @@ class PenagihanService {
       success_count: number;
       failed_count: number;
       // legacy / fallback
-      errors?: any;
+      errors?: unknown;
       // detail untuk modal validasi
       validation_details?: {
         invalid_headers?: string[];
@@ -194,7 +208,7 @@ class PenagihanService {
       detailed_errors?: Array<{
         row: number;
         errors: string[];
-        values?: Record<string, any>;
+        values?: Record<string, unknown>;
       }>;
     }>(
       '/penagihan/import',
@@ -203,7 +217,12 @@ class PenagihanService {
         headers: { 'Content-Type': 'multipart/form-data' },
       }
     );
-    return response.data;
+
+    // Normalize: `errors` is required by this method's return type
+    return {
+      ...response.data,
+      errors: response.data.errors ?? response.data.detailed_errors ?? [],
+    };
   }
 
   /**
@@ -248,15 +267,21 @@ class PenagihanService {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as {
+        message?: string;
+        response?: { data?: unknown; status?: number; statusText?: string };
+      };
+
       // [📤 EXCEL_OPERATIONS] Parse blob error response untuk error handling
-      if (error.response?.data instanceof Blob) {
-        const text = await error.response.data.text();
+      const data = err?.response?.data;
+      if (data instanceof Blob) {
+        const text = await data.text();
         try {
           const errorData = JSON.parse(text);
           console.error('[📤 EXCEL_OPERATIONS] Download template error (parsed):', errorData);
           throw new Error(errorData.message || 'Gagal mengunduh template');
-        } catch (parseError) {
+        } catch {
           console.error('[📤 EXCEL_OPERATIONS] Download template error (raw):', text);
           throw new Error('Gagal mengunduh template: ' + text);
         }
@@ -264,10 +289,10 @@ class PenagihanService {
       
       // [📤 EXCEL_OPERATIONS] Log error detail untuk troubleshooting
       console.error('[📤 EXCEL_OPERATIONS] Download template error:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        message: error.message,
-        data: error.response?.data
+        status: err?.response?.status,
+        statusText: err?.response?.statusText,
+        message: err?.message,
+        data: err?.response?.data,
       });
       
       throw error;
@@ -292,6 +317,27 @@ class PenagihanService {
     }
 
     throw new Error(response.data.message || 'Gagal mengatur prioritas');
+  }
+
+  /**
+   * Set/unset prioritas manual untuk banyak proyek sekaligus
+   * @param pids - array PID
+   * @param prioritas - 1, 2, 3, atau null untuk hapus prioritas
+   */
+  async setPrioritizeSelected(pids: string[], prioritas: number | null): Promise<{ total_updated: number }> {
+    const response = await api.put<ApiResponse<{ total_updated: number }>>(
+      `${this.baseUrl}/prioritize-selected`,
+      {
+        pids,
+        prioritas,
+      }
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.message || 'Gagal mengatur prioritas terpilih');
   }
 
   /**

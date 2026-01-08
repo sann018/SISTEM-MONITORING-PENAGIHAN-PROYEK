@@ -34,8 +34,8 @@ interface DetailedError {
   message?: string;
   details?: string[];
   suggestions?: string[];
-  data?: any;
-  data_preview?: any;
+  data?: unknown;
+  data_preview?: unknown;
 }
 
 interface ExpectedHeader {

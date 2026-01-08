@@ -27,6 +27,8 @@ import { Eye, Pencil, Trash2, Plus, Upload, Search, Calendar, AlertCircle, Alert
 import { toast } from "sonner";
 import { normalizeStatusText } from "@/lib/status";
 import { useAuth } from "@/contexts/AuthContext";
+import api from "@/services/api";
+import { getApiErrorPayload, getErrorMessage } from "@/utils/errors";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -87,9 +89,9 @@ interface Project {
   status_procurement: string;
   estimasi_durasi_hari?: number | string;
   tanggal_mulai?: string;
-  dibuat_pada?: string;
+  dibuat_pada?: string | null;
   prioritas?: number | null;
-  prioritas_label?: string;
+  prioritas_label?: string | null;
   priority_info?: {
     level: string;
     level_label: string;
@@ -105,6 +107,23 @@ interface Project {
   };
 }
 
+const extractYearFromPid = (pid: string | undefined | null): string | null => {
+  if (!pid) return null;
+  const trimmed = String(pid).trim();
+
+  // Format utama: PID diawali 2 digit tahun (contoh: "25KT07R638-0012" => 2025)
+  const leadingTwo = trimmed.match(/^(\d{2})/);
+  if (leadingTwo) return `20${leadingTwo[1]}`;
+
+  // Fallback legacy: "PID-YYYY-..."
+  const legacy = trimmed.match(/PID-(\d{4})-/i);
+  if (legacy) return legacy[1];
+
+  return null;
+};
+
+const normalizePid = (pid: string): string => String(pid ?? '').trim();
+
 function ProjectsContent() {
   const { user } = useAuth();
   const { toggleSidebar, state } = useSidebar();
@@ -114,7 +133,13 @@ function ProjectsContent() {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [filterType, setFilterType] = useState<"all" | "completed" | "ongoing" | "delayed" | "not-recon">("all");
   const [selectedYear, setSelectedYear] = useState<string>("all");
-  const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  const [selectedMitra, setSelectedMitra] = useState<string>("all");
+  const [selectedJenisPo, setSelectedJenisPo] = useState<string>('all');
+  const [selectedPhase, setSelectedPhase] = useState<string>('all');
+  const [mitraOptions, setMitraOptions] = useState<string[]>([]);
+  const [jenisPoOptions, setJenisPoOptions] = useState<string[]>([]);
+  const [phaseOptions, setPhaseOptions] = useState<string[]>([]);
+  const [loadingFilterOptions, setLoadingFilterOptions] = useState(false);
   const [tableContextLabel, setTableContextLabel] = useState<string | null>(null);
   
   // State untuk Hapus Semua Data
@@ -127,6 +152,7 @@ function ProjectsContent() {
   const [selectedPids, setSelectedPids] = useState<Set<string>>(new Set());
   const [isDeleteSelectedDialogOpen, setIsDeleteSelectedDialogOpen] = useState(false);
   const [isDeletingSelected, setIsDeletingSelected] = useState(false);
+  const [isSettingSelectedPriority, setIsSettingSelectedPriority] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -137,47 +163,17 @@ function ProjectsContent() {
     return Array.from(new Set(
       projects
         .map(p => {
-          const match = p.pid?.match(/PID-(\d{4})-/);
-          return match ? match[1] : null;
+          return extractYearFromPid(p.pid);
         })
         .filter(Boolean)
     )).sort((a, b) => b!.localeCompare(a!)) as string[];
   }, [projects]);
-
-  // ✅ OPTIMIZED: Memoized available months calculation
-  const availableMonths = useMemo(() => {
-    if (selectedYear === "all") return [];
-    
-    return Array.from(new Set(
-      projects
-        .filter(p => {
-          const yearMatch = p.pid?.match(/PID-(\d{4})-/);
-          return yearMatch && yearMatch[1] === selectedYear;
-        })
-        .map(p => {
-          const monthMatch = p.pid?.match(/PID-\d{4}-(\d{3})/);
-          if (monthMatch) {
-            const monthNum = parseInt(monthMatch[1], 10);
-            return monthNum > 0 && monthNum <= 12 ? monthNum.toString() : null;
-          }
-          return null;
-        })
-        .filter(Boolean)
-    )).sort((a, b) => parseInt(a!) - parseInt(b!)) as string[];
-  }, [projects, selectedYear]);
-
-  // ✅ OPTIMIZED: Memoized helper function
-  const getMonthName = useCallback((month: string): string => {
-    const monthNames = [
-      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-    ];
-    const monthNum = parseInt(month, 10);
-    return monthNum >= 1 && monthNum <= 12 ? monthNames[monthNum - 1] : month;
-  }, []);
   
   // Check if user is viewer (read-only)
   const isReadOnly = user?.role === 'viewer';
+
+  const canAdminFilterMitra = user?.role === 'super_admin' || user?.role === 'admin';
+  const canBulkDelete = !isReadOnly && (user?.role === 'super_admin' || user?.role === 'admin');
 
   const [visibleColumns, setVisibleColumns] = useState<Record<ProjectTableColumnKey, boolean>>(() => {
     return PROJECT_TABLE_COLUMNS.reduce((acc, col) => {
@@ -257,13 +253,17 @@ function ProjectsContent() {
     const focusPidParam = searchParams.get('pid');
     const filterParam = searchParams.get('filter');
     const yearParam = searchParams.get('year');
-    const monthParam = searchParams.get('month');
+    const mitraParam = searchParams.get('mitra');
+    const jenisPoParam = searchParams.get('jenis_po');
+    const phaseParam = searchParams.get('phase');
 
     if (focusPidParam) {
       // Jika ada PID di URL, fokuskan ke PID tersebut
       setFilterType('all');
       setSelectedYear('all');
-      setSelectedMonth('all');
+      setSelectedMitra('all');
+      setSelectedJenisPo('all');
+      setSelectedPhase('all');
       setSearchTerm(focusPidParam);
       setTableContextLabel(`Data Proyek ${focusPidParam}`);
       return;
@@ -291,9 +291,26 @@ function ProjectsContent() {
       // Restore year/month if available
       if (yearParam && yearParam !== 'all') {
         setSelectedYear(yearParam);
-        if (monthParam && monthParam !== 'all') {
-          setSelectedMonth(monthParam);
-        }
+      }
+
+      // Restore mitra if available
+      if (mitraParam && mitraParam !== 'all') {
+        setSelectedMitra(mitraParam);
+      } else {
+        setSelectedMitra('all');
+      }
+
+      // Restore admin filters if available
+      if (jenisPoParam && jenisPoParam !== 'all') {
+        setSelectedJenisPo(jenisPoParam);
+      } else {
+        setSelectedJenisPo('all');
+      }
+
+      if (phaseParam && phaseParam !== 'all') {
+        setSelectedPhase(phaseParam);
+      } else {
+        setSelectedPhase('all');
       }
       return;
     }
@@ -305,7 +322,9 @@ function ProjectsContent() {
       // Dari Dashboard (klik proyek prioritas), fokuskan ke 1 PID saja
       setFilterType('all');
       setSelectedYear('all');
-      setSelectedMonth('all');
+      setSelectedMitra('all');
+      setSelectedJenisPo('all');
+      setSelectedPhase('all');
       setSearchTerm(state.focusPid);
       setTableContextLabel(`Data Proyek ${state.focusPid}`);
       
@@ -338,7 +357,32 @@ function ProjectsContent() {
       return;
     }
 
-    // Default: no filter
+    // Default: restore year/month/mitra from URL (even without filter)
+    if (yearParam && yearParam !== 'all') {
+      setSelectedYear(yearParam);
+    } else {
+      setSelectedYear('all');
+    }
+
+    if (mitraParam && mitraParam !== 'all') {
+      setSelectedMitra(mitraParam);
+    } else {
+      setSelectedMitra('all');
+    }
+
+    if (jenisPoParam && jenisPoParam !== 'all') {
+      setSelectedJenisPo(jenisPoParam);
+    } else {
+      setSelectedJenisPo('all');
+    }
+
+    if (phaseParam && phaseParam !== 'all') {
+      setSelectedPhase(phaseParam);
+    } else {
+      setSelectedPhase('all');
+    }
+
+    // Default: no table context
     setTableContextLabel(null);
   }, [location.state, searchParams, setSearchParams]);
 
@@ -348,7 +392,9 @@ function ProjectsContent() {
   const handleResetFilter = useCallback(() => {
     setFilterType('all');
     setSelectedYear('all');
-    setSelectedMonth('all');
+    setSelectedMitra('all');
+    setSelectedJenisPo('all');
+    setSelectedPhase('all');
     setSearchTerm('');
     setTableContextLabel(null);
     
@@ -369,35 +415,54 @@ function ProjectsContent() {
       searchTerm.trim() !== '' ||
       filterType !== 'all' ||
       selectedYear !== 'all' ||
-      selectedMonth !== 'all' ||
+      selectedMitra !== 'all' ||
+      selectedJenisPo !== 'all' ||
+      selectedPhase !== 'all' ||
       tableContextLabel !== null
     );
-  }, [searchTerm, filterType, selectedYear, selectedMonth, tableContextLabel]);
-
-  // =====================================
-  // useEffect untuk fetch projects
-  // =====================================
-  useEffect(() => {
-    fetchProjects();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterType]);
-
-  // Dropdown prioritas sekarang pakai Radix (auto flip/shift), tidak perlu manual close.
+  }, [searchTerm, filterType, selectedYear, selectedMitra, selectedJenisPo, selectedPhase, tableContextLabel]);
 
   // =====================================
   // FUNCTION: fetchProjects
+  // NOTE: Must be declared before useEffect uses it (avoid TDZ crash)
   // =====================================
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
-      const cardFilterMap: Record<typeof filterType, any> = {
+      type ProjectApiItem = {
+        pid?: string | number | null;
+        nama_proyek?: string | null;
+        nama_mitra?: string | null;
+        jenis_po?: string | null;
+        nomor_po?: string | null;
+        phase?: string | null;
+        status_ct?: string | null;
+        status_ut?: string | null;
+        rekap_boq?: string | null;
+        rekon_nilai?: string | number | null;
+        rekon_material?: string | null;
+        pelurusan_material?: string | null;
+        status_procurement?: string | null;
+        estimasi_durasi_hari?: number | string | null;
+        tanggal_mulai?: string | null;
+        dibuat_pada?: string | null;
+        prioritas?: number | null;
+        prioritas_label?: string | null;
+      };
+
+      const cardFilterMap = {
         all: undefined,
         completed: 'sudah_penuh',
         ongoing: 'sedang_berjalan',
         delayed: 'tertunda',
         'not-recon': 'belum_rekon',
-      };
+      } as const;
 
-      const card_filter = cardFilterMap[filterType];
+      type CardFilterValue = Exclude<
+        (typeof cardFilterMap)[keyof typeof cardFilterMap],
+        undefined
+      >;
+
+      const card_filter: CardFilterValue | undefined = cardFilterMap[filterType];
 
       // Fetch ALL data (bukan pagination default 15)
       // IMPORTANT: gunakan sorting stabil supaya saat prioritas berubah, baris tidak "loncat" ke atas
@@ -406,36 +471,92 @@ function ProjectsContent() {
         sort_by: 'dibuat_pada',
         sort_order: 'desc',
         ...(card_filter ? { card_filter } : {}),
+        ...(canAdminFilterMitra && selectedMitra !== 'all' ? { mitra: selectedMitra } : {}),
+        ...(canAdminFilterMitra && selectedJenisPo !== 'all' ? { jenis_po: selectedJenisPo } : {}),
+        ...(canAdminFilterMitra && selectedPhase !== 'all' ? { phase: selectedPhase } : {}),
+        // NOTE: jangan filter by tahun di backend, agar opsi dropdown tahun tetap lengkap.
+        // Filtering tahun dilakukan murni di frontend.
       });
-      const mappedData = response.data.map((item: any) => ({
-        id: item.pid || '-',  // ✅ Gunakan PID sebagai ID (primary key)
-        nama_proyek: item.nama_proyek || '-',
-        nama_mitra: item.nama_mitra || '-',
-        pid: item.pid || '-',
-        jenis_po: item.jenis_po || '-',
-        nomor_po: item.nomor_po || '-',
-        phase: item.phase || '-',
-        status_ct: normalizeStatusText(item.status_ct) || 'Belum CT',
-        status_ut: normalizeStatusText(item.status_ut) || 'Belum UT',
-        rekap_boq: normalizeStatusText(item.rekap_boq) || 'Belum Rekap',
-        rekon_nilai: item.rekon_nilai || '0',
-        rekon_material: normalizeStatusText(item.rekon_material) || 'Belum Rekon',
-        pelurusan_material: normalizeStatusText(item.pelurusan_material) || 'Belum Lurus',
-        status_procurement: normalizeStatusText(item.status_procurement) || 'Antri Periv',
-        estimasi_durasi_hari: item.estimasi_durasi_hari || 7,
-        tanggal_mulai: item.tanggal_mulai || new Date().toISOString().split('T')[0],
-        dibuat_pada: item.dibuat_pada,
-        prioritas: item.prioritas ?? null,
-        prioritas_label: item.prioritas_label ?? null,
-      }));
-      
-      console.log('Fetched projects with prioritas:', mappedData.slice(0, 5).map(p => ({ pid: p.pid, prioritas: p.prioritas })));
+      const mappedData: Project[] = response.data.map((item: ProjectApiItem) => {
+        const pid = item.pid == null ? '-' : String(item.pid);
+
+        return {
+          id: pid, // ✅ Gunakan PID sebagai ID (primary key)
+          nama_proyek: item.nama_proyek || '-',
+          nama_mitra: item.nama_mitra || '-',
+          pid,
+          jenis_po: item.jenis_po || '-',
+          nomor_po: item.nomor_po || '-',
+          phase: item.phase || '-',
+          status_ct: normalizeStatusText(item.status_ct) || 'Belum CT',
+          status_ut: normalizeStatusText(item.status_ut) || 'Belum UT',
+          rekap_boq: normalizeStatusText(item.rekap_boq) || 'Belum Rekap',
+          rekon_nilai: item.rekon_nilai == null ? '0' : String(item.rekon_nilai),
+          rekon_material: normalizeStatusText(item.rekon_material) || 'Belum Rekon',
+          pelurusan_material: normalizeStatusText(item.pelurusan_material) || 'Belum Lurus',
+          status_procurement: normalizeStatusText(item.status_procurement) || 'Antri Periv',
+          estimasi_durasi_hari: item.estimasi_durasi_hari ?? 7,
+          tanggal_mulai: item.tanggal_mulai ?? new Date().toISOString().split('T')[0],
+          dibuat_pada: item.dibuat_pada ?? null,
+          prioritas: item.prioritas ?? null,
+          prioritas_label: item.prioritas_label ?? null,
+        };
+      });
+
+      console.log(
+        'Fetched projects with prioritas:',
+        mappedData.slice(0, 5).map((p) => ({ pid: p.pid, prioritas: p.prioritas }))
+      );
       setProjects(mappedData);
     } catch (error) {
-      toast.error("Gagal memuat data proyek");
+      toast.error('Gagal memuat data proyek');
       console.error(error);
     }
-  };
+  }, [
+    filterType,
+    selectedMitra,
+    selectedJenisPo,
+    selectedPhase,
+    canAdminFilterMitra,
+  ]);
+
+  // =====================================
+  // useEffect untuk fetch projects
+  // =====================================
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      if (!canAdminFilterMitra) return;
+
+      setLoadingFilterOptions(true);
+      try {
+        const res = await api.get('/penagihan/filter-options');
+        const payload = res?.data?.data;
+
+        const mitra = Array.isArray(payload?.mitra) ? payload.mitra : [];
+        const jenisPo = Array.isArray(payload?.jenis_po) ? payload.jenis_po : [];
+        const phase = Array.isArray(payload?.phase) ? payload.phase : [];
+
+        setMitraOptions((mitra || []).filter(Boolean));
+        setJenisPoOptions((jenisPo || []).filter(Boolean));
+        setPhaseOptions((phase || []).filter(Boolean));
+      } catch (err) {
+        console.error('[Projects] Error fetching filter options:', err);
+        setMitraOptions([]);
+        setJenisPoOptions([]);
+        setPhaseOptions([]);
+      } finally {
+        setLoadingFilterOptions(false);
+      }
+    };
+
+    fetchFilterOptions();
+  }, [canAdminFilterMitra]);
+
+  // Dropdown prioritas sekarang pakai Radix (auto flip/shift), tidak perlu manual close.
 
   // =====================================
   // ✅ OPTIMIZED: Memoized filter pipeline
@@ -489,35 +610,26 @@ function ProjectsContent() {
     );
   }, [projects, searchTerm]);
   
-  // ✅ OPTIMIZED: Memoized year/month filter
-  const yearMonthFilteredProjects = useMemo(() => {
+  // ✅ OPTIMIZED: Memoized year filter
+  const yearFilteredProjects = useMemo(() => {
     return searchFilteredProjects.filter(project => {
-      const pidMatch = project.pid?.match(/PID-(\d{4})-(\d{3})/);
-      if (!pidMatch) return selectedYear === "all" && selectedMonth === "all";
-      
-      const projectYear = pidMatch[1];
-      const projectMonthNum = parseInt(pidMatch[2], 10);
-      
-      if (projectMonthNum < 1 || projectMonthNum > 12) {
-        return selectedYear === "all" && selectedMonth === "all";
-      }
+      const projectYear = extractYearFromPid(project.pid);
+
+      // Jika PID tidak bisa diparse, jangan diikutkan saat filter aktif.
+      if (!projectYear && selectedYear !== 'all') return false;
       
       if (selectedYear !== "all" && projectYear !== selectedYear) {
         return false;
       }
       
-      if (selectedMonth !== "all" && projectMonthNum.toString() !== selectedMonth) {
-        return false;
-      }
-      
       return true;
     });
-  }, [searchFilteredProjects, selectedYear, selectedMonth]);
+  }, [searchFilteredProjects, selectedYear]);
   
   // ✅ OPTIMIZED: Final filtered projects
   const filteredProjects = useMemo(() => {
-    return getFilteredByCategory(yearMonthFilteredProjects);
-  }, [yearMonthFilteredProjects, getFilteredByCategory]);
+    return getFilteredByCategory(yearFilteredProjects);
+  }, [yearFilteredProjects, getFilteredByCategory]);
 
   // =====================================
   // ✅ OPTIMIZED: Handle Excel Download
@@ -550,31 +662,40 @@ function ProjectsContent() {
       window.URL.revokeObjectURL(url);
       
       toast.success("Data Excel berhasil diunduh!");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorObj = typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : null;
+      const responseObj = errorObj && typeof errorObj['response'] === 'object' && errorObj['response'] !== null
+        ? (errorObj['response'] as Record<string, unknown>)
+        : null;
+      const responseData = responseObj ? responseObj['data'] : null;
+
       // Detailed error logging
       console.error("Error downloading Excel:", {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        message: error.message,
-        data: error.response?.data,
-        headers: error.response?.headers
+        status: responseObj?.['status'],
+        statusText: responseObj?.['statusText'],
+        message: getErrorMessage(error, ''),
+        data: responseData,
+        headers: responseObj?.['headers'],
       });
-      
+
       // Try to parse blob error
-      if (error.response?.data instanceof Blob) {
+      if (responseData instanceof Blob) {
         try {
-          const text = await error.response.data.text();
+          const text = await responseData.text();
           console.error("Blob error content:", text);
-          const errorData = JSON.parse(text);
-          toast.error(errorData.message || "Gagal mengunduh data Excel");
+          const errorData: unknown = JSON.parse(text);
+          const messageCandidate = typeof (errorData as { message?: unknown } | null)?.message === 'string'
+            ? (errorData as { message: string }).message
+            : null;
+          toast.error(messageCandidate || "Gagal mengunduh data Excel");
           return;
         } catch {
           // If parsing fails, use default message
         }
       }
-      
-      const errorMessage = error.response?.data?.message || error.message || "Gagal mengunduh data Excel";
-      toast.error(errorMessage);
+
+      const apiMessage = getApiErrorPayload(error)?.message;
+      toast.error(apiMessage || getErrorMessage(error, "Gagal mengunduh data Excel"));
     }
   }, []);
 
@@ -652,10 +773,9 @@ function ProjectsContent() {
       );
 
       toast.success("Status berhasil diperbarui");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
-      const message = (error as any)?.response?.data?.message || "Gagal memperbarui status";
-      toast.error(message);
+      toast.error(getErrorMessage(error, "Gagal memperbarui status"));
       throw error;
     }
   }, [projects]);
@@ -730,9 +850,8 @@ function ProjectsContent() {
       }
       
       await fetchProjects();
-    } catch (error: any) {
-      const message = error?.response?.data?.message || "Gagal mengatur prioritas";
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Gagal mengatur prioritas"));
       console.error('Error setting priority:', error);
     }
   }, [projects, fetchProjects]);
@@ -821,14 +940,13 @@ function ProjectsContent() {
       setDeleteAllConfirmation("");
       setExcludePrioritized(true);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      const errorMessage = error.response?.data?.message || error.message || "Gagal menghapus semua data";
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, "Gagal menghapus semua data"));
     } finally {
       setIsDeletingAll(false);
     }
-  }, [deleteAllConfirmation, excludePrioritized]);
+  }, [deleteAllConfirmation, excludePrioritized, fetchProjects]);
 
   // =====================================
   // ✅ Handle Checkbox Selection
@@ -836,7 +954,7 @@ function ProjectsContent() {
   const handleSelectAll = useCallback((checked: boolean) => {
     if (checked) {
       // Select all visible PIDs
-      const allPids = new Set(filteredProjects.map(p => p.pid));
+      const allPids = new Set(filteredProjects.map((p) => normalizePid(p.pid)).filter(Boolean));
       setSelectedPids(allPids);
     } else {
       // Deselect all
@@ -847,10 +965,11 @@ function ProjectsContent() {
   const handleSelectOne = useCallback((pid: string, checked: boolean) => {
     setSelectedPids(prev => {
       const newSet = new Set(prev);
+      const normalized = normalizePid(pid);
       if (checked) {
-        newSet.add(pid);
+        if (normalized) newSet.add(normalized);
       } else {
-        newSet.delete(pid);
+        if (normalized) newSet.delete(normalized);
       }
       return newSet;
     });
@@ -874,28 +993,110 @@ function ProjectsContent() {
       return;
     }
 
+    // Validasi & normalisasi PID (hindari nilai kosong / placeholder)
+    const pidsToDelete = Array.from(selectedPids)
+      .map((pid) => normalizePid(pid))
+      .filter((pid) => pid !== '' && pid !== '-');
+
+    if (pidsToDelete.length === 0) {
+      toast.error('Tidak ada data valid yang dipilih');
+      return;
+    }
+
     setIsDeletingSelected(true);
     try {
-      const pidsArray = Array.from(selectedPids);
-      const result = await penagihanService.deleteSelected(pidsArray);
+      const result = await penagihanService.deleteSelected(pidsToDelete);
       
       // Remove deleted items from list
-      setProjects(prev => prev.filter(p => !selectedPids.has(p.pid)));
+      const deletingSet = new Set(pidsToDelete);
+      setProjects((prev) => prev.filter((p) => !deletingSet.has(normalizePid(p.pid))));
       
       toast.success(`Berhasil menghapus ${result.total_deleted} data proyek`);
       
       // Reset selection and close dialog
       setSelectedPids(new Set());
       setIsDeleteSelectedDialogOpen(false);
+
+      // Sync to server state (tanpa perlu user refresh)
+      await fetchProjects();
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      const errorMessage = error.response?.data?.message || error.message || "Gagal menghapus data terpilih";
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, "Gagal menghapus data terpilih"));
     } finally {
       setIsDeletingSelected(false);
     }
-  }, [selectedPids]);
+  }, [selectedPids, fetchProjects]);
+
+  // =====================================
+  // ✅ Handle Bulk Set/Unset Priority
+  // =====================================
+  const handleSetPrioritySelected = useCallback(async (priorityValue: number | null) => {
+    if (selectedPids.size === 0) {
+      toast.error('Tidak ada data yang dipilih');
+      return;
+    }
+
+    const pidsToUpdate = Array.from(selectedPids)
+      .map((pid) => normalizePid(pid))
+      .filter((pid) => pid !== '' && pid !== '-');
+
+    if (pidsToUpdate.length === 0) {
+      toast.error('Tidak ada data valid yang dipilih');
+      return;
+    }
+
+    setIsSettingSelectedPriority(true);
+    try {
+      const result = await penagihanService.setPrioritizeSelected(pidsToUpdate, priorityValue);
+
+      // Optimistic local update (UI feels instant), then sync
+      const updatingSet = new Set(pidsToUpdate);
+      setProjects((prev) =>
+        prev.map((p) => {
+          const pid = normalizePid(p.pid);
+          if (!updatingSet.has(pid)) return p;
+
+          return {
+            ...p,
+            prioritas: priorityValue,
+            prioritas_label:
+              priorityValue === 1
+                ? 'Prioritas 1'
+                : priorityValue === 2
+                  ? 'Prioritas 2'
+                  : priorityValue === 3
+                    ? 'Prioritas 3'
+                    : null,
+          };
+        })
+      );
+
+      if (priorityValue === null) {
+        toast.success(`Berhasil membatalkan prioritas untuk ${result.total_updated} proyek`);
+      } else {
+        toast.success(`Berhasil set Prioritas ${priorityValue} untuk ${result.total_updated} proyek`);
+      }
+
+      setSelectedPids(new Set());
+      await fetchProjects();
+    } catch (error: unknown) {
+      const apiPayload = getApiErrorPayload(error);
+      if (apiPayload && typeof apiPayload === 'object' && 'final_procurement_pids' in apiPayload) {
+        const pids = (apiPayload as { final_procurement_pids?: unknown }).final_procurement_pids;
+        if (Array.isArray(pids) && pids.length > 0) {
+          toast.error(`Gagal set prioritas: ${pids.length} proyek sudah tahap procurement final`);
+        } else {
+          toast.error(getErrorMessage(error, 'Gagal mengatur prioritas terpilih'));
+        }
+      } else {
+        toast.error(getErrorMessage(error, 'Gagal mengatur prioritas terpilih'));
+      }
+      console.error(error);
+    } finally {
+      setIsSettingSelectedPriority(false);
+    }
+  }, [selectedPids, fetchProjects]);
 
   // =====================================
   // JSX RETURN
@@ -934,31 +1135,50 @@ function ProjectsContent() {
                   Unduh Excel
                 </Button>
                 
-                {/* Buttons untuk Super Admin */}
-                {user?.role === 'super_admin' && (
+                {/* Buttons untuk Super Admin / Admin */}
+                {canBulkDelete && (
                   <div className="ml-auto flex gap-3">
                     {/* Tombol Hapus Terpilih - muncul jika ada yang dipilih */}
                     {selectedPids.size > 0 && (
-                      <Button
-                        onClick={() => setIsDeleteSelectedDialogOpen(true)}
-                        variant="outline"
-                        className="border-2 border-orange-600 text-orange-600 hover:bg-orange-50 hover:text-orange-700 font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                        Hapus Terpilih ({selectedPids.size})
-                      </Button>
-                    )}
-                    
-                    {/* Tombol Hapus Semua */}
-                    {projects.length > 0 && (
-                      <Button
-                        onClick={() => setIsDeleteAllDialogOpen(true)}
-                        variant="outline"
-                        className="border-2 border-red-600 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                        Hapus Semua Data
-                      </Button>
+                      <>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={isSettingSelectedPriority}
+                              className="border-2 border-red-600 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
+                            >
+                              Prioritas Terpilih ({selectedPids.size})
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuLabel>Set Prioritas</DropdownMenuLabel>
+                            <DropdownMenuItem onSelect={() => handleSetPrioritySelected(1)}>
+                              Prioritas 1
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleSetPrioritySelected(2)}>
+                              Prioritas 2
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleSetPrioritySelected(3)}>
+                              Prioritas 3
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onSelect={() => handleSetPrioritySelected(null)}>
+                              Batalkan Prioritas
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <Button
+                          onClick={() => setIsDeleteSelectedDialogOpen(true)}
+                          variant="outline"
+                          className="border-2 border-orange-600 text-orange-600 hover:bg-orange-50 hover:text-orange-700 font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                          Hapus Terpilih ({selectedPids.size})
+                        </Button>
+                      </>
                     )}
                   </div>
                 )}
@@ -987,75 +1207,166 @@ function ProjectsContent() {
               )}
             </div>
 
-            {/* Filter Kolom */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-12 px-4 border-2 border-gray-300 rounded-lg font-bold"
-                >
-                  Filter Kolom
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Kolom</DropdownMenuLabel>
-                <DropdownMenuSeparator />
+            {/* Filter Kolom (Super Admin / Admin only) */}
+            {!isReadOnly && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 px-4 border-2 border-gray-300 rounded-lg font-bold"
+                  >
+                    Filter Kolom
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Kolom</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
 
-                <DropdownMenuCheckboxItem
-                  checked={allColumnsChecked as any}
-                  onSelect={(e) => e.preventDefault()}
-                  onCheckedChange={() => {
-                    setVisibleColumns((prev) => {
-                      return PROJECT_TABLE_COLUMNS.reduce((acc, col) => {
-                        acc[col.key] = true;
-                        return acc;
-                      }, { ...prev } as Record<ProjectTableColumnKey, boolean>);
-                    });
-                  }}
-                >
-                  All
-                </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={allColumnsChecked}
+                    onSelect={(e) => e.preventDefault()}
+                    onCheckedChange={() => {
+                      setVisibleColumns((prev) => {
+                        return PROJECT_TABLE_COLUMNS.reduce((acc, col) => {
+                          acc[col.key] = true;
+                          return acc;
+                        }, { ...prev } as Record<ProjectTableColumnKey, boolean>);
+                      });
+                    }}
+                  >
+                    All
+                  </DropdownMenuCheckboxItem>
 
-                <DropdownMenuSeparator />
+                  <DropdownMenuSeparator />
 
-                {PROJECT_TABLE_COLUMNS.map((col) => {
-                  const isOnlyOneVisible = visibleDataColumnsCount === 1 && visibleColumns[col.key];
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={col.key}
-                      checked={visibleColumns[col.key]}
-                      disabled={isOnlyOneVisible}
-                      onSelect={(e) => e.preventDefault()}
-                      onCheckedChange={(checked) =>
-                        setVisibleColumns((prev) => ({
-                          ...prev,
-                          [col.key]: Boolean(checked),
-                        }))
-                      }
-                    >
-                      {col.label}
-                    </DropdownMenuCheckboxItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  {PROJECT_TABLE_COLUMNS.map((col) => {
+                    const isOnlyOneVisible = visibleDataColumnsCount === 1 && visibleColumns[col.key];
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={col.key}
+                        checked={visibleColumns[col.key]}
+                        disabled={isOnlyOneVisible}
+                        onSelect={(e) => e.preventDefault()}
+                        onCheckedChange={(checked) =>
+                          setVisibleColumns((prev) => ({
+                            ...prev,
+                            [col.key]: Boolean(checked),
+                          }))
+                        }
+                      >
+                        {col.label}
+                      </DropdownMenuCheckboxItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
-            {/* Year Filter */}
+            {/* Filter Data (Admin/Super Admin): Mitra + Jenis PO + Phase */}
+            {canAdminFilterMitra && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 px-4 border-2 border-gray-300 rounded-lg font-bold"
+                  >
+                    Filter Data
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <DropdownMenuLabel>Filter Data</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+
+                  <div className="space-y-3 p-2" onClick={(e) => e.stopPropagation()}>
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold text-gray-600">Mitra</div>
+                      <select
+                        value={selectedMitra}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setSelectedMitra(next);
+                          if (next === 'all') {
+                            searchParams.delete('mitra');
+                          } else {
+                            searchParams.set('mitra', next);
+                          }
+                          setSearchParams(searchParams);
+                        }}
+                        className="h-10 w-full px-3 border-2 border-gray-300 rounded-lg bg-white text-gray-800 font-semibold"
+                      >
+                        <option value="all">Semua Mitra</option>
+                        {loadingFilterOptions && <option value="all">Memuat...</option>}
+                        {mitraOptions.map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold text-gray-600">Jenis PO</div>
+                      <select
+                        value={selectedJenisPo}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setSelectedJenisPo(next);
+                          if (next === 'all') {
+                            searchParams.delete('jenis_po');
+                          } else {
+                            searchParams.set('jenis_po', next);
+                          }
+                          setSearchParams(searchParams);
+                        }}
+                        className="h-10 w-full px-3 border-2 border-gray-300 rounded-lg bg-white text-gray-800 font-semibold"
+                      >
+                        <option value="all">Semua Jenis PO</option>
+                        {loadingFilterOptions && <option value="all">Memuat...</option>}
+                        {jenisPoOptions.map((j) => (
+                          <option key={j} value={j}>{j}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold text-gray-600">Phase</div>
+                      <select
+                        value={selectedPhase}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setSelectedPhase(next);
+                          if (next === 'all') {
+                            searchParams.delete('phase');
+                          } else {
+                            searchParams.set('phase', next);
+                          }
+                          setSearchParams(searchParams);
+                        }}
+                        className="h-10 w-full px-3 border-2 border-gray-300 rounded-lg bg-white text-gray-800 font-semibold"
+                      >
+                        <option value="all">Semua Phase</option>
+                        {loadingFilterOptions && <option value="all">Memuat...</option>}
+                        {phaseOptions.map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             <select
               value={selectedYear}
               onChange={(e) => {
                 const newYear = e.target.value;
                 setSelectedYear(newYear);
-                setSelectedMonth("all"); // Reset month when year changes
                 
                 // Update URL params
                 if (newYear === "all") {
                   searchParams.delete("year");
-                  searchParams.delete("month");
                 } else {
                   searchParams.set("year", newYear);
-                  searchParams.delete("month");
                 }
                 setSearchParams(searchParams);
               }}
@@ -1066,33 +1377,6 @@ function ProjectsContent() {
                 <option key={year} value={year}>{year}</option>
               ))}
             </select>
-
-            {/* Month Filter (only show when year is selected) */}
-            {selectedYear !== "all" && availableMonths.length > 0 && (
-              <select
-                value={selectedMonth}
-                onChange={(e) => {
-                  const newMonth = e.target.value;
-                  setSelectedMonth(newMonth);
-                  
-                  // Update URL params
-                  if (newMonth === "all") {
-                    searchParams.delete("month");
-                  } else {
-                    searchParams.set("month", newMonth);
-                  }
-                  setSearchParams(searchParams);
-                }}
-                className="h-12 px-4 border-2 border-gray-300 rounded-lg bg-red-500 text-white font-bold cursor-pointer hover:bg-red-600 transition-all"
-              >
-                <option value="all">Semua Bulan</option>
-                {availableMonths.map(month => (
-                  <option key={month} value={month}>
-                    {getMonthName(month)} ({month.padStart(2, '0')})
-                  </option>
-                ))}
-              </select>
-            )}
           </div>
 
           {tableContextLabel && (
@@ -1119,8 +1403,8 @@ function ProjectsContent() {
               <table className="w-full text-sm" style={{ minWidth: '1800px' }}>
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-red-600 text-white">
-                    {/* Checkbox Column - Super Admin Only */}
-                    {user?.role === 'super_admin' && !isReadOnly && (
+                    {/* Checkbox Column - Super Admin / Admin */}
+                    {canBulkDelete && (
                       <th className="px-4 py-3 text-center font-bold" style={{ minWidth: '60px' }}>
                         <input
                           type="checkbox"
@@ -1202,8 +1486,8 @@ function ProjectsContent() {
                   ) : (
                     filteredProjects.map((project) => (
                       <tr key={project.id} className="border-b hover:bg-gray-50">
-                        {/* Checkbox Column - Super Admin Only */}
-                        {user?.role === 'super_admin' && !isReadOnly && (
+                        {/* Checkbox Column - Super Admin / Admin */}
+                        {canBulkDelete && (
                           <td className="px-4 py-3 text-center" style={{ minWidth: '60px' }}>
                             <input
                               type="checkbox"

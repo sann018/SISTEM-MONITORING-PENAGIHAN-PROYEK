@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, type ComponentProps } from "react";
 import { useNavigate } from "react-router-dom";
 import penagihanService from "@/services/penagihanService";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
 import { FolderKanban, CheckCircle2, Clock, AlertTriangle, SlidersHorizontal, Search, Menu } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/utils/errors";
 import { formatRupiahNoDecimal } from "@/lib/currency";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -58,6 +59,9 @@ function DashboardContent() {
   const { toggleSidebar, state } = useSidebar();
   const [projects, setProjects] = useState<Project[]>([]);
   const isReadOnly = user?.role === 'viewer';
+  const canBulkSetPriority = !isReadOnly && (user?.role === 'super_admin' || user?.role === 'admin');
+  const [selectedPids, setSelectedPids] = useState<Set<string>>(new Set());
+  const [isSettingSelectedPriority, setIsSettingSelectedPriority] = useState(false);
   const [cardStats, setCardStats] = useState({
     total_proyek: 0,
     sudah_penuh: 0,
@@ -68,21 +72,35 @@ function DashboardContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchProjects();
-    fetchCardStatistics();
-  }, []);
+  const normalizePid = useCallback((pid: string | undefined | null): string => String(pid ?? '').trim(), []);
 
-  // Dropdown prioritas pakai Radix (auto flip/shift), tidak perlu manual close.
+  type DashboardProjectItem = {
+    pid?: string | number | null;
+    nama_proyek?: string | null;
+    nama_mitra?: string | null;
+    jenis_po?: string | null;
+    nomor_po?: string | null;
+    phase?: string | null;
+    status_ct?: string | null;
+    status_ut?: string | null;
+    rekap_boq?: string | null;
+    rekon_nilai?: string | number | null;
+    rekon_material?: string | null;
+    pelurusan_material?: string | null;
+    status_procurement?: string | null;
+    prioritas?: number | null;
+    prioritas_label?: string | null;
+    priority_info?: unknown;
+  };
 
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
       setLoading(true);
       // Fetch dashboard prioritized projects
       const response = await penagihanService.getDashboardPrioritized();
       
       // Map data dari API ke format yang dibutuhkan
-      const mappedData = response.data.map((item: any) => ({
+      const mappedData = response.data.map((item: DashboardProjectItem) => ({
         id: item.pid || '',  // ✅ Gunakan PID sebagai ID (primary key)
         nama_proyek: item.nama_proyek || '',
         nama_mitra: item.nama_mitra || '',
@@ -109,9 +127,9 @@ function DashboardContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchCardStatistics = async () => {
+  const fetchCardStatistics = useCallback(async () => {
     try {
       const response = await penagihanService.getCardStatistics();
       setCardStats(response);
@@ -119,7 +137,14 @@ function DashboardContent() {
       toast.error("Gagal memuat statistik");
       console.error(error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchProjects();
+    fetchCardStatistics();
+  }, [fetchProjects, fetchCardStatistics]);
+
+  // Dropdown prioritas pakai Radix (auto flip/shift), tidak perlu manual close.
 
   // ✅ OPTIMIZED: Memoized handler
   const handleSetPriority = useCallback(async (projectId: string, priorityValue: number | null) => {
@@ -160,9 +185,8 @@ function DashboardContent() {
         });
       }
       await Promise.all([fetchProjects(), fetchCardStatistics()]);
-    } catch (error: any) {
-      const message = error?.response?.data?.message || "Gagal mengatur prioritas";
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Gagal mengatur prioritas"));
       console.error('Error setting priority:', error);
     }
   }, [projects, fetchProjects, fetchCardStatistics]);
@@ -210,6 +234,99 @@ function DashboardContent() {
       )
     );
   }, [projects, searchTerm]);
+
+  // =====================================
+  // ✅ Checkbox selection (dashboard)
+  // =====================================
+  const handleSelectAll = useCallback((checked: boolean) => {
+    if (checked) {
+      const allPids = new Set(filteredProjects.map((p) => normalizePid(p.pid)).filter(Boolean));
+      setSelectedPids(allPids);
+    } else {
+      setSelectedPids(new Set());
+    }
+  }, [filteredProjects, normalizePid]);
+
+  const handleSelectOne = useCallback((pid: string, checked: boolean) => {
+    setSelectedPids((prev) => {
+      const newSet = new Set(prev);
+      const normalized = normalizePid(pid);
+      if (!normalized) return newSet;
+      if (checked) newSet.add(normalized);
+      else newSet.delete(normalized);
+      return newSet;
+    });
+  }, [normalizePid]);
+
+  const isAllSelected = useMemo(() => {
+    if (filteredProjects.length === 0) return false;
+    return filteredProjects.every((p) => selectedPids.has(normalizePid(p.pid)));
+  }, [filteredProjects, selectedPids, normalizePid]);
+
+  const isSomeSelected = useMemo(() => {
+    return selectedPids.size > 0 && !isAllSelected;
+  }, [selectedPids, isAllSelected]);
+
+  const handleSetPrioritySelected = useCallback(async (priorityValue: number | null) => {
+    if (selectedPids.size === 0) {
+      toast.error('Tidak ada data yang dipilih');
+      return;
+    }
+
+    const pidsToUpdate = Array.from(selectedPids)
+      .map((pid) => normalizePid(pid))
+      .filter((pid) => pid !== '' && pid !== '-');
+
+    if (pidsToUpdate.length === 0) {
+      toast.error('Tidak ada data valid yang dipilih');
+      return;
+    }
+
+    setIsSettingSelectedPriority(true);
+    try {
+      const result = await penagihanService.setPrioritizeSelected(pidsToUpdate, priorityValue);
+
+      const updatingSet = new Set(pidsToUpdate);
+      setProjects((prev) =>
+        prev.map((p) => {
+          const pid = normalizePid(p.pid);
+          if (!updatingSet.has(pid)) return p;
+          return {
+            ...p,
+            prioritas: priorityValue,
+            prioritas_label:
+              priorityValue === 1
+                ? 'Prioritas 1'
+                : priorityValue === 2
+                  ? 'Prioritas 2'
+                  : priorityValue === 3
+                    ? 'Prioritas 3'
+                    : null,
+          };
+        })
+      );
+
+      if (priorityValue === null) {
+        toast.success(`Berhasil membatalkan prioritas untuk ${result.total_updated} proyek`, {
+          position: 'bottom-center',
+          duration: 3000,
+        });
+      } else {
+        toast.success(`Berhasil set Prioritas ${priorityValue} untuk ${result.total_updated} proyek`, {
+          position: 'bottom-center',
+          duration: 3000,
+        });
+      }
+
+      setSelectedPids(new Set());
+      await Promise.all([fetchProjects(), fetchCardStatistics()]);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Gagal mengatur prioritas terpilih'));
+      console.error(error);
+    } finally {
+      setIsSettingSelectedPriority(false);
+    }
+  }, [selectedPids, normalizePid, fetchProjects, fetchCardStatistics]);
 
   // =====================================
   // \u2705 OPTIMIZED: Memoized helper\n  // =====================================
@@ -349,12 +466,44 @@ function DashboardContent() {
               />
             </div>
             {!isReadOnly && (
-              <Button
-                onClick={() => navigate("/projects")}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl h-12 text-base"
-              >
-                Lihat Semua Proyek
-              </Button>
+              <div className="flex items-center gap-3">
+                {canBulkSetPriority && selectedPids.size > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isSettingSelectedPriority}
+                        className="h-12 px-4 border-2 border-red-600 text-red-600 rounded-xl font-bold"
+                      >
+                        Prioritas Terpilih ({selectedPids.size})
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem onSelect={() => handleSetPrioritySelected(1)}>
+                        Prioritas 1
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleSetPrioritySelected(2)}>
+                        Prioritas 2
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleSetPrioritySelected(3)}>
+                        Prioritas 3
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => handleSetPrioritySelected(null)}>
+                        Batalkan Prioritas
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+
+                <Button
+                  onClick={() => navigate("/projects")}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl h-12 text-base"
+                >
+                  Lihat Semua Proyek
+                </Button>
+              </div>
             )}
           </div>
 
@@ -364,6 +513,21 @@ function DashboardContent() {
               <table className="w-full text-sm" style={{ minWidth: '2100px' }}>
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-gray-200 border-b-2 border-red-600">
+                  {canBulkSetPriority && (
+                    <th className="px-4 py-3 text-center font-bold text-gray-700 bg-gray-200" style={{ minWidth: '60px' }}>
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        ref={(input) => {
+                          if (input) input.indeterminate = isSomeSelected;
+                        }}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        className="w-4 h-4 cursor-pointer accent-red-600"
+                        title={isAllSelected ? 'Hapus semua pilihan' : 'Pilih semua'}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '120px' }}>Prioritas</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '180px' }}>Nama Proyek</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '150px' }}>Nama Mitra</th>
@@ -389,6 +553,17 @@ function DashboardContent() {
                       onClick={() => navigate('/projects', { state: { focusPid: project.pid } })}
                       title="Klik untuk membuka proyek ini di menu Project"
                     >
+                      {canBulkSetPriority && (
+                        <td className="px-4 py-3 text-center" style={{ minWidth: '60px' }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedPids.has(normalizePid(project.pid))}
+                            onChange={(e) => handleSelectOne(project.pid, e.target.checked)}
+                            className="w-4 h-4 cursor-pointer accent-red-600"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3" style={{ minWidth: '120px' }}>
                         <div className="relative inline-flex">
                           {isReadOnly ? (
@@ -511,17 +686,17 @@ function DashboardContent() {
                       <td className="px-4 py-3 whitespace-normal" style={{ minWidth: '100px' }}>{project.phase}</td>
                       <td className="px-4 py-3" style={{ minWidth: '120px' }}>
                         <div className="inline-block">
-                          <Badge variant={getStatusVariant(project.status_ct) as any}>{project.status_ct}</Badge>
+                          <Badge variant={getStatusVariant(project.status_ct) as ComponentProps<typeof Badge>['variant']}>{project.status_ct}</Badge>
                         </div>
                       </td>
                       <td className="px-4 py-3" style={{ minWidth: '120px' }}>
                         <div className="inline-block">
-                          <Badge variant={getStatusVariant(project.status_ut) as any}>{project.status_ut}</Badge>
+                          <Badge variant={getStatusVariant(project.status_ut) as ComponentProps<typeof Badge>['variant']}>{project.status_ut}</Badge>
                         </div>
                       </td>
                       <td className="px-4 py-3" style={{ minWidth: '130px' }}>
                         <div className="inline-block">
-                          <Badge variant={getStatusVariant(project.rekap_boq) as any}>{project.rekap_boq}</Badge>
+                          <Badge variant={getStatusVariant(project.rekap_boq) as ComponentProps<typeof Badge>['variant']}>{project.rekap_boq}</Badge>
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap" style={{ minWidth: '150px' }}>
@@ -531,17 +706,17 @@ function DashboardContent() {
                       </td>
                       <td className="px-4 py-3" style={{ minWidth: '140px' }}>
                         <div className="inline-block">
-                          <Badge variant={getStatusVariant(project.rekon_material) as any}>{project.rekon_material}</Badge>
+                          <Badge variant={getStatusVariant(project.rekon_material) as ComponentProps<typeof Badge>['variant']}>{project.rekon_material}</Badge>
                         </div>
                       </td>
                       <td className="px-4 py-3" style={{ minWidth: '160px' }}>
                         <div className="inline-block">
-                          <Badge variant={getStatusVariant(project.pelurusan_material) as any}>{project.pelurusan_material}</Badge>
+                          <Badge variant={getStatusVariant(project.pelurusan_material) as ComponentProps<typeof Badge>['variant']}>{project.pelurusan_material}</Badge>
                         </div>
                       </td>
                       <td className="px-4 py-3" style={{ minWidth: '180px' }}>
                         <div className="inline-block">
-                          <Badge variant={getStatusVariant(project.status_procurement) as any}>{project.status_procurement}</Badge>
+                          <Badge variant={getStatusVariant(project.status_procurement) as ComponentProps<typeof Badge>['variant']}>{project.status_procurement}</Badge>
                         </div>
                       </td>
                     </tr>

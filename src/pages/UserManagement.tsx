@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
@@ -18,6 +18,7 @@ import {
   EyeOff
 } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/utils/errors";
 import {
   Dialog,
   DialogContent,
@@ -29,12 +30,17 @@ import {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null;
+};
+
 interface User {
   id: number;
   name: string;
   username: string;
   email: string;
   role: string;
+  active?: boolean;
   jobdesk?: string;
   mitra?: string;
   phone?: string;
@@ -42,15 +48,24 @@ interface User {
   created_at: string;
 }
 
+type MitraOptionsResponse = {
+  success?: boolean;
+  data?: string[];
+  mitra_options?: string[];
+  message?: string;
+};
+
 function UserManagementContent() {
   const { token, user: currentUser } = useAuth();
   const navigate = useNavigate();
   const { toggleSidebar } = useSidebar();
   const [loading, setLoading] = useState(false);
+  const [loadingMitraOptions, setLoadingMitraOptions] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+  const [mitraOptions, setMitraOptions] = useState<string[]>([]);
   
   // Dialog states
   const [addUserDialog, setAddUserDialog] = useState(false);
@@ -58,6 +73,8 @@ function UserManagementContent() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [resetPasswordDialog, setResetPasswordDialog] = useState(false);
   const [photoViewerDialog, setPhotoViewerDialog] = useState(false);
+  const [toggleActiveDialog, setToggleActiveDialog] = useState(false);
+  const [nextActiveValue, setNextActiveValue] = useState<boolean>(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [deleteMode, setDeleteMode] = useState<'single' | 'bulk'>('single');
 
@@ -90,7 +107,8 @@ function UserManagementContent() {
     email: "",
     password: "",
     password_confirmation: "",
-    role: "viewer"
+    role: "viewer",
+    mitra: "",
   });
   
   // Form states for Edit User
@@ -99,6 +117,7 @@ function UserManagementContent() {
     username: "",
     email: "",
     keterangan: "",
+    mitra: "",
   });
   
   // Form states for Reset Password
@@ -131,18 +150,44 @@ function UserManagementContent() {
     return false;
   };
 
-  useEffect(() => {
-    // Check if user is super admin
-    if (currentUser?.role !== 'super_admin') {
-      toast.error("Akses ditolak. Hanya Super Admin yang dapat mengakses halaman ini.");
-      navigate("/dashboard");
-      return;
-    }
-    
-    fetchUsers();
-  }, [currentUser, navigate]);
+  const fetchMitraOptions = useCallback(async () => {
+    if (!token) return;
 
-  const fetchUsers = async () => {
+    setLoadingMitraOptions(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/mitra-options`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data: MitraOptionsResponse = await response.json();
+
+      if (!response.ok) {
+        const messageCandidate = (data as { message?: unknown } | null)?.message;
+        const message = typeof messageCandidate === 'string' ? messageCandidate : null;
+        throw new Error(message || 'Gagal memuat daftar mitra');
+      }
+
+      const options = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.mitra_options)
+          ? data.mitra_options
+          : [];
+
+      setMitraOptions(options.filter(Boolean));
+    } catch (error: unknown) {
+      console.error('[UserManagement] Error fetching mitra options:', error);
+      // Jangan blokir halaman, cukup info
+      toast.error(getErrorMessage(error, 'Gagal memuat daftar mitra'));
+      setMitraOptions([]);
+    } finally {
+      setLoadingMitraOptions(false);
+    }
+  }, [token]);
+
+  const fetchUsers = useCallback(async () => {
     if (!token) {
       console.error('[UserManagement] Token tidak tersedia');
       return;
@@ -161,28 +206,34 @@ function UserManagementContent() {
 
       console.log('[UserManagement] Response status:', response.status);
       
-      const data = await response.json();
+      const data: unknown = await response.json();
       console.log('[UserManagement] Response data:', data);
 
       if (!response.ok) {
         console.error('[UserManagement] API Error:', data);
-        throw new Error(data.message || 'Gagal memuat data users');
+        const message = isRecord(data) && typeof data['message'] === 'string' ? String(data['message']) : null;
+        throw new Error(message || 'Gagal memuat data users');
       }
 
       // Validasi struktur response
-      if (!data || typeof data !== 'object') {
+      if (!isRecord(data)) {
         console.error('[UserManagement] Invalid response structure:', data);
         throw new Error('Format response tidak valid');
       }
 
-      const rawUsers = Array.isArray(data.data) ? data.data : [];
+      const rawUsers = Array.isArray(data['data']) ? data['data'] : [];
       console.log('[UserManagement] Raw users count:', rawUsers.length);
       console.log('[UserManagement] Sample raw user:', rawUsers[0]);
 
       const normalizedUsers: User[] = rawUsers
-        .map((raw: any, index: number) => {
+        .map((raw: unknown, index: number) => {
+          if (!isRecord(raw)) {
+            console.warn(`[UserManagement] Invalid user payload at index ${index}:`, raw);
+            return null;
+          }
+
           // Coba semua kemungkinan field ID
-          const rawId = raw?.id ?? raw?.id_pengguna ?? raw?.idPengguna ?? raw?.user_id;
+          const rawId = raw['id'] ?? raw['id_pengguna'] ?? raw['idPengguna'] ?? raw['user_id'];
           const parsedId = typeof rawId === 'string' ? parseInt(rawId, 10) : Number(rawId);
           
           // Debug logging untuk ID yang tidak valid
@@ -195,43 +246,44 @@ function UserManagementContent() {
             return null;
           }
 
-          const normalized = {
+          const normalized: User = {
             id: parsedId,
-            name: String(raw?.name ?? raw?.nama ?? ''),
-            username: String(raw?.username ?? ''),
-            email: String(raw?.email ?? ''),
-            role: String(raw?.role ?? raw?.peran ?? ''),
+            name: String(raw['name'] ?? raw['nama'] ?? ''),
+            username: String(raw['username'] ?? ''),
+            email: String(raw['email'] ?? ''),
+            role: String(raw['role'] ?? raw['peran'] ?? ''),
+            active: Boolean(raw['active'] ?? raw['aktif'] ?? true),
             jobdesk: String(
-              raw?.jobdesk ??
-                raw?.job_desc ??
-                raw?.jobDescription ??
-                raw?.jabatan ??
-                raw?.posisi ??
-                raw?.role_description ??
+              raw['jobdesk'] ??
+                raw['job_desc'] ??
+                raw['jobDescription'] ??
+                raw['jabatan'] ??
+                raw['posisi'] ??
+                raw['role_description'] ??
                 ''
             ),
             mitra: String(
-              raw?.mitra ??
-                raw?.nama_mitra ??
-                raw?.mitra_name ??
-                raw?.partner ??
-                raw?.partner_name ??
-                raw?.namaMitra ??
+              raw['mitra'] ??
+                raw['nama_mitra'] ??
+                raw['mitra_name'] ??
+                raw['partner'] ??
+                raw['partner_name'] ??
+                raw['namaMitra'] ??
                 ''
             ),
             phone: String(
-              raw?.phone ??
-                raw?.no_hp ??
-                raw?.nomor_hp ??
-                raw?.hp ??
-                raw?.telp ??
-                raw?.no_telp ??
-                raw?.nomor_telepon ??
+              raw['phone'] ??
+                raw['no_hp'] ??
+                raw['nomor_hp'] ??
+                raw['hp'] ??
+                raw['telp'] ??
+                raw['no_telp'] ??
+                raw['nomor_telepon'] ??
                 ''
             ),
-            photo: typeof raw?.photo === 'string' ? raw.photo : undefined,
-            created_at: String(raw?.created_at ?? raw?.dibuat_pada ?? ''),
-          } as User;
+            photo: typeof raw['photo'] === 'string' ? raw['photo'] : undefined,
+            created_at: String(raw['created_at'] ?? raw['dibuat_pada'] ?? ''),
+          };
 
           return normalized;
         })
@@ -247,17 +299,31 @@ function UserManagementContent() {
       } else {
         toast.info('Tidak ada data user di database');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[UserManagement] Error fetching users:', error);
-      toast.error(error.message || "Gagal memuat data users");
+      toast.error(getErrorMessage(error, "Gagal memuat data users"));
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
-  // ✅ Validasi Nama Lengkap: 3-100 karakter, huruf dan spasi
+  useEffect(() => {
+    // Check if user is super admin
+    if (currentUser?.role !== 'super_admin') {
+      toast.error("Akses ditolak. Hanya Super Admin yang dapat mengakses halaman ini.");
+      navigate("/dashboard");
+      return;
+    }
+
+    fetchUsers();
+    fetchMitraOptions();
+  }, [currentUser?.role, navigate, fetchUsers, fetchMitraOptions]);
+
+  // ✅ Validasi Nama Lengkap: 3-100 karakter (support huruf/angka/spasi/simbol)
+  // NOTE: Backend menerima string umum; frontend cukup batasi panjang + tidak kosong.
   const isValidName = (name: string) => {
-    return /^[a-zA-Z\s]{3,100}$/.test(name.trim());
+    const trimmed = name.trim();
+    return trimmed.length >= 3 && trimmed.length <= 100;
   };
 
   // ✅ Validasi Username: 4-30 karakter, alphanumeric + . _ -
@@ -290,10 +356,6 @@ function UserManagementContent() {
     }
     if (trimmed.length > 100) {
       setNameError("⚠️ Nama maksimal 100 karakter");
-      return;
-    }
-    if (!/^[a-zA-Z\s]+$/.test(trimmed)) {
-      setNameError("⚠️ Nama hanya boleh huruf dan spasi");
       return;
     }
     setNameError("");
@@ -438,7 +500,7 @@ function UserManagementContent() {
     }
 
     if (!isValidName(newUserData.name)) {
-      toast.error("Nama lengkap tidak valid! Harus 3-100 karakter, hanya huruf dan spasi");
+      toast.error("Nama lengkap tidak valid! Harus 3-100 karakter");
       return;
     }
 
@@ -503,6 +565,8 @@ function UserManagementContent() {
       return;
     }
 
+    // Nama Mitra bersifat opsional (akun "mitra" sekarang menggunakan role viewer + field mitra)
+
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/register`, {
@@ -518,6 +582,7 @@ function UserManagementContent() {
           password: newUserData.password,
           password_confirmation: newUserData.password_confirmation,
           role: newUserData.role,
+          mitra: newUserData.mitra.trim() ? newUserData.mitra.trim() : null,
         }),
       });
 
@@ -554,13 +619,14 @@ function UserManagementContent() {
         email: "",
         password: "",
         password_confirmation: "",
-        role: "viewer"
+        role: "viewer",
+        mitra: "",
       });
       setShowNewUserPassword(false);
       setShowNewUserPasswordConfirmation(false);
       fetchUsers();
-    } catch (error: any) {
-      toast.error(error.message || "Gagal menambah user");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Gagal menambah user"));
     } finally {
       setLoading(false);
     }
@@ -594,6 +660,13 @@ function UserManagementContent() {
       if (editUserData.email.trim()) payload.email = editUserData.email.trim();
       if (editUserData.keterangan.trim()) payload.keterangan = editUserData.keterangan.trim();
 
+      // Mitra: bisa di-set atau di-clear
+      const originalMitra = (selectedUser.mitra || '').trim();
+      const nextMitra = (editUserData.mitra || '').trim();
+      if (nextMitra !== originalMitra) {
+        payload.mitra = nextMitra ? nextMitra : null;
+      }
+
       const response = await fetch(`${API_BASE_URL}/users/${selectedUser.id}`, {
         method: 'PUT',
         headers: {
@@ -615,8 +688,8 @@ function UserManagementContent() {
       
       // Refresh tabel untuk menampilkan perubahan
       await fetchUsers();
-    } catch (error: any) {
-      toast.error(error.message || "Gagal update user");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Gagal update user"));
     } finally {
       setLoading(false);
     }
@@ -633,7 +706,9 @@ function UserManagementContent() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ role: newRole }),
+        body: JSON.stringify({
+          role: newRole,
+        }),
       });
 
       const data = await response.json();
@@ -644,8 +719,58 @@ function UserManagementContent() {
 
       toast.success(`Role berhasil diubah menjadi ${newRole}`);
       fetchUsers();
-    } catch (error: any) {
-      toast.error(error.message || "Gagal mengubah role");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Gagal mengubah role"));
+    }
+  };
+
+  // Handle Enable/Disable Account
+  const handleSetActive = async (target: User, active: boolean) => {
+    if (!token) return;
+
+    if (isCurrentUserRow(target)) {
+      toast.error("Anda tidak dapat menonaktifkan akun Anda sendiri");
+      return;
+    }
+
+    if (target.role === 'super_admin') {
+      toast.error("Akun Super Admin tidak dapat dinonaktifkan");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/${target.id}/active`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ active }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || (active ? 'Gagal mengaktifkan akun' : 'Gagal menonaktifkan akun'));
+      }
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === target.id
+            ? { ...u, active: Boolean(data?.data?.active ?? active) }
+            : u
+        )
+      );
+
+      toast.success(active ? 'Akun berhasil diaktifkan' : 'Akun berhasil dinonaktifkan');
+      setToggleActiveDialog(false);
+      setSelectedUser(null);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, active ? 'Gagal mengaktifkan akun' : 'Gagal menonaktifkan akun'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -687,8 +812,8 @@ function UserManagementContent() {
         password: "",
         password_confirmation: ""
       });
-    } catch (error: any) {
-      toast.error(error.message || "Gagal reset password");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Gagal reset password"));
     } finally {
       setLoading(false);
     }
@@ -733,8 +858,8 @@ function UserManagementContent() {
       setDeleteDialog(false);
       setSelectedUser(null);
       fetchUsers();
-    } catch (error: any) {
-      toast.error(error.message || "Gagal menghapus user");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Gagal menghapus user"));
     } finally {
       setLoading(false);
     }
@@ -769,14 +894,19 @@ function UserManagementContent() {
             },
           });
 
-          let payload: any = null;
+          let payload: unknown = null;
           try {
             payload = await res.json();
           } catch {
             payload = null;
           }
 
-          return { userId, ok: res.ok, message: payload?.message };
+          const message =
+            typeof (payload as { message?: unknown } | null)?.message === 'string'
+              ? (payload as { message: string }).message
+              : undefined;
+
+          return { userId, ok: res.ok, message };
         })
       );
 
@@ -793,8 +923,8 @@ function UserManagementContent() {
       setDeleteDialog(false);
 
       fetchUsers();
-    } catch (error: any) {
-      toast.error(error.message || "Gagal menghapus user");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Gagal menghapus user"));
     } finally {
       setLoading(false);
     }
@@ -978,6 +1108,9 @@ function UserManagementContent() {
                       Tanggal Dibuat
                     </th>
                     <th className="px-4 py-3 text-center font-bold text-red-600">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-center font-bold text-red-600">
                       Aksi
                     </th>
                   </tr>
@@ -1054,6 +1187,17 @@ function UserManagementContent() {
                         <td className="px-4 py-3 text-gray-600 text-xs">
                           {formatDate(user.created_at)}
                         </td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              (user.active ?? true)
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-gray-200 text-gray-700'
+                            }`}
+                          >
+                            {(user.active ?? true) ? 'Aktif' : 'Nonaktif'}
+                          </span>
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
                             <button 
@@ -1064,6 +1208,7 @@ function UserManagementContent() {
                                   username: user.username,
                                   email: user.email || "",
                                   keterangan: user.jobdesk || "",
+                                  mitra: user.mitra || "",
                                 });
                                 setEditUserDialog(true);
                               }}
@@ -1074,6 +1219,22 @@ function UserManagementContent() {
                             </button>
                             {user.role !== 'super_admin' && (
                               <>
+                                <button
+                                  onClick={() => {
+                                    setSelectedUser(user);
+                                    setNextActiveValue(!(user.active ?? true));
+                                    setToggleActiveDialog(true);
+                                  }}
+                                  className={`${(user.active ?? true) ? 'text-gray-600 hover:text-gray-900' : 'text-emerald-600 hover:text-emerald-800'} transition`}
+                                  disabled={isCurrentUserRow(user)}
+                                  title={(user.active ?? true) ? 'Nonaktifkan Akun' : 'Aktifkan Akun'}
+                                >
+                                  {(user.active ?? true) ? (
+                                    <EyeOff className="w-5 h-5" />
+                                  ) : (
+                                    <Eye className="w-5 h-5" />
+                                  )}
+                                </button>
                                 <button 
                                   onClick={() => {
                                     setSelectedUser(user);
@@ -1105,7 +1266,7 @@ function UserManagementContent() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={12} className="px-4 py-8 text-center text-gray-500">
                         Tidak ada data pengguna
                       </td>
                     </tr>
@@ -1134,7 +1295,7 @@ function UserManagementContent() {
                     setNewUserData({...newUserData, name: e.target.value});
                     validateName(e.target.value);
                   }}
-                  placeholder="Minimal 3 karakter, maksimal 100 karakter (hanya huruf dan spasi)"
+                  placeholder="Minimal 3 karakter, maksimal 100 karakter"
                   maxLength={100}
                   className={nameError ? "border-red-500" : ""}
                 />
@@ -1183,6 +1344,24 @@ function UserManagementContent() {
                 >
                   <option value="viewer">Viewer</option>
                   <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Nama Mitra
+                  <span className="text-xs text-gray-500 ml-2">(Opsional)</span>
+                </label>
+                <select
+                  value={newUserData.mitra}
+                  onChange={(e) => setNewUserData({ ...newUserData, mitra: e.target.value })}
+                  className="w-full h-10 px-3 border-2 border-gray-300 rounded-md focus:border-red-500"
+                  disabled={loadingMitraOptions}
+                >
+                  <option value="">{loadingMitraOptions ? 'Memuat...' : 'Pilih mitra'}</option>
+                  {mitraOptions.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -1404,6 +1583,24 @@ function UserManagementContent() {
                   {editUserData.keterangan.length}/500 karakter
                 </p>
               </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Nama Mitra
+                  <span className="text-xs text-gray-500 ml-2 font-normal">(Opsional)</span>
+                </label>
+                <select
+                  value={editUserData.mitra}
+                  onChange={(e) => setEditUserData({ ...editUserData, mitra: e.target.value })}
+                  className="w-full h-12 px-3 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:ring-red-500"
+                  disabled={loadingMitraOptions}
+                >
+                  <option value="">{loadingMitraOptions ? 'Memuat...' : 'Pilih mitra'}</option>
+                  {mitraOptions.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <DialogFooter className="gap-2">
               <Button 
@@ -1594,6 +1791,44 @@ function UserManagementContent() {
                 className="bg-red-600 hover:bg-red-700"
               >
                 {loading ? "Menghapus..." : "Ya, Hapus"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Toggle Active Dialog */}
+        <Dialog open={toggleActiveDialog} onOpenChange={setToggleActiveDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{nextActiveValue ? 'Aktifkan Akun' : 'Nonaktifkan Akun'}</DialogTitle>
+              <DialogDescription>
+                {nextActiveValue
+                  ? 'User dapat login kembali setelah akun diaktifkan.'
+                  : 'User tidak bisa login dan akan logout dari semua sesi aktif.'}
+                <br />
+                Target: <span className="font-semibold">{selectedUser?.name ?? '-'}</span>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setToggleActiveDialog(false);
+                  setSelectedUser(null);
+                }}
+                disabled={loading}
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!selectedUser) return;
+                  handleSetActive(selectedUser, nextActiveValue);
+                }}
+                disabled={loading || !selectedUser}
+                className={nextActiveValue ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-gray-800 hover:bg-gray-900'}
+              >
+                {loading ? 'Memproses...' : (nextActiveValue ? 'Aktifkan' : 'Nonaktifkan')}
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -1,6 +1,6 @@
 import { useState, memo } from "react";
 import { Check, X } from "lucide-react";
-import { Badge } from "@/components/Badge";
+import { Badge, type BadgeProps } from "@/components/Badge";
 import {
   Select,
   SelectContent,
@@ -41,7 +41,7 @@ export const EditableStatusCell = memo(function EditableStatusCell({
   // =====================================
   // LETAKKAN getStatusVariant DI SINI
   // =====================================
-  const getStatusVariant = (status: string): string => {
+  const getStatusVariant = (status: string): BadgeProps['variant'] => {
     if (!status) return "default";
     
     const statusLower = status.toLowerCase().trim();
@@ -109,7 +109,7 @@ export const EditableStatusCell = memo(function EditableStatusCell({
         }}
         title={disabled ? 'Read-only mode' : 'Click to edit'}
       >
-        <Badge variant={getStatusVariant(value) as any}>
+        <Badge variant={getStatusVariant(value)}>
           {normalizedValue}
         </Badge>
       </div>

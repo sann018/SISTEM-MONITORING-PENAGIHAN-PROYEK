@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -153,30 +153,20 @@ function LogAktivitasContent() {
   // Check if super_admin
   const isSuperAdmin = user?.role === 'super_admin';
 
-  useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
+  const fetchLogs = useCallback(async (options?: { page?: number; search?: string }) => {
+    if (!token) return;
 
-    if (!isSuperAdmin) {
-      toast.error('Akses ditolak: Hanya super_admin yang dapat melihat log aktivitas');
-      navigate('/dashboard');
-      return;
-    }
+    const page = options?.page ?? currentPage;
+    const search = options?.search ?? '';
 
-    fetchLogs();
-  }, [currentPage, filterAksi, user, navigate, isSuperAdmin]);
-
-  const fetchLogs = async () => {
     try {
       setLoading(true);
 
       const params = new URLSearchParams({
-        page: currentPage.toString(),
+        page: page.toString(),
         per_page: '20',
         ...(filterAksi && { aksi: filterAksi }),
-        ...(searchTerm && { search: searchTerm }),
+        ...(search && { search }),
       });
 
       const response = await fetch(`${API_BASE_URL}/log-aktivitas?${params}`, {
@@ -199,11 +189,26 @@ function LogAktivitasContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, currentPage, filterAksi]);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    if (!isSuperAdmin) {
+      toast.error('Akses ditolak: Hanya super_admin yang dapat melihat log aktivitas');
+      navigate('/dashboard');
+      return;
+    }
+
+    fetchLogs();
+  }, [user, navigate, isSuperAdmin, fetchLogs]);
 
   const handleSearch = () => {
     setCurrentPage(1);
-    fetchLogs();
+    fetchLogs({ page: 1, search: searchTerm });
   };
 
   if (!user || !isSuperAdmin) return null;

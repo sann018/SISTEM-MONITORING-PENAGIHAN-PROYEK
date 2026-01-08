@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { formatThousandsId, normalizeToIntegerString } from "@/lib/currency";
+import { getApiErrorPayload, getErrorMessage } from "@/utils/errors";
 
 export default function AddProject() {
   const navigate = useNavigate();
@@ -37,8 +38,6 @@ export default function AddProject() {
   const rekonMaterialOptions = ["Sudah Rekon", "Belum Rekon"];
   const materialAlignmentOptions = ["Sudah Lurus", "Belum Lurus"];
   const procurementOptions = ["Antri Periv", "Proses Periv", "Revisi Mitra", "Sekuler TTD", "Scan Dokumen Mitra", "OTW Reg"];
-  const phaseOptions = ["Instalasi", "Konstruksi", "Optimasi", "Perencanaan", "Implementasi", "Aktivasi", "Maintenance", "Penyelesaian"];
-  const jenisPoOptions = ["Baru", "Perpanjangan", "Perubahan", "Addendum"];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -90,16 +89,16 @@ export default function AddProject() {
       await penagihanService.create(mappedData);
       toast.success("Proyek berhasil ditambahkan");
       navigate("/projects");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("❌ Error detail:", error);
-      console.error("❌ Error response:", error.response?.data);
-      
-      const errorMessage = error.response?.data?.message || "Gagal menambahkan proyek";
-      const errorDetails = error.response?.data?.errors;
-      
-      if (errorDetails) {
-        console.error("❌ Validation errors:", errorDetails);
-        const firstError = Object.values(errorDetails)[0];
+
+      const fallbackMessage = "Gagal menambahkan proyek";
+      const payload = getApiErrorPayload(error);
+      const errorMessage = getErrorMessage(error, fallbackMessage);
+
+      if (payload?.errors) {
+        console.error("❌ Validation errors:", payload.errors);
+        const firstError = Object.values(payload.errors)[0];
         toast.error(Array.isArray(firstError) ? firstError[0] : errorMessage);
       } else {
         toast.error(errorMessage);
@@ -185,17 +184,14 @@ export default function AddProject() {
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
                         Jenis PO
                       </label>
-                      <select
+                      <Input
+                        type="text"
                         name="jenis_po"
+                        placeholder="Isi Jenis PO (contoh: Bacth 1)"
                         value={formData.jenis_po}
                         onChange={handleInputChange}
-                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white text-gray-900"
-                      >
-                        <option value="">Pilih Jenis PO</option>
-                        {jenisPoOptions.map((option) => (
-                          <option key={option} value={option}>{option}</option>
-                        ))}
-                      </select>
+                        className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
@@ -217,18 +213,15 @@ export default function AddProject() {
                     <label className="block text-sm font-semibold text-gray-900 mb-2">
                       Phase <span className="text-red-600">*</span>
                     </label>
-                    <select
+                    <Input
+                      type="text"
                       name="phase"
+                      placeholder="Isi Phase (contoh: Phase 1)"
                       value={formData.phase}
                       onChange={handleInputChange}
-                      className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white text-gray-900"
+                      className="w-full h-11 px-4 border-2 border-gray-300 rounded-md focus:border-red-500 bg-white"
                       required
-                    >
-                      <option value="">Pilih phase</option>
-                      {phaseOptions.map((option) => (
-                        <option key={option} value={option}>{option}</option>
-                      ))}
-                    </select>
+                    />
                   </div>
 
                   {/* Row 4: Status CT, Status UT, Rekap BOQ, Rekon Nilai */}

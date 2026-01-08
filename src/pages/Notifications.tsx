@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import penagihanService from "@/services/penagihanService";
+import { getErrorMessage } from "@/utils/errors";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -57,7 +58,7 @@ interface PaginationInfo {
 
 // Helper untuk icon berdasarkan jenis
 const getNotificationIcon = (jenis: string, prioritas: number) => {
-  if (prioritas === 4) {
+  if (prioritas === 1 || prioritas === 4) {
     return <AlertCircle className="h-5 w-5 text-red-600" />;
   }
   
@@ -66,6 +67,7 @@ const getNotificationIcon = (jenis: string, prioritas: number) => {
       return <AlertTriangle className="h-5 w-5 text-yellow-600" />;
     case 'jatuh_tempo':
     case 'h_minus_7':
+    case 'h_minus_5':
     case 'h_minus_3':
     case 'h_minus_1':
       return <Clock className="h-5 w-5 text-orange-600" />;
@@ -86,12 +88,12 @@ const getNotificationBgColor = (status: string, prioritas: number) => {
   if (status === 'dibaca') {
     return 'bg-gray-50';
   }
-  
-  if (prioritas === 4) {
+
+  if (prioritas === 1 || prioritas === 4) {
     return 'bg-red-50 border-l-4 border-red-600';
   }
-  
-  if (prioritas === 3) {
+
+  if (prioritas === 2 || prioritas === 3) {
     return 'bg-orange-50 border-l-4 border-orange-500';
   }
   
@@ -113,8 +115,8 @@ const getProgressTextColor = (progress: number) => {
 
 // Helper untuk warna badge jenis notifikasi
 const getJenisBadgeColor = (jenis: string, prioritas: number) => {
-  if (prioritas === 4) return 'bg-red-100 text-red-800 border-red-300';
-  if (prioritas === 3) return 'bg-orange-100 text-orange-800 border-orange-300';
+  if (prioritas === 1 || prioritas === 4) return 'bg-red-100 text-red-800 border-red-300';
+  if (prioritas === 2 || prioritas === 3) return 'bg-orange-100 text-orange-800 border-orange-300';
   
   switch (jenis) {
     case 'prioritas_berubah':
@@ -123,6 +125,8 @@ const getJenisBadgeColor = (jenis: string, prioritas: number) => {
     case 'h_minus_1':
       return 'bg-red-100 text-red-800 border-red-300';
     case 'h_minus_3':
+      return 'bg-orange-100 text-orange-800 border-orange-300';
+    case 'h_minus_5':
       return 'bg-orange-100 text-orange-800 border-orange-300';
     case 'h_minus_7':
       return 'bg-blue-100 text-blue-800 border-blue-300';
@@ -138,6 +142,7 @@ const getJenisLabel = (jenis: string) => {
   const labels: Record<string, string> = {
     'jatuh_tempo': 'Jatuh Tempo',
     'h_minus_7': 'Reminder H-7',
+    'h_minus_5': 'Reminder H-5',
     'h_minus_3': 'Reminder H-3',
     'h_minus_1': 'Reminder H-1',
     'prioritas_berubah': 'Proyek Prioritas',
@@ -174,18 +179,12 @@ function NotificationsContent() {
     return match ? match[0] : null;
   };
 
-  useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    fetchNotifications();
-  }, [currentPage, filter, user, navigate]);
+  const fetchNotifications = useCallback(async () => {
+    if (!token) return;
 
-  const fetchNotifications = async () => {
     try {
       setLoading(true);
-      
+
       const params = new URLSearchParams({
         page: currentPage.toString(),
         per_page: '15',
@@ -212,7 +211,15 @@ function NotificationsContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, filter, token]);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    fetchNotifications();
+  }, [user, navigate, fetchNotifications]);
 
   const markAsRead = async (id: number) => {
     try {
@@ -308,9 +315,9 @@ function NotificationsContent() {
         markAsRead(notif.id_notifikasi);
       }
       navigate('/projects', { state: { focusPid: pid } });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error prioritizing project from notification:', error);
-      toast.error(error?.response?.data?.message || 'Gagal memprioritaskan proyek');
+        toast.error(getErrorMessage(error, 'Gagal memprioritaskan proyek'));
     } finally {
       setPrioritizingId(null);
     }

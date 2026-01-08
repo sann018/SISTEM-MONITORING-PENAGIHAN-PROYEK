@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/utils/errors";
 import { Navigate } from "react-router-dom";
 import { Mail, Eye, EyeOff } from "lucide-react";
 
@@ -166,9 +167,9 @@ export default function Login() {
         // Don't set loading to false - let navigation happen
         // setLoading will be reset when component unmounts
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[LOGIN] Exception:", error);
-      toast.error(error.message || "Terjadi kesalahan");
+      toast.error(getErrorMessage(error, "Terjadi kesalahan"));
       setLoading(false);
     }
   };

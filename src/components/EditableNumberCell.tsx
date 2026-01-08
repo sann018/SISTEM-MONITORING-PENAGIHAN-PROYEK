@@ -3,6 +3,8 @@ import { Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { formatRupiahNoDecimal, formatThousandsId } from "@/lib/currency";
 
+const formatThousands = (num: string | number): string => formatThousandsId(num);
+
 interface EditableNumberCellProps {
   projectId: string;
   column: string;
@@ -19,8 +21,6 @@ export const EditableNumberCell = memo(function EditableNumberCell({
   onUpdate,
   disabled = false, // NEW: Default false
 }: EditableNumberCellProps) {
-  const formatThousands = (num: string | number): string => formatThousandsId(num);
-
   const [isEditing, setIsEditing] = useState(false);
   const [newValue, setNewValue] = useState(() => formatThousands(value));
   const [isLoading, setIsLoading] = useState(false);
@@ -30,7 +30,6 @@ export const EditableNumberCell = memo(function EditableNumberCell({
     if (!isEditing) {
       setNewValue(formatThousands(value));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, isEditing]);
 
   const handleSave = async () => {
@@ -77,7 +76,7 @@ export const EditableNumberCell = memo(function EditableNumberCell({
 
   // Format input untuk menampilkan dengan pemisah ribuan saat mengetik
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value;
+    const val = e.target.value;
     
     // Hanya ambil digit
     let numericValue = val.replace(/\D/g, "");

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Camera, User, Upload, Lock, Menu } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { getErrorMessage } from "@/utils/errors";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -31,6 +32,7 @@ function ProfileContent() {
   const [isEditing, setIsEditing] = useState(false);
   const canEdit = !!user;
   const canEditUsername = user?.role === 'admin' || user?.role === 'super_admin';
+  const canEditMitra = user?.role === 'admin' || user?.role === 'super_admin';
   const canChangePassword = user?.role === 'super_admin';
   const [profilePhoto, setProfilePhoto] = useState<string>("");
   const [previewPhoto, setPreviewPhoto] = useState<string>("");
@@ -55,20 +57,7 @@ function ProfileContent() {
     photo: "",
   });
 
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (!canEdit) {
-      setIsEditing(false);
-      setShowPasswordForm(false);
-    }
-  }, [canEdit]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!token) return;
     
     try {
@@ -103,11 +92,24 @@ function ProfileContent() {
       console.log('Photo URL from server:', photoUrl);
       setProfilePhoto(photoUrl);
       setPreviewPhoto(""); // Clear preview
-    } catch (error: any) {
-      toast.error(error.message || "Gagal memuat profil");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Gagal memuat profil"));
       console.error(error);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user, fetchProfile]);
+
+  useEffect(() => {
+    if (!canEdit) {
+      setIsEditing(false);
+      setShowPasswordForm(false);
+    }
+  }, [canEdit]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -159,6 +161,28 @@ function ProfileContent() {
 
     setLoading(true);
     try {
+      const getFirstValidationError = (data: unknown): string | null => {
+        if (!data || typeof data !== 'object') return null;
+
+        const record = data as Record<string, unknown>;
+        const errors = record['errors'];
+
+        // Case: { errors: ['msg'] }
+        if (Array.isArray(errors) && typeof errors[0] === 'string') {
+          return errors[0];
+        }
+
+        // Case: { errors: { field: ['msg'] } }
+        if (errors && typeof errors === 'object') {
+          const obj = errors as Record<string, unknown>;
+          const firstValue = Object.values(obj)[0];
+          if (typeof firstValue === 'string') return firstValue;
+          if (Array.isArray(firstValue) && typeof firstValue[0] === 'string') return firstValue[0];
+        }
+
+        return null;
+      };
+
       // Jika ada foto yang diupload, upload dulu fotonya
       if (fileInputRef.current?.files?.[0]) {
         const formData = new FormData();
@@ -176,7 +200,14 @@ function ProfileContent() {
         const photoData = await photoResponse.json();
 
         if (!photoResponse.ok) {
-          throw new Error(photoData.message || 'Gagal mengupload foto');
+          const errorMessage =
+            getFirstValidationError(photoData)
+            || (typeof (photoData as { message?: unknown } | null)?.message === 'string'
+              ? (photoData as { message: string }).message
+              : null)
+            || 'Gagal mengupload foto';
+
+          throw new Error(errorMessage);
         }
         
         // Update profile photo state
@@ -189,9 +220,9 @@ function ProfileContent() {
       const payload: Record<string, unknown> = {
         name: profile.name,
         jobdesk: profile.jobdesk,
-        mitra: profile.mitra,
         nomor_hp: profile.nomor_hp,
         ...(canEditUsername ? { username: profile.username } : {}),
+        ...(canEditMitra ? { mitra: profile.mitra } : {}),
       };
 
       console.log('Saving profile with payload:', payload);
@@ -208,7 +239,7 @@ function ProfileContent() {
         });
 
         const raw = await res.text();
-        let parsed: any = null;
+        let parsed: unknown = null;
         try {
           parsed = raw ? JSON.parse(raw) : null;
         } catch {
@@ -232,7 +263,15 @@ function ProfileContent() {
       console.log('Save response data:', result.data);
 
       if (!result.res.ok) {
-        const message = result.data?.message
+        const messageFromJson =
+          typeof (result.data as { message?: unknown } | null)?.message === 'string'
+            ? (result.data as { message: string }).message
+            : null;
+
+        const validationMessage = getFirstValidationError(result.data);
+
+        const message = validationMessage
+          || messageFromJson
           || (looksLikeHtml ? 'Server mengembalikan HTML (bukan JSON). Cek konfigurasi API/route.' : null)
           || `Gagal memperbarui profil (HTTP ${result.res.status})`;
         throw new Error(message);
@@ -247,8 +286,8 @@ function ProfileContent() {
       // Clear preview and fetch profile again
       setPreviewPhoto("");
       await fetchProfile();
-    } catch (error: any) {
-      toast.error(error.message || "Gagal memperbarui profil");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Gagal memperbarui profil"));
       console.error(error);
     } finally {
       setLoading(false);
@@ -294,8 +333,8 @@ function ProfileContent() {
         password: "",
         password_confirmation: ""
       });
-    } catch (error: any) {
-      toast.error(error.message || "Gagal mengubah password");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Gagal mengubah password"));
       console.error(error);
     } finally {
       setLoading(false);
@@ -320,7 +359,7 @@ function ProfileContent() {
       <PageHeader title="Profil Pengguna" />
       <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
         <AppSidebar />
-        <div className="w-full max-w-none">
+         <div className="flex-1 overflow-y-auto min-h-0">
           {/* Main Content */}
           <div className="w-full max-w-none">
             <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 lg:p-6">
@@ -569,7 +608,7 @@ function ProfileContent() {
                             name="mitra"
                             value={profile.mitra}
                             onChange={handleInputChange}
-                            disabled={!isEditing}
+                            disabled={!isEditing || !canEditMitra}
                             placeholder="Nama Mitra"
                             className="w-full h-11 px-4 border-2 border-gray-300 rounded-xl disabled:bg-gray-50 disabled:text-gray-600 focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all text-sm font-medium"
                           />

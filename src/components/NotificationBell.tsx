@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Bell } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -6,17 +6,18 @@ import { useNavigate } from "react-router-dom";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 export default function NotificationBell() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
 
-  useEffect(() => {
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 60000); // Update every minute
-    return () => clearInterval(interval);
-  }, []);
+  const canSeeNotifications = user?.role === 'admin' || user?.role === 'super_admin';
 
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = useCallback(async () => {
+    if (!token || !canSeeNotifications) {
+      setUnreadCount(0);
+      return;
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/notifikasi?status=terkirim&per_page=1`, {
         headers: {
@@ -33,7 +34,21 @@ export default function NotificationBell() {
     } catch (error) {
       console.error('Error fetching unread count:', error);
     }
-  };
+  }, [token, canSeeNotifications]);
+
+  useEffect(() => {
+    if (!canSeeNotifications) {
+      setUnreadCount(0);
+      return;
+    }
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, [fetchUnreadCount, canSeeNotifications]);
+
+  if (!canSeeNotifications) {
+    return null;
+  }
 
   return (
     <div className="relative">

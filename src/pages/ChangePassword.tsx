@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/utils/errors";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -88,8 +89,8 @@ function ChangePasswordContent() {
           navigate("/profile");
         }, 2000);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Terjadi kesalahan");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Terjadi kesalahan"));
     } finally {
       setLoading(false);
     }
