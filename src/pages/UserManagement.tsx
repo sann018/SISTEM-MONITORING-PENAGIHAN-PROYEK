@@ -176,7 +176,22 @@ function UserManagementContent() {
           ? data.mitra_options
           : [];
 
-      setMitraOptions(options.filter(Boolean));
+      const nextOptions = options.filter(Boolean);
+      setMitraOptions(nextOptions);
+
+      // Jika opsi berubah (mis. proyek dihapus), pastikan value mitra di form tetap valid.
+      // Saat opsi kosong, dropdown harus kosong juga.
+      const allowed = new Set(nextOptions.map((v) => String(v)));
+      setNewUserData((prev) => {
+        const current = String(prev.mitra || '');
+        if (!current) return prev;
+        return allowed.has(current) ? prev : { ...prev, mitra: "" };
+      });
+      setEditUserData((prev) => {
+        const current = String(prev.mitra || '');
+        if (!current) return prev;
+        return allowed.has(current) ? prev : { ...prev, mitra: "" };
+      });
     } catch (error: unknown) {
       console.error('[UserManagement] Error fetching mitra options:', error);
       // Jangan blokir halaman, cukup info
@@ -318,6 +333,13 @@ function UserManagementContent() {
     fetchUsers();
     fetchMitraOptions();
   }, [currentUser?.role, navigate, fetchUsers, fetchMitraOptions]);
+
+  // Refresh opsi mitra setiap kali dialog Add/Edit dibuka,
+  // supaya jika data proyek berubah (hapus/import), dropdown langsung update tanpa refresh manual.
+  useEffect(() => {
+    if (!addUserDialog && !editUserDialog) return;
+    fetchMitraOptions();
+  }, [addUserDialog, editUserDialog, fetchMitraOptions]);
 
   // ✅ Validasi Nama Lengkap: 3-100 karakter (support huruf/angka/spasi/simbol)
   // NOTE: Backend menerima string umum; frontend cukup batasi panjang + tidak kosong.
@@ -1011,7 +1033,7 @@ function UserManagementContent() {
                   {/* Header */}
                   <div>
                     <h1 className="text-3xl font-bold text-red-600 mb-1">
-                      Manajemen User
+                      Manajemen Pengguna
                     </h1>
                     <p className="text-lg font-semibold text-red-600">Admin dan User</p>
                   </div>

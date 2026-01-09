@@ -177,7 +177,7 @@ function LogAktivitasContent() {
       });
 
       if (!response.ok) {
-        throw new Error('Gagal memuat log aktivitas');
+        throw new Error('Gagal memuat log aktivitas pengguna');
       }
 
       const data = await response.json();
@@ -185,7 +185,7 @@ function LogAktivitasContent() {
       setPagination(data.pagination);
     } catch (error) {
       console.error('Error fetching logs:', error);
-      toast.error('Gagal memuat log aktivitas');
+      toast.error('Gagal memuat log aktivitas pengguna');
     } finally {
       setLoading(false);
     }
@@ -198,7 +198,7 @@ function LogAktivitasContent() {
     }
 
     if (!isSuperAdmin) {
-      toast.error('Akses ditolak: Hanya super_admin yang dapat melihat log aktivitas');
+      toast.error('Akses ditolak: Hanya Super Admin yang dapat melihat log aktivitas');
       navigate('/dashboard');
       return;
     }
@@ -228,7 +228,7 @@ function LogAktivitasContent() {
                     <History className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-3xl font-bold text-red-600">Log Aktivitas</h1>
+                    <h1 className="text-3xl font-bold text-red-600">Log Aktivitas Pengguna</h1>
                     <p className="text-gray-600 text-sm mt-1">Riwayat akses dan navigasi pengguna</p>
                   </div>
                 </div>
@@ -276,7 +276,7 @@ function LogAktivitasContent() {
                 ) : logs.length === 0 ? (
                   <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-100">
                     <History className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600 font-medium">Tidak ada log aktivitas</p>
+                    <p className="text-gray-600 font-medium">Tidak ada log pengguna</p>
                   </div>
                 ) : (
                   <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">

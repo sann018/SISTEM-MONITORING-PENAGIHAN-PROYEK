@@ -341,6 +341,22 @@ class PenagihanService {
   }
 
   /**
+   * Tandai selesai (manual) untuk kebutuhan monitoring. Timer tetap berjalan.
+   */
+  async setTimerComplete(id: number | string, selesai: boolean): Promise<Penagihan> {
+    const response = await api.put<ApiResponse<Penagihan>>(
+      `${this.baseUrl}/${id}/timer-complete`,
+      { selesai }
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error(response.data.message || 'Gagal mengatur tanda selesai');
+  }
+
+  /**
    * [🎯 PRIORITY_SYSTEM] Auto-assign prioritas 2 untuk proyek yang mendekati deadline
    * @returns Jumlah proyek yang di-update dan di-clear
    */

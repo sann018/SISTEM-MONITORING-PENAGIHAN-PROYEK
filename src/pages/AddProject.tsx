@@ -133,7 +133,7 @@ export default function AddProject() {
               <div className="p-8">
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Row 1: Nama Proyek & Nama Mitra */}
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
                         Nama Proyek <span className="text-red-600">*</span>
@@ -165,7 +165,7 @@ export default function AddProject() {
                   </div>
 
                   {/* Row 2: PID, Jenis PO, Nomor PO */}
-                  <div className="grid grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
                         PID <span className="text-red-600">*</span>
@@ -225,7 +225,7 @@ export default function AddProject() {
                   </div>
 
                   {/* Row 4: Status CT, Status UT, Rekap BOQ, Rekon Nilai */}
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
                         Status CT <span className="text-red-600">*</span>
@@ -259,7 +259,7 @@ export default function AddProject() {
                   </div>
 
                   {/* Row 5: Rekap BOQ & Rekon Nilai */}
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
                         Rekap BOQ
@@ -292,7 +292,7 @@ export default function AddProject() {
                   </div>
 
                   {/* Row 6: Rekon Material, Pelurusan Material, Status Procurement */}
-                  <div className="grid grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
                         Rekon Material
@@ -341,7 +341,7 @@ export default function AddProject() {
                   </div>
 
                   {/* Row 7: Estimasi Durasi & Tanggal Mulai */}
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
                         Estimasi Durasi (hari)
@@ -371,11 +371,11 @@ export default function AddProject() {
                   </div>
 
                   {/* Submit Buttons */}
-                  <div className="flex gap-4 pt-6 border-t-2 border-gray-200">
+                  <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t-2 border-gray-200">
                     <Button
                       type="button"
                       onClick={() => navigate("/projects")}
-                      className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2.5 px-8 rounded-md"
+                      className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2.5 px-8 rounded-md w-full sm:w-auto"
                     >
                       Batal
                     </Button>
@@ -388,7 +388,7 @@ export default function AddProject() {
                     </Button>
                   </div>
                 </form>
-              </div>
+                      className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-8 rounded-md w-full sm:w-auto"
             </div>
 
             {/* Info Box */}
@@ -403,6 +403,7 @@ export default function AddProject() {
               </div>
             )}
             </div>
+          </div>
           </main>
         </div>
       </div>

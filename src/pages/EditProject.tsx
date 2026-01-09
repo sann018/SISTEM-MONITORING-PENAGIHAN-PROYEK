@@ -215,7 +215,7 @@ export default function EditProject() {
                   </div>
 
                   {/* Row 2: PID, Jenis PO & Nomor PO */}
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-900">PID <span className="text-red-600">*</span></label>
                       <Input
@@ -266,7 +266,7 @@ export default function EditProject() {
                   </div>
 
                   {/* Row 4: Status CT, Status UT, Rekap BOQ, Rekon Nilai */}
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-900">Status CT <span className="text-red-600">*</span></label>
                       <Select value={formData.status_ct} onValueChange={(value) => handleSelectChange("status_ct", value)}>
@@ -320,7 +320,7 @@ export default function EditProject() {
                   </div>
 
                   {/* Row 5: Rekon Material, Pelurusan Material, Status Procurement */}
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-900">Rekon Material</label>
                       <Select value={formData.rekon_material || "Belum Rekon"} onValueChange={(value) => handleSelectChange("rekon_material", value)}>
@@ -385,11 +385,11 @@ export default function EditProject() {
                   </div>
 
                   {/* Buttons */}
-                  <div className="flex gap-4 pt-4 border-t-2 border-gray-200">
-                    <Button type="button" variant="outline" onClick={() => navigate("/projects")}>
+                  <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t-2 border-gray-200">
+                    <Button type="button" variant="outline" onClick={() => navigate("/projects")} className="w-full sm:w-auto">
                       Batal
                     </Button>
-                    <Button type="submit" disabled={loading} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-6 text-base rounded-lg">
+                    <Button type="submit" disabled={loading} className="w-full sm:flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-6 text-base rounded-lg">
                       {loading ? "Menyimpan..." : "Simpan Perubahan"}
                     </Button>
                   </div>

@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = "16rem";
+const SIDEBAR_WIDTH = "14rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
@@ -228,9 +228,9 @@ const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.C
         size="icon"
         className={cn(
           "h-9 w-9 md:h-10 md:w-10 flex-shrink-0",
-          "hover:bg-red-100 active:bg-red-200",
+          "hover:bg-white/10 active:bg-white/20",
           "transition-all duration-200",
-          "border-2 border-transparent hover:border-red-300",
+          "border-2 border-transparent hover:border-white/40",
           "rounded-lg",
           className
         )}
@@ -240,7 +240,7 @@ const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.C
         }}
         {...props}
       >
-        <PanelLeft className="h-5 w-5 md:h-6 md:w-6 text-red-600" />
+        <PanelLeft className="h-5 w-5 md:h-6 md:w-6 text-white" />
         <span className="sr-only">Toggle Sidebar</span>
       </Button>
     );

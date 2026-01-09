@@ -89,6 +89,7 @@ interface Project {
   status_procurement: string;
   estimasi_durasi_hari?: number | string;
   tanggal_mulai?: string;
+  timer_selesai_pada?: string | null;
   dibuat_pada?: string | null;
   prioritas?: number | null;
   prioritas_label?: string | null;
@@ -123,6 +124,12 @@ const extractYearFromPid = (pid: string | undefined | null): string | null => {
 };
 
 const normalizePid = (pid: string): string => String(pid ?? '').trim();
+const normalizeDateOnly = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const asString = String(value);
+  const dateOnly = asString.split('T')[0];
+  return dateOnly || null;
+};
 
 function ProjectsContent() {
   const { user } = useAuth();
@@ -444,6 +451,7 @@ function ProjectsContent() {
         status_procurement?: string | null;
         estimasi_durasi_hari?: number | string | null;
         tanggal_mulai?: string | null;
+        timer_selesai_pada?: string | null;
         dibuat_pada?: string | null;
         prioritas?: number | null;
         prioritas_label?: string | null;
@@ -496,7 +504,8 @@ function ProjectsContent() {
           pelurusan_material: normalizeStatusText(item.pelurusan_material) || 'Belum Lurus',
           status_procurement: normalizeStatusText(item.status_procurement) || 'Antri Periv',
           estimasi_durasi_hari: item.estimasi_durasi_hari ?? 7,
-          tanggal_mulai: item.tanggal_mulai ?? new Date().toISOString().split('T')[0],
+          tanggal_mulai: normalizeDateOnly(item.tanggal_mulai) ?? new Date().toISOString().split('T')[0],
+          timer_selesai_pada: item.timer_selesai_pada ?? null,
           dibuat_pada: item.dibuat_pada ?? null,
           prioritas: item.prioritas ?? null,
           prioritas_label: item.prioritas_label ?? null,
@@ -527,34 +536,72 @@ function ProjectsContent() {
     fetchProjects();
   }, [fetchProjects]);
 
-  useEffect(() => {
-    const fetchFilterOptions = async () => {
-      if (!canAdminFilterMitra) return;
+  const fetchFilterOptions = useCallback(async () => {
+    if (!canAdminFilterMitra) return;
 
-      setLoadingFilterOptions(true);
-      try {
-        const res = await api.get('/penagihan/filter-options');
-        const payload = res?.data?.data;
+    setLoadingFilterOptions(true);
+    try {
+      const res = await api.get('/penagihan/filter-options');
+      const payload = res?.data?.data;
 
-        const mitra = Array.isArray(payload?.mitra) ? payload.mitra : [];
-        const jenisPo = Array.isArray(payload?.jenis_po) ? payload.jenis_po : [];
-        const phase = Array.isArray(payload?.phase) ? payload.phase : [];
+      const mitra = Array.isArray(payload?.mitra) ? payload.mitra : [];
+      const jenisPo = Array.isArray(payload?.jenis_po) ? payload.jenis_po : [];
+      const phase = Array.isArray(payload?.phase) ? payload.phase : [];
 
-        setMitraOptions((mitra || []).filter(Boolean));
-        setJenisPoOptions((jenisPo || []).filter(Boolean));
-        setPhaseOptions((phase || []).filter(Boolean));
-      } catch (err) {
-        console.error('[Projects] Error fetching filter options:', err);
-        setMitraOptions([]);
-        setJenisPoOptions([]);
-        setPhaseOptions([]);
-      } finally {
-        setLoadingFilterOptions(false);
+      const nextMitraOptions = (mitra || []).filter(Boolean);
+      const nextJenisPoOptions = (jenisPo || []).filter(Boolean);
+      const nextPhaseOptions = (phase || []).filter(Boolean);
+
+      setMitraOptions(nextMitraOptions);
+      setJenisPoOptions(nextJenisPoOptions);
+      setPhaseOptions(nextPhaseOptions);
+
+      // Jika opsi berubah akibat delete/import, pastikan nilai filter yang sedang dipilih tetap valid.
+      // Kalau tidak valid, reset ke 'all' dan bersihkan URL param terkait.
+      const nextParams = new URLSearchParams(searchParams);
+      let paramsChanged = false;
+
+      if (selectedMitra !== 'all' && !nextMitraOptions.includes(selectedMitra)) {
+        setSelectedMitra('all');
+        nextParams.delete('mitra');
+        paramsChanged = true;
       }
-    };
 
+      if (selectedJenisPo !== 'all' && !nextJenisPoOptions.includes(selectedJenisPo)) {
+        setSelectedJenisPo('all');
+        nextParams.delete('jenis_po');
+        paramsChanged = true;
+      }
+
+      if (selectedPhase !== 'all' && !nextPhaseOptions.includes(selectedPhase)) {
+        setSelectedPhase('all');
+        nextParams.delete('phase');
+        paramsChanged = true;
+      }
+
+      if (paramsChanged) {
+        setSearchParams(nextParams);
+      }
+    } catch (err) {
+      console.error('[Projects] Error fetching filter options:', err);
+      setMitraOptions([]);
+      setJenisPoOptions([]);
+      setPhaseOptions([]);
+    } finally {
+      setLoadingFilterOptions(false);
+    }
+  }, [
+    canAdminFilterMitra,
+    searchParams,
+    selectedMitra,
+    selectedJenisPo,
+    selectedPhase,
+    setSearchParams,
+  ]);
+
+  useEffect(() => {
     fetchFilterOptions();
-  }, [canAdminFilterMitra]);
+  }, [fetchFilterOptions]);
 
   // Dropdown prioritas sekarang pakai Radix (auto flip/shift), tidak perlu manual close.
 
@@ -727,6 +774,29 @@ function ProjectsContent() {
     } catch (error) {
       console.error(error);
       toast.error("Gagal memperbarui durasi proyek");
+      throw error;
+    }
+  }, []);
+
+  const handleSetTimerComplete = useCallback(async (projectId: string, selesai: boolean) => {
+    try {
+      const updated = await penagihanService.setTimerComplete(projectId, selesai);
+
+      setProjects((prevProjects) =>
+        prevProjects.map((p) =>
+          p.id === projectId
+            ? {
+                ...p,
+                timer_selesai_pada: (updated as { timer_selesai_pada?: string | null }).timer_selesai_pada ?? null,
+              }
+            : p
+        )
+      );
+
+      toast.success(selesai ? 'Proyek ditandai selesai (timer tetap berjalan)' : 'Tanda selesai dibatalkan');
+    } catch (error: unknown) {
+      console.error(error);
+      toast.error(getErrorMessage(error, 'Gagal mengatur tanda selesai'));
       throw error;
     }
   }, []);
@@ -905,13 +975,17 @@ function ProjectsContent() {
 
       toast.success("Proyek berhasil dihapus");
       setDeleteId(null);
+
+      // Sync ulang dari server agar UI tidak stale (tanpa perlu refresh manual)
+      await fetchProjects();
+      await fetchFilterOptions();
     } catch (error) {
       console.error(error);
       toast.error("Gagal menghapus proyek");
     } finally {
       setIsDeleting(false);
     }
-  }, [deleteId]);
+  }, [deleteId, fetchProjects, fetchFilterOptions]);
 
   // =====================================
   // ✅ Handle Delete All Projects
@@ -928,6 +1002,7 @@ function ProjectsContent() {
       
       // Refresh projects list from server
       await fetchProjects();
+      await fetchFilterOptions();
       
       const message = result.kept_count && result.kept_count > 0
         ? `Berhasil menghapus ${result.total_deleted} data proyek. ${result.kept_count} data prioritas tidak dihapus.`
@@ -946,7 +1021,7 @@ function ProjectsContent() {
     } finally {
       setIsDeletingAll(false);
     }
-  }, [deleteAllConfirmation, excludePrioritized, fetchProjects]);
+  }, [deleteAllConfirmation, excludePrioritized, fetchProjects, fetchFilterOptions]);
 
   // =====================================
   // ✅ Handle Checkbox Selection
@@ -977,7 +1052,7 @@ function ProjectsContent() {
 
   const isAllSelected = useMemo(() => {
     if (filteredProjects.length === 0) return false;
-    return filteredProjects.every(p => selectedPids.has(p.pid));
+    return filteredProjects.every(p => selectedPids.has(normalizePid(p.pid)));
   }, [filteredProjects, selectedPids]);
 
   const isSomeSelected = useMemo(() => {
@@ -1018,7 +1093,7 @@ function ProjectsContent() {
       setIsDeleteSelectedDialogOpen(false);
 
       // Sync to server state (tanpa perlu user refresh)
-      await fetchProjects();
+      await Promise.all([fetchProjects(), fetchFilterOptions()]);
       
     } catch (error: unknown) {
       console.error(error);
@@ -1026,7 +1101,7 @@ function ProjectsContent() {
     } finally {
       setIsDeletingSelected(false);
     }
-  }, [selectedPids, fetchProjects]);
+  }, [selectedPids, fetchProjects, fetchFilterOptions]);
 
   // =====================================
   // ✅ Handle Bulk Set/Unset Priority
@@ -1102,15 +1177,15 @@ function ProjectsContent() {
   // JSX RETURN
   // =====================================
   return (
-    <div className="flex flex-col h-svh w-full bg-gray-50 overflow-hidden">
-      <PageHeader title="Daftar Penagihan Proyek" />
+    <div className="flex flex-col h-svh w-full bg-gray-50 overflow-x-hidden overflow-y-auto md:overflow-hidden">
+      <PageHeader title="Daftar Proyek" />
 
       <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
         <AppSidebar />
 
-        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+        <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-visible md:overflow-y-auto">
           {/* Action Buttons */}
-          <div className="flex gap-3 mb-6">
+          <div className="flex flex-col gap-3 mb-6 lg:flex-row lg:items-center">
             {!isReadOnly && (
               <>
                 <Button
@@ -1137,49 +1212,47 @@ function ProjectsContent() {
                 
                 {/* Buttons untuk Super Admin / Admin */}
                 {canBulkDelete && (
-                  <div className="ml-auto flex gap-3">
-                    {/* Tombol Hapus Terpilih - muncul jika ada yang dipilih */}
-                    {selectedPids.size > 0 && (
-                      <>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              disabled={isSettingSelectedPriority}
-                              className="border-2 border-red-600 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
-                            >
-                              Prioritas Terpilih ({selectedPids.size})
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56">
-                            <DropdownMenuLabel>Set Prioritas</DropdownMenuLabel>
-                            <DropdownMenuItem onSelect={() => handleSetPrioritySelected(1)}>
-                              Prioritas 1
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleSetPrioritySelected(2)}>
-                              Prioritas 2
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleSetPrioritySelected(3)}>
-                              Prioritas 3
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onSelect={() => handleSetPrioritySelected(null)}>
-                              Batalkan Prioritas
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  <div className="flex flex-col sm:flex-row gap-3 lg:ml-auto">
+                    <>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={isSettingSelectedPriority || selectedPids.size === 0}
+                            className="border-2 border-red-600 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
+                          >
+                            Prioritas Terpilih ({selectedPids.size})
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          <DropdownMenuLabel>Set Prioritas</DropdownMenuLabel>
+                          <DropdownMenuItem onSelect={() => handleSetPrioritySelected(1)}>
+                            Prioritas 1
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleSetPrioritySelected(2)}>
+                            Prioritas 2
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleSetPrioritySelected(3)}>
+                            Prioritas 3
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onSelect={() => handleSetPrioritySelected(null)}>
+                            Batalkan Prioritas
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
 
-                        <Button
-                          onClick={() => setIsDeleteSelectedDialogOpen(true)}
-                          variant="outline"
-                          className="border-2 border-orange-600 text-orange-600 hover:bg-orange-50 hover:text-orange-700 font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                          Hapus Terpilih ({selectedPids.size})
-                        </Button>
-                      </>
-                    )}
+                      <Button
+                        onClick={() => setIsDeleteSelectedDialogOpen(true)}
+                        disabled={selectedPids.size === 0}
+                        variant="outline"
+                        className="border-2 border-orange-600 text-orange-600 hover:bg-orange-50 hover:text-orange-700 font-bold py-2.5 px-6 rounded-md flex items-center gap-2 shadow-md"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        Hapus Terpilih ({selectedPids.size})
+                      </Button>
+                    </>
                   </div>
                 )}
               </>
@@ -1187,7 +1260,7 @@ function ProjectsContent() {
           </div>
 
           {/* Search and Filter Row */}
-          <div className="flex gap-4 mb-6">
+          <div className="flex flex-col gap-4 mb-6 lg:flex-row lg:items-center">
             {/* Search Input */}
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -1398,8 +1471,8 @@ function ProjectsContent() {
           )}
 
           {/* Projects Table */}
-          <div className="flex-1 min-h-0 rounded-lg shadow-lg bg-white overflow-hidden">
-            <div className="h-full overflow-auto">
+          <div className="flex-none md:flex-1 md:min-h-0 rounded-lg shadow-lg bg-white overflow-visible md:overflow-hidden">
+            <div className="w-full overflow-x-auto md:h-full md:overflow-auto">
               <table className="w-full text-sm" style={{ minWidth: '1800px' }}>
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-red-600 text-white">
@@ -1491,7 +1564,7 @@ function ProjectsContent() {
                           <td className="px-4 py-3 text-center" style={{ minWidth: '60px' }}>
                             <input
                               type="checkbox"
-                              checked={selectedPids.has(project.pid)}
+                              checked={selectedPids.has(normalizePid(project.pid))}
                               onChange={(e) => handleSelectOne(project.pid, e.target.checked)}
                               className="w-4 h-4 cursor-pointer accent-red-600"
                               onClick={(e) => e.stopPropagation()}
@@ -1506,8 +1579,10 @@ function ProjectsContent() {
                               projectName={project.nama_proyek}
                               estimasiDurasi={Number(project.estimasi_durasi_hari) || 7}
                               tanggalMulai={project.tanggal_mulai || new Date().toISOString().split('T')[0]}
+                              timerSelesaiPada={project.timer_selesai_pada ?? null}
                               statusProcurement={project.status_procurement}
                               onUpdateDuration={handleDurationUpdate}
+                              onSetTimerComplete={handleSetTimerComplete}
                               disabled={isReadOnly}
                             />
                           </td>
@@ -1927,7 +2002,7 @@ function ProjectsContent() {
                     <p className="text-xs font-semibold text-gray-700 mb-2">Data yang akan dihapus:</p>
                     <ul className="text-xs text-gray-600 space-y-1 max-h-40 overflow-y-auto">
                       {Array.from(selectedPids).map(pid => {
-                        const project = projects.find(p => p.pid === pid);
+                        const project = projects.find(p => normalizePid(p.pid) === normalizePid(pid));
                         return (
                           <li key={pid} className="flex items-center gap-2">
                             <span className="font-mono font-semibold">{pid}</span>

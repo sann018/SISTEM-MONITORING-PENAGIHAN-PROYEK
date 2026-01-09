@@ -72,7 +72,7 @@ function DashboardContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const normalizePid = useCallback((pid: string | undefined | null): string => String(pid ?? '').trim(), []);
+  const normalizePid = useCallback((pid: string | number | undefined | null): string => String(pid ?? '').trim(), []);
 
   type DashboardProjectItem = {
     pid?: string | number | null;
@@ -90,7 +90,7 @@ function DashboardContent() {
     status_procurement?: string | null;
     prioritas?: number | null;
     prioritas_label?: string | null;
-    priority_info?: unknown;
+    priority_info?: Project["priority_info"] | null;
   };
 
   const fetchProjects = useCallback(async () => {
@@ -100,25 +100,29 @@ function DashboardContent() {
       const response = await penagihanService.getDashboardPrioritized();
       
       // Map data dari API ke format yang dibutuhkan
-      const mappedData = response.data.map((item: DashboardProjectItem) => ({
-        id: item.pid || '',  // ✅ Gunakan PID sebagai ID (primary key)
-        nama_proyek: item.nama_proyek || '',
-        nama_mitra: item.nama_mitra || '',
-        pid: item.pid || '',
-        jenis_po: item.jenis_po || '',
-        nomor_po: item.nomor_po || '',
-        phase: item.phase || '',
-        status_ct: normalizeStatusText(item.status_ct) || 'Belum CT',
-        status_ut: normalizeStatusText(item.status_ut) || 'Belum UT',
-        rekap_boq: normalizeStatusText(item.rekap_boq) || '',
-        rekon_nilai: item.rekon_nilai?.toString() || '0',
-        rekon_material: normalizeStatusText(item.rekon_material) || 'Belum Rekon',
-        pelurusan_material: normalizeStatusText(item.pelurusan_material) || 'Belum Lurus',
-        status_procurement: normalizeStatusText(item.status_procurement) || 'Antri Periv',
-        prioritas: item.prioritas ?? null,
-        prioritas_label: item.prioritas_label ?? null,
-        priority_info: item.priority_info,
-      }));
+      const mappedData: Project[] = response.data.map((item: DashboardProjectItem) => {
+        const pid = normalizePid(item.pid);
+
+        return {
+          id: pid,  // ✅ Gunakan PID sebagai ID (primary key)
+          nama_proyek: item.nama_proyek || '',
+          nama_mitra: item.nama_mitra || '',
+          pid,
+          jenis_po: item.jenis_po || '',
+          nomor_po: item.nomor_po || '',
+          phase: item.phase || '',
+          status_ct: normalizeStatusText(item.status_ct) || 'Belum CT',
+          status_ut: normalizeStatusText(item.status_ut) || 'Belum UT',
+          rekap_boq: normalizeStatusText(item.rekap_boq) || '',
+          rekon_nilai: item.rekon_nilai?.toString() || '0',
+          rekon_material: normalizeStatusText(item.rekon_material) || 'Belum Rekon',
+          pelurusan_material: normalizeStatusText(item.pelurusan_material) || 'Belum Lurus',
+          status_procurement: normalizeStatusText(item.status_procurement) || 'Antri Periv',
+          prioritas: item.prioritas ?? null,
+          prioritas_label: item.prioritas_label ?? undefined,
+          priority_info: item.priority_info ?? undefined,
+        };
+      });
 
       setProjects(mappedData);
     } catch (error) {
@@ -127,7 +131,7 @@ function DashboardContent() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [normalizePid]);
 
   const fetchCardStatistics = useCallback(async () => {
     try {
@@ -359,9 +363,8 @@ function DashboardContent() {
   if (loading) {
     return (
       <div className="flex flex-col h-svh w-full bg-gray-50 overflow-hidden">
-        <PageHeader title="Dashboard Monitoring Penagihan Proyek" />
-        <div className="flex flex-1 gap-4 px-4 pb-4">
-          <AppSidebar />
+        <PageHeader title="Dashboard Sistem Informasi Penagihan Telkom Akses" />
+        <div className="flex flex-1 px-4 pb-4">
           <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
@@ -375,12 +378,12 @@ function DashboardContent() {
 
   return (
     <div className="flex flex-col h-svh w-full bg-gray-50 overflow-hidden">
-      <PageHeader title="Dashboard Monitoring Penagihan Proyek" />
+      <PageHeader title="Dashboard Sistem Informasi Penagihan Telkom Akses" />
       <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
           {/* Stats Cards */}
-          <div className="grid grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
             <div
               className="bg-blue-100 border-2 border-blue-300 rounded-xl p-4 shadow cursor-pointer hover:shadow-lg transition-all hover:scale-105 duration-200"
               onClick={() => navigate("/projects", { state: { filter: "all" } })}
@@ -442,7 +445,7 @@ function DashboardContent() {
               onClick={() => navigate("/projects", { state: { filter: "not-recon" } })}
               title="Klik untuk melihat proyek yang belum rekon"
             >
-              <p className="text-gray-700 text-sm font-semibold mb-2">Belum Rekon</p>
+              <p className="text-gray-700 text-sm font-semibold mb-2">Belum Rekon BOQ</p>
               <div className="flex items-center justify-between">
                 <p className="text-3xl font-bold text-orange-600">{notReconProjects}</p>
                 <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
@@ -453,7 +456,7 @@ function DashboardContent() {
           </div>
 
           {/* Search and Buttons */}
-          <div className="flex items-center justify-between mb-6 gap-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
             {/* Search Input with Icon */}
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-red-500" />
@@ -466,15 +469,15 @@ function DashboardContent() {
               />
             </div>
             {!isReadOnly && (
-              <div className="flex items-center gap-3">
-                {canBulkSetPriority && selectedPids.size > 0 && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full md:w-auto">
+                {canBulkSetPriority && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         type="button"
                         variant="outline"
-                        disabled={isSettingSelectedPriority}
-                        className="h-12 px-4 border-2 border-red-600 text-red-600 rounded-xl font-bold"
+                        disabled={isSettingSelectedPriority || selectedPids.size === 0}
+                        className="h-12 px-4 border-2 border-red-600 text-red-600 rounded-xl font-bold w-full sm:w-auto"
                       >
                         Prioritas Terpilih ({selectedPids.size})
                       </Button>
@@ -499,7 +502,7 @@ function DashboardContent() {
 
                 <Button
                   onClick={() => navigate("/projects")}
-                  className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl h-12 text-base"
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl h-12 text-base w-full sm:w-auto"
                 >
                   Lihat Semua Proyek
                 </Button>

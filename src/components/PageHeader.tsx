@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import NotificationBell from "@/components/NotificationBell";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 interface PageHeaderProps {
   title: string;
@@ -47,6 +48,7 @@ export function PageHeader({ title }: PageHeaderProps) {
       <div className="relative z-10 flex h-full items-center justify-between px-6">
         {/* Page Title - Left Aligned with proper spacing */}
         <div className="flex items-center gap-3 flex-shrink-0">
+          <SidebarTrigger className="lg:hidden" />
           <span className="text-white/90 font-semibold text-sm md:text-base whitespace-nowrap">
            <h1 className="text-xl md:text-2xl font-bold text-white drop-shadow-md truncate">
             SIPENTA

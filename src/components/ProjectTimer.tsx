@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, memo } from "react";
-import { Clock, Edit2, Check, X } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
+import { Clock, Edit2, Check, X, CircleCheck } from "lucide-react";
 import DurationPicker from "@/components/DurationPicker";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -13,6 +13,8 @@ interface ProjectTimerProps {
   statusProcurement?: string;
   onUpdateDuration?: (projectId: string, durasi: number, tanggalMulai: string) => Promise<void>;
   disabled?: boolean;
+  timerSelesaiPada?: string | null;
+  onSetTimerComplete?: (projectId: string, selesai: boolean) => Promise<void>;
 }
 
 interface TimeRemaining {
@@ -32,6 +34,8 @@ export const ProjectTimer = memo(function ProjectTimer({
   statusProcurement = "",
   onUpdateDuration,
   disabled = false,
+  timerSelesaiPada,
+  onSetTimerComplete,
 }: ProjectTimerProps) {
   const [timeRemaining, setTimeRemaining] = useState<TimeRemaining>({
     hari: 0,
@@ -45,6 +49,7 @@ export const ProjectTimer = memo(function ProjectTimer({
   const [editDurasi, setEditDurasi] = useState<string>(String(estimasiDurasi || ""));
   const [editTanggalMulai, setEditTanggalMulai] = useState(tanggalMulai);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTogglingComplete, setIsTogglingComplete] = useState(false);
 
   // Sync editable fields from props when popover is closed
   useEffect(() => {
@@ -107,6 +112,30 @@ export const ProjectTimer = memo(function ProjectTimer({
     }
   }, [estimasiDurasi, tanggalMulai]);
 
+  const isTimerCompleted = Boolean(timerSelesaiPada);
+
+  const tanggalMulaiDisplay = useMemo(() => {
+    return String(tanggalMulai || "").split("T")[0] || "-";
+  }, [tanggalMulai]);
+
+  const selesaiDisplay = useMemo(() => {
+    if (!timerSelesaiPada) return null;
+    const raw = String(timerSelesaiPada).split("T")[0];
+    const [y, m, d] = raw.split("-");
+    if (y && m && d) return `${d}-${m}-${y}`;
+    return raw || null;
+  }, [timerSelesaiPada]);
+
+  const daysElapsed = useMemo(() => {
+    const start = new Date(tanggalMulai);
+    if (Number.isNaN(start.getTime())) return 0;
+
+    const now = new Date();
+    const diffMs = now.getTime() - start.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    return Math.max(0, diffDays);
+  }, [tanggalMulai]);
+
   // Update timer setiap detik
   useEffect(() => {
     calculateTimeRemaining();
@@ -130,6 +159,18 @@ export const ProjectTimer = memo(function ProjectTimer({
       console.error(error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleToggleComplete = async () => {
+    if (!onSetTimerComplete) return;
+    if (disabled) return;
+
+    setIsTogglingComplete(true);
+    try {
+      await onSetTimerComplete(projectId, !isTimerCompleted);
+    } finally {
+      setIsTogglingComplete(false);
     }
   };
 
@@ -172,6 +213,14 @@ export const ProjectTimer = memo(function ProjectTimer({
           )}
         </div>
       </div>
+
+      {isTimerCompleted ? (
+        <span className="inline-flex items-center gap-1 rounded-md bg-green-200 px-2 py-0.5 text-[10px] font-bold text-green-800 flex-shrink-0 whitespace-nowrap">
+          <CircleCheck className="h-3 w-3" />
+          Selesai{selesaiDisplay ? ` ${selesaiDisplay}` : ""}
+        </span>
+      ) : null}
+
       {!disabled && (
         <span className="text-gray-600 hover:text-gray-800 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
           <Edit2 size={14} />
@@ -216,7 +265,7 @@ export const ProjectTimer = memo(function ProjectTimer({
           type="button"
           className={chipClassName}
           onClick={(e) => e.stopPropagation()}
-          title={`Klik untuk mengubah durasi. Mulai: ${tanggalMulai}`}
+          title={`Klik untuk mengubah durasi. Mulai: ${tanggalMulaiDisplay}${selesaiDisplay ? ` | Selesai: ${selesaiDisplay}` : ''}`}
         >
           {TimerChip}
         </button>
@@ -226,7 +275,7 @@ export const ProjectTimer = memo(function ProjectTimer({
         side="bottom"
         align="start"
         sideOffset={8}
-        className="w-[260px] p-0 bg-transparent border-0 shadow-none"
+        className="w-[320px] sm:w-[380px] p-0 bg-transparent border-0 shadow-none"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div
@@ -251,6 +300,27 @@ export const ProjectTimer = memo(function ProjectTimer({
               disabled={isLoading}
             />
           </div>
+
+          {!disabled && onSetTimerComplete ? (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                disabled={isTogglingComplete}
+                onClick={handleToggleComplete}
+                className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 ${
+                  isTimerCompleted
+                    ? "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                }`}
+              >
+                {isTogglingComplete
+                  ? "Memproses..."
+                  : isTimerCompleted
+                    ? "Batalkan Tanda Selesai"
+                    : "Tandai Selesai"}
+              </button>
+            </div>
+          ) : null}
 
           <div className="flex gap-2 justify-end">
             <button

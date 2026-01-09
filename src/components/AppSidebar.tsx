@@ -25,9 +25,9 @@ const adminMenuItems = [
 ];
 
 const superAdminMenuItems = [
-  { title: "Manajemen Pengguna", url: "/user-management", icon: Users },
-  { title: "Aktivitas", url: "/activity", icon: Activity },
-  { title: "Log Aktivitas", url: "/log-activity", icon: History },
+  { title: "Man Pengguna", url: "/user-management", icon: Users },
+  { title: "Aktivitas Sistem", url: "/activity", icon: Activity },
+  { title: "Log Aktivitas Pengguna", url: "/log-activity", icon: History },
   { title: "Pembersihan Data", url: "/data-cleanup", icon: Database },
 ];
 
@@ -46,10 +46,13 @@ export function AppSidebar() {
   ];
 
   return (
-    <Sidebar className="w-56 rounded-1xl overflow-hidden bg-transparent" collapsible="none">
+    <Sidebar
+      className="bg-transparent top-[88px] left-4 bottom-auto h-[calc(100svh-104px)] [&>[data-sidebar=sidebar]]:bg-transparent [&>[data-sidebar=sidebar]]:shadow-none"
+      collapsible="offcanvas"
+    >
       <SidebarContent className="bg-gradient-to-b from-red-700 to-red-600 h-full flex flex-col rounded-2xl shadow-lg overflow-hidden">
-        <div className="px-4 pt-5 pb-4">
-          <div className="text-white font-extrabold text-xl leading-snug">Monitoring Penagihan Proyek</div>
+        <div className="px-2 pt-4 pb-4">
+          <div className="text-white font-extrabold text-xl leading-snug">Sistem Informasi Penagihan</div>
           <div className="text-white/80 font-semibold text-sm mt-1">Telkom Akses</div>
         </div>
 
@@ -61,7 +64,7 @@ export function AppSidebar() {
 
         <div className="h-px bg-white/20 mx-4" />
 
-        <SidebarGroup className="pt-4 px-3 flex-1">
+        <SidebarGroup className="pt-4 px-3 flex-1 min-h-0 overflow-y-scroll overscroll-contain [-webkit-overflow-scrolling:touch] md:overflow-hidden">
           <SidebarGroupContent>
             <SidebarMenu className="space-y-2">
               {menuItems.map((item) => (
@@ -89,7 +92,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <div className="mt-auto p-3 border-t border-white/20">
+        <div className="mt-auto p-3 border-t border-white/20 sticky bottom-20 sm:bottom-4 md:bottom-0 z-10">
           <Button
             onClick={signOut}
             className="w-full bg-white hover:bg-gray-50 text-red-700 font-bold py-3 px-4 rounded-2x2 transition-all duration-200 ease-in-out shadow-sm flex items-center justify-start gap-3"

@@ -214,7 +214,7 @@ export default function Login() {
   }
 
   return (
-    <div className="relative min-h-screen bg-black flex items-center justify-center p-8 overflow-hidden">
+    <div className="relative isolate min-h-[100dvh] bg-black flex items-start justify-start md:items-center md:justify-center p-4 sm:p-8 overflow-y-auto md:overflow-hidden overflow-x-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <style>{`
         @keyframes helloLetterLoop {
           0%, 12% {
@@ -267,11 +267,11 @@ export default function Login() {
 
       {/* Image background (place file in /public/login-bg.jpg) */}
       <div
-        className="absolute inset-0 pointer-events-none bg-center bg-cover"
+        className="fixed inset-0 pointer-events-none bg-center bg-cover z-0"
         style={{ backgroundImage: "url('/BG-merah-TA.jpg')" }}
       />
       {/* Soft red gradient overlay (matches sample) */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         <div className="absolute -top-28 -left-28 h-[520px] w-[520px] rounded-full bg-red-700/70 blur-3xl" />
         <div className="absolute top-24 right-[-140px] h-[520px] w-[520px] rounded-full bg-red-600/70 blur-3xl" />
         <div className="absolute bottom-[-160px] left-1/3 h-[620px] w-[620px] rounded-full bg-red-500/40 blur-3xl" />
@@ -279,13 +279,13 @@ export default function Login() {
       </div>
 
       {/* Container for Overlapping Cards */}
-      <div className="relative w-full max-w-6xl h-[600px] flex items-center justify-center">
+      <div className="relative z-10 w-full max-w-6xl h-auto md:h-[600px] flex flex-col md:flex-row items-stretch md:items-center justify-center gap-6 md:gap-0">
         
         {/* Left Card - Welcome Section */}
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[45%] bg-white rounded-3xl shadow-2xl p-12 z-10">
+        <div className="relative md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2 w-full md:w-[45%] bg-white rounded-3xl shadow-2xl p-6 sm:p-10 md:p-12 z-10">
           <div className="text-center">
             <div className="relative inline-block mb-6" aria-label="Halo!">
-              <h1 className="text-6xl font-bold text-black leading-none">
+              <h1 className="text-5xl sm:text-6xl font-bold text-black leading-none">
                 {Array.from("Halo!").map((ch, i) => (
                   <span
                     key={`${ch}-${i}`}
@@ -314,21 +314,21 @@ export default function Login() {
                 />
               </div>
             </div>
-            <p className="text-3xl font-bold text-black mb-2">
+            <p className="text-2xl sm:text-3xl font-bold text-black mb-2">
               Selamat Datang
             </p>
-            <p className="text-3xl font-bold text-black mb-8">
+            <p className="text-2xl sm:text-3xl font-bold text-black mb-6 sm:mb-8">
               Silakan Masuk
             </p>
             
             {/* Watermark Logo */}
-            <div className="relative my-12 opacity-10">
-              <p className="text-6xl font-bold text-red-600">TelkomAkses</p>
+            <div className="relative my-8 sm:my-12 opacity-10">
+              <p className="text-5xl sm:text-6xl font-bold text-red-600">TelkomAkses</p>
               <p className="text-sm text-gray-400">by Telkom Indonesia</p>
             </div>
 
             {/* Note about account creation */}
-            <div className="mt-8 rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="mt-6 sm:mt-8 rounded-2xl border border-gray-200 bg-white shadow-sm">
               <div className="p-4">
                 <p className="text-sm text-gray-700 text-center">
                   <span className="font-bold text-gray-900">Catatan</span>
@@ -364,12 +364,12 @@ export default function Login() {
         </div>
 
         {/* Right Card - Login Form */}
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[60%] h-[650px] bg-white rounded-3xl shadow-2xl p-12 z-20 flex flex-col">
+  <div className="relative md:absolute md:right-0 md:top-1/2 md:-translate-y-1/2 w-full md:w-[60%] h-auto md:h-[650px] bg-white rounded-3xl shadow-2xl p-6 sm:p-10 md:p-12 z-20 flex flex-col">
               {/* Header Icon */}
               <div className="mb-6 flex justify-center">
-                <div className="bg-gradient-to-br from-red-900 via-red-600 to-red-500 rounded-full p-5 w-24 h-24 flex items-center justify-center shadow-lg">
+                <div className="bg-gradient-to-br from-red-900 via-red-600 to-red-500 rounded-full p-4 sm:p-5 w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center shadow-lg">
                   <svg
-                    className="w-14 h-14 text-white"
+                    className="w-12 h-12 sm:w-14 sm:h-14 text-white"
                     fill="currentColor"
                     viewBox="0 0 24 24"
                   >
@@ -378,12 +378,12 @@ export default function Login() {
                 </div>
               </div>
 
-              <h2 className="text-3xl font-bold text-center text-black mb-10">
+              <h2 className="text-2xl sm:text-3xl font-bold text-center text-black mb-6 sm:mb-10">
                 MASUK
               </h2>
 
               <form onSubmit={handleSubmit} className="flex flex-col flex-1">
-                <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-4 sm:gap-5">
                   {/* Identifier Input */}
                   <div className="space-y-2">
                     <label className="flex items-center text-base font-bold text-black">
@@ -483,11 +483,11 @@ export default function Login() {
                 </div>
 
                 {/* Login Button */}
-                <div className="mt-auto pt-8">
+                <div className="mt-auto pt-6 sm:pt-8">
                   <Button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-red-900 via-red-600 to-red-500 text-white font-bold h-14 text-lg rounded-xl transition-all duration-200 shadow-lg hover:from-red-950 hover:via-red-700 hover:to-red-600"
+                    className="w-full bg-gradient-to-r from-red-900 via-red-600 to-red-500 text-white font-bold h-12 sm:h-14 text-base sm:text-lg rounded-xl transition-all duration-200 shadow-lg hover:from-red-950 hover:via-red-700 hover:to-red-600"
                   >
                     {loading ? "Memuat..." : "MASUK"}
                   </Button>

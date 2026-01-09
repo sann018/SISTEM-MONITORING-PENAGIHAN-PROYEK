@@ -144,6 +144,16 @@ function ActivityContent() {
     }
   };
 
+  const getActivityTitle = (aksi: string) => {
+    // Friendly labels (tanpa mengubah rancangan UI)
+    const map: Record<string, string> = {
+      import_excel: 'Tambah Data Proyek dari Import Excel',
+    };
+
+    const normalized = String(aksi || '').trim();
+    return (map[normalized] ?? normalized.replace(/_/g, ' '));
+  };
+
   const formatDateTime = (timestamp: string) => {
     const date = new Date(timestamp);
     return {
@@ -151,6 +161,50 @@ function ActivityContent() {
       dayName: date.toLocaleDateString('id-ID', { weekday: 'long' }),
       time: date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
     };
+  };
+
+  const isIsoTimestampString = (value: unknown): value is string => {
+    if (typeof value !== 'string') return false;
+    // Contoh: 2026-01-08T08:20:35.000000Z
+    return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value);
+  };
+
+  const isTimeFieldChange = (change: { field: string; label?: string; nilai_lama: unknown; nilai_baru: unknown }) => {
+    const field = String(change.field || '').toLowerCase();
+    const label = String(change.label || '').toLowerCase();
+    const timeFieldNames = new Set([
+      'updated_at',
+      'created_at',
+      'waktu_kejadian',
+      'timer_selesai_pada',
+      'diperbarui_pada',
+      'tanggal_diperbarui',
+      'updated',
+    ]);
+
+    if (timeFieldNames.has(field)) return true;
+    if (label.includes('diperbarui') || label.includes('waktu')) return true;
+
+    return isIsoTimestampString(change.nilai_baru) || isIsoTimestampString(change.nilai_lama);
+  };
+
+  const formatTimestamp = (value: unknown) => {
+    if (typeof value === 'string' && value) {
+      const d = new Date(value);
+      if (!Number.isNaN(d.getTime())) {
+        return d.toLocaleString('id-ID', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+      }
+      return value;
+    }
+    if (value == null) return '-';
+    return String(value);
   };
 
   const getTableLabel = (tabel: string | null) => {
@@ -271,7 +325,7 @@ function ActivityContent() {
                   <h1 className="text-3xl font-bold text-red-600">
                     Aktivitas Sistem
                   </h1>
-                  <p className="text-gray-600 text-sm mt-1">Riwayat aktivitas pengguna dan sistem</p>
+                  <p className="text-gray-600 text-sm mt-1">Riwayat aktivitas sistem</p>
                 </div>
               </div>
 
@@ -279,7 +333,7 @@ function ActivityContent() {
               <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">
-                    Cari Aktivitas
+                    Cari Aktivitas Sistem
                   </label>
                   <input
                     type="text"
@@ -323,7 +377,7 @@ function ActivityContent() {
             {/* Loading State */}
             {loading && (
               <div className="text-center py-8">
-                <p className="text-gray-600">Memuat aktivitas...</p>
+                <p className="text-gray-600">Memuat aktivitas sistem...</p>
               </div>
             )}
 
@@ -384,7 +438,7 @@ function ActivityContent() {
                               {/* Kiri: Judul + actor */}
                               <div className="min-w-0 flex-1">
                                 <h3 className="font-bold text-2xl capitalize leading-tight text-gray-900">
-                                  {activity.aksi.replace(/_/g, ' ')}
+                                  {getActivityTitle(activity.aksi)}
                                 </h3>
                                 <p className="text-base font-semibold text-gray-600">oleh {activity.nama_pengguna}</p>
                               </div>
@@ -459,28 +513,34 @@ function ActivityContent() {
                           {activity.detail_perubahan.perubahan.map((change, idx) => (
                             <div key={idx} className="bg-white rounded-xl p-4 space-y-2 border border-gray-100">
                               <p className="font-semibold text-sm text-gray-800">{change.label || change.field}</p>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                  <p className="text-xs text-gray-600 font-semibold">Nilai Lama:</p>
-                                  <div className="bg-red-50 p-3 rounded-lg text-sm break-words border border-red-100">
-                                    {change.nilai_lama != null ? (
-                                      <span className="font-mono">{String(change.nilai_lama)}</span>
-                                    ) : (
-                                      <span className="italic opacity-60">-</span>
-                                    )}
+                              {isTimeFieldChange(change) ? (
+                                <div className="bg-green-50 p-3 rounded-lg text-sm break-words border border-green-100">
+                                  <span className="font-mono font-bold">{formatTimestamp(change.nilai_baru ?? change.nilai_lama)}</span>
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div className="space-y-1">
+                                    <p className="text-xs text-gray-600 font-semibold">Nilai Lama:</p>
+                                    <div className="bg-red-50 p-3 rounded-lg text-sm break-words border border-red-100">
+                                      {change.nilai_lama != null ? (
+                                        <span className="font-mono">{String(change.nilai_lama)}</span>
+                                      ) : (
+                                        <span className="italic opacity-60">-</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <p className="text-xs text-gray-600 font-semibold">Nilai Baru:</p>
+                                    <div className="bg-green-50 p-3 rounded-lg text-sm break-words border border-green-100">
+                                      {change.nilai_baru != null ? (
+                                        <span className="font-mono font-bold">{String(change.nilai_baru)}</span>
+                                      ) : (
+                                        <span className="italic opacity-60">-</span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="space-y-1">
-                                  <p className="text-xs text-gray-600 font-semibold">Nilai Baru:</p>
-                                  <div className="bg-green-50 p-3 rounded-lg text-sm break-words border border-green-100">
-                                    {change.nilai_baru != null ? (
-                                      <span className="font-mono font-bold">{String(change.nilai_baru)}</span>
-                                    ) : (
-                                      <span className="italic opacity-60">-</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
+                              )}
                             </div>
                           ))}
                         </div>
