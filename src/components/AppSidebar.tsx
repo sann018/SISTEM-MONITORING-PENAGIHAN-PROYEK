@@ -64,7 +64,7 @@ export function AppSidebar() {
 
         <div className="h-px bg-white/20 mx-4" />
 
-        <SidebarGroup className="pt-4 px-3 flex-1 min-h-0 overflow-y-scroll overscroll-contain [-webkit-overflow-scrolling:touch] md:overflow-hidden">
+        <SidebarGroup className="pt-4 px-3 flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:overflow-hidden">
           <SidebarGroupContent>
             <SidebarMenu className="space-y-2">
               {menuItems.map((item) => (

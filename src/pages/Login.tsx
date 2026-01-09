@@ -155,11 +155,11 @@ export default function Login() {
       }
 
       console.log("[LOGIN] Starting sign in...");
-      const { error } = await signIn(identifier, password);
+      const { error: signInError } = await signIn(identifier, password);
       
-      if (error) {
-        console.error("[LOGIN] Sign in error:", error);
-        toast.error(typeof error === "string" ? error : error.message || "Login gagal");
+      if (signInError) {
+        console.error("[LOGIN] Sign in error:", signInError);
+        toast.error(getErrorMessage(signInError, "Login gagal"));
         setLoading(false);
       } else {
         console.log("[LOGIN] Sign in successful, navigating...");
@@ -214,7 +214,7 @@ export default function Login() {
   }
 
   return (
-    <div className="relative isolate min-h-[100dvh] bg-black flex items-start justify-start md:items-center md:justify-center p-4 sm:p-8 overflow-y-auto md:overflow-hidden overflow-x-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="relative isolate min-h-[100dvh] bg-black flex items-start justify-start md:items-center md:justify-center p-4 sm:p-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-8 overflow-y-auto md:overflow-hidden overflow-x-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <style>{`
         @keyframes helloLetterLoop {
           0%, 12% {

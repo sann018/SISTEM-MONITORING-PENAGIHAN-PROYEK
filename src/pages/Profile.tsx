@@ -359,10 +359,10 @@ function ProfileContent() {
       <PageHeader title="Profil Pengguna" />
       <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
         <AppSidebar />
-         <div className="flex-1 overflow-y-auto min-h-0">
+         <div className="flex-1 overflow-y-auto min-h-0 h-full">
           {/* Main Content */}
-          <div className="w-full max-w-none">
-            <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 lg:p-6">
+          <div className="w-full max-w-none min-h-full">
+            <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 lg:p-6 min-h-full">
               {/* Content Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
               {/* Left Side - Photo Profile Card */}

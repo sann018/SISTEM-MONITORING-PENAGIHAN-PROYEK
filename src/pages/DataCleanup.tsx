@@ -240,9 +240,9 @@ function DataCleanupContent() {
       <PageHeader title="Pembersihan Data" />
       <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
         <AppSidebar />
-        <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="w-full max-w-none">
-            <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 sm:p-6 lg:p-8">
+        <div className="flex-1 overflow-y-auto min-h-0 h-full">
+          <div className="w-full max-w-none min-h-full">
+            <div className="bg-white rounded-3xl shadow-2xl border-4 border-red-600 p-4 sm:p-6 lg:p-8 min-h-full">
               <div className="sticky top-0 z-10 bg-white -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 lg:pt-8 pb-4 border-b border-gray-100">
                 {/* Header */}
                 <div className="flex items-center gap-3">

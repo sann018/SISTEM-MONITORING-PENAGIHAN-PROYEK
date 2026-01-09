@@ -44,7 +44,7 @@ export function PageHeader({ title }: PageHeaderProps) {
   };
 
   return (
-    <div className="relative bg-gradient-to-r from-red-700 to-red-600 shadow-md overflow-hidden mb-4 z-50 h-[72px]">
+    <div className="sticky top-0 bg-gradient-to-r from-red-700 to-red-600 shadow-md overflow-hidden mb-4 z-50 h-[72px]">
       <div className="relative z-10 flex h-full items-center justify-between px-6">
         {/* Page Title - Left Aligned with proper spacing */}
         <div className="flex items-center gap-3 flex-shrink-0">
