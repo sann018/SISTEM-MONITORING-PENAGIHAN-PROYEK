@@ -1,0 +1,12 @@
+[build]
+# Build command untuk Frontend
+builder = "dockerfile"
+
+[deploy]
+startCommand = "npm run build && serve -s dist -l 3000"
+healthcheckPath = "/"
+healthcheckTimeout = 30
+
+[env]
+PORT = "3000"
+VITE_API_BASE_URL = "https://{YOUR_RAILWAY_DOMAIN}/api"
