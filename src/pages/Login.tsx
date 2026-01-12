@@ -215,60 +215,9 @@ export default function Login() {
 
   return (
     <div className="relative isolate min-h-[100dvh] bg-black flex items-start justify-start md:items-center md:justify-center p-4 sm:p-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-8 overflow-y-auto md:overflow-hidden overflow-x-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <style>{`
-        @keyframes helloLetterLoop {
-          0%, 12% {
-            opacity: 0;
-            transform: translateY(18px) rotateX(65deg);
-            filter: blur(10px);
-          }
-          22% {
-            opacity: 1;
-            transform: translateY(-2px) rotateX(0deg);
-            filter: blur(0);
-          }
-          70% {
-            opacity: 1;
-            transform: translateY(0) rotateX(0deg);
-            filter: blur(0);
-          }
-          100% {
-            opacity: 0;
-            transform: translateY(-6px) rotateX(0deg);
-            filter: blur(6px);
-          }
-        }
-
-        @keyframes helloUnderlineLoop {
-          0%, 18% { transform: scaleX(0); opacity: 0; }
-          30% { transform: scaleX(1); opacity: 1; }
-          70% { transform: scaleX(1); opacity: 1; }
-          100% { transform: scaleX(0); opacity: 0; }
-        }
-
-        @keyframes helloShine {
-          0% { transform: translateX(-120%); opacity: 0; }
-          30% { opacity: 0.25; }
-          60% { opacity: 0.15; }
-          100% { transform: translateX(120%); opacity: 0; }
-        }
-
-        @keyframes tickerMove {
-          from { transform: translateX(100%); }
-          to { transform: translateX(-100%); }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .hello-letter, .hello-underline, .hello-shine, .hello-ticker {
-            animation: none !important;
-          }
-        }
-      `}</style>
-
       {/* Image background (place file in /public/login-bg.webp) */}
       <div
-        className="fixed inset-0 pointer-events-none bg-center bg-cover z-0"
-        style={{ backgroundImage: "url('/BG-merah-TA.webp')" }}
+        className="login-bg-ta fixed inset-0 pointer-events-none z-0"
       />
       {/* Soft red gradient overlay (matches sample) */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">

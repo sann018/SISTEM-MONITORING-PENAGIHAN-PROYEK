@@ -3,7 +3,6 @@ import { Clock, Edit2, Check, X, CircleCheck } from "lucide-react";
 import DurationPicker from "@/components/DurationPicker";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import "./ProjectTimer.css";
 
 interface ProjectTimerProps {
   projectId: string;

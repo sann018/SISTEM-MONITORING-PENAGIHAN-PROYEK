@@ -1,9 +1,0 @@
-.menu-indicator-glow {
-  box-shadow: 0 6px 18px rgba(255, 255, 255, 0.25), 0 0 0 6px rgba(255, 255, 255, 0.12);
-  animation: sidebar-glow 1.6s ease-in-out infinite;
-}
-
-@keyframes sidebar-glow {
-  0%, 100% { box-shadow: 0 6px 18px rgba(255, 255, 255, 0.22), 0 0 0 6px rgba(255, 255, 255, 0.1); opacity: 0.95; }
-  50%      { box-shadow: 0 8px 26px rgba(255, 255, 255, 0.3), 0 0 0 8px rgba(255, 255, 255, 0.14); opacity: 1; }
-}

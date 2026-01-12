@@ -12,8 +12,6 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "react-router-dom";
 
-import "./AppSidebar.css";
-
 const baseMenuItems = [
   { title: "Dasbor", url: "/dashboard", icon: LayoutDashboard },
   { title: "Proyek", url: "/projects", icon: FolderKanban },
