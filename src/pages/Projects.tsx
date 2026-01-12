@@ -1180,7 +1180,7 @@ function ProjectsContent() {
     <div className="flex flex-col h-svh w-full bg-gray-50 overflow-x-hidden overflow-y-auto md:overflow-hidden">
       <PageHeader title="Daftar Proyek" />
 
-      <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
+      <div className="flex flex-1 gap-4 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-4 min-h-0">
         <AppSidebar />
 
         <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-visible md:overflow-y-auto">

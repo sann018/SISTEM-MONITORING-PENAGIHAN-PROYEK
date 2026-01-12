@@ -101,7 +101,7 @@ function ChangePasswordContent() {
       <PageHeader title="Ganti Password" />
       <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
         <AppSidebar />
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="flex-1 overflow-y-auto min-h-0 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0">
           <div className="w-full max-w-none">
              {/* Back Button */}
            <Button variant="outline" onClick={() => navigate("/profile")} className="mb-2 md:mb-4 text-xs md:text-sm">

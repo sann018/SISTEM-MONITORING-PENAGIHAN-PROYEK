@@ -175,7 +175,7 @@ export default function EditProject() {
         <PageHeader title="Edit Proyek" />
         <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
           <AppSidebar />
-          <main className="flex-1 overflow-y-auto w-full min-w-0">
+          <main className="flex-1 overflow-y-auto w-full min-w-0 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0">
             <div className="w-full max-w-none">
             <Button variant="outline" onClick={() => navigate("/projects")} className="mb-2 md:mb-4 text-xs md:text-sm">
               <ArrowLeft className="h-4 w-4 mr-2" />

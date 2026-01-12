@@ -265,10 +265,10 @@ export default function Login() {
         }
       `}</style>
 
-      {/* Image background (place file in /public/login-bg.jpg) */}
+      {/* Image background (place file in /public/login-bg.webp) */}
       <div
         className="fixed inset-0 pointer-events-none bg-center bg-cover z-0"
-        style={{ backgroundImage: "url('/BG-merah-TA.jpg')" }}
+        style={{ backgroundImage: "url('/BG-merah-TA.webp')" }}
       />
       {/* Soft red gradient overlay (matches sample) */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
@@ -282,7 +282,7 @@ export default function Login() {
       <div className="relative z-10 w-full max-w-6xl h-auto md:h-[600px] flex flex-col md:flex-row items-stretch md:items-center justify-center gap-6 md:gap-0">
         
         {/* Left Card - Welcome Section */}
-        <div className="relative md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2 w-full md:w-[45%] bg-white rounded-3xl shadow-2xl p-6 sm:p-10 md:p-12 z-10">
+        <div className="relative md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2 w-full md:w-[43%] bg-white rounded-3xl shadow-2xl p-6 sm:p-10 md:p-12 z-10">
           <div className="text-center">
             <div className="relative inline-block mb-6" aria-label="Halo!">
               <h1 className="text-5xl sm:text-6xl font-bold text-black leading-none">
@@ -314,17 +314,17 @@ export default function Login() {
                 />
               </div>
             </div>
-            <p className="text-2xl sm:text-3xl font-bold text-black mb-2">
-              Selamat Datang
-            </p>
-            <p className="text-2xl sm:text-3xl font-bold text-black mb-6 sm:mb-8">
-              Silakan Masuk
+            <h3 className="text-2xl sm:text-3xl font-bold text-black mb-2">
+              SELAMAT DATANG DI
+            </h3>
+            <p className="text-3xl sm:text-4xl font-bold text-red-600">
+              SIPENTA
             </p>
             
             {/* Watermark Logo */}
-            <div className="relative my-8 sm:my-12 opacity-10">
-              <p className="text-5xl sm:text-6xl font-bold text-red-600">TelkomAkses</p>
-              <p className="text-sm text-gray-400">by Telkom Indonesia</p>
+            <div className="relative my-8 sm:my-12 opacity-20">
+              <p className="text-4xl sm:text-3xl font-bold text-red-600">Sistem Informasi Penagihan Telkom Akses</p>
+              {/* <p className="text-sm text-gray-400">by Konstruksi</p> */}
             </div>
 
             {/* Note about account creation */}
@@ -364,7 +364,7 @@ export default function Login() {
         </div>
 
         {/* Right Card - Login Form */}
-  <div className="relative md:absolute md:right-0 md:top-1/2 md:-translate-y-1/2 w-full md:w-[60%] h-auto md:h-[650px] bg-white rounded-3xl shadow-2xl p-6 sm:p-10 md:p-12 z-20 flex flex-col">
+  <div className="relative md:absolute md:right-0 md:top-1/2 md:-translate-y-1/2 w-full md:w-[59%] h-auto md:h-[650px] bg-white rounded-3xl shadow-2xl p-6 sm:p-10 md:p-12 z-20 flex flex-col">
               {/* Header Icon */}
               <div className="mb-6 flex justify-center">
                 <div className="bg-gradient-to-br from-red-900 via-red-600 to-red-500 rounded-full p-4 sm:p-5 w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center shadow-lg">

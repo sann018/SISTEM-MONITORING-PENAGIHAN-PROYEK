@@ -381,7 +381,7 @@ function DashboardContent() {
       <PageHeader title="Dashboard Sistem Informasi Penagihan Telkom Akses" />
       <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
         <AppSidebar />
-        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
             <div
@@ -511,13 +511,13 @@ function DashboardContent() {
           </div>
 
           {/* Table */}
-          <div className="flex-1 overflow-y-auto min-h-0 rounded-lg shadow bg-white">
+          <div className="flex-1 overflow-visible md:overflow-y-auto min-h-0 rounded-lg shadow bg-white">
             <div className="overflow-x-auto">
               <table className="w-full text-sm" style={{ minWidth: '2100px' }}>
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-gray-200 border-b-2 border-red-600">
+                <thead className="sticky top-0 z-20">
+                  <tr className="bg-red-600 text-white">
                   {canBulkSetPriority && (
-                    <th className="px-4 py-3 text-center font-bold text-gray-700 bg-gray-200" style={{ minWidth: '60px' }}>
+                    <th className="px-4 py-3 text-center font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '60px' }}>
                       <input
                         type="checkbox"
                         checked={isAllSelected}
@@ -525,26 +525,26 @@ function DashboardContent() {
                           if (input) input.indeterminate = isSomeSelected;
                         }}
                         onChange={(e) => handleSelectAll(e.target.checked)}
-                        className="w-4 h-4 cursor-pointer accent-red-600"
+                        className="w-4 h-4 cursor-pointer accent-white"
                         title={isAllSelected ? 'Hapus semua pilihan' : 'Pilih semua'}
                         onClick={(e) => e.stopPropagation()}
                       />
                     </th>
                   )}
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '120px' }}>Prioritas</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '180px' }}>Nama Proyek</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '150px' }}>Nama Mitra</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '100px' }}>PID</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '120px' }}>Jenis PO</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '120px' }}>Nomor PO</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '100px' }}>Phase</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '120px' }}>Status CT</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '120px' }}>Status UT</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '130px' }}>Rekap BOQ</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '150px' }}>Rekon Nilai</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '140px' }}>Rekon Material</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '160px' }}>Pelurusan Material</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-700 bg-gray-200" style={{ minWidth: '180px' }}>Status Procurement</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '120px' }}>Prioritas</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '180px' }}>Nama Proyek</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '150px' }}>Nama Mitra</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '100px' }}>PID</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '120px' }}>Jenis PO</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '120px' }}>Nomor PO</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '100px' }}>Phase</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '120px' }}>Status CT</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '120px' }}>Status UT</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '130px' }}>Rekap BOQ</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '150px' }}>Rekon Nilai</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '140px' }}>Rekon Material</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '160px' }}>Pelurusan Material</th>
+                  <th className="px-4 py-3 text-left font-bold sticky top-0 z-20 bg-red-600" style={{ minWidth: '180px' }}>Status Procurement</th>
                 </tr>
               </thead>
               <tbody>

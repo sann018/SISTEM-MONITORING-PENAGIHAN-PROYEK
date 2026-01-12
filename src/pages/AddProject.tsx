@@ -108,13 +108,20 @@ export default function AddProject() {
     }
   };
 
+  const hasMissingRequiredFields =
+    !formData.nama_proyek ||
+    !formData.nama_mitra ||
+    !formData.pid ||
+    !formData.phase ||
+    !formData.rekon_nilai;
+
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex flex-col h-svh w-full bg-gray-50 overflow-hidden">
         <PageHeader title="Tambah Proyek Baru" />
         <div className="flex flex-1 gap-4 px-4 pb-4 min-h-0">
           <AppSidebar />
-          <main className="flex-1 overflow-auto w-full min-w-0">
+          <main className="flex-1 overflow-auto w-full min-w-0 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0">
             <div className="w-full max-w-none">
             {/* Back Button */}
             <Button variant="outline" onClick={() => navigate("/projects")} className="mb-2 md:mb-4 text-xs md:text-sm">
@@ -388,17 +395,16 @@ export default function AddProject() {
                     </Button>
                   </div>
                 </form>
-                      className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-8 rounded-md w-full sm:w-auto"
             </div>
 
             {/* Info Box */}
-            {Object.values(formData).some(val => val === "") && (
+            {hasMissingRequiredFields && (
               <div className="mt-6 bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 flex items-center gap-3">
                 <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center text-white font-bold">
                   !
                 </div>
                 <p className="text-sm text-gray-700">
-                  <span className="font-bold">Gagal memuat data proyek</span>
+                  <span className="font-bold">Lengkapi field bertanda * sebelum menyimpan</span>
                 </p>
               </div>
             )}
